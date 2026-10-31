@@ -234,20 +234,49 @@ class _KristinaPainter extends CustomPainter {
     oval(canvas, const Rect.fromLTWH(29, 72, 30, 30), skin);
     oval(canvas, const Rect.fromLTWH(143, 72, 29, 30), skin);
     round(canvas, const Rect.fromLTWH(47, 33, 109, 100), 34, skin);
-    fill(
-        canvas,
-        hair,
-        (p) => canvas.drawPath(
-            Path()
-              ..moveTo(44, 80)
-              ..cubicTo(25, 21, 70, 14, 103, 15)
-              ..cubicTo(125, 10, 139, 27, 132, 41)
-              ..cubicTo(163, 35, 163, 64, 153, 79)
-              ..lineTo(146, 61)
-              ..cubicTo(118, 65, 106, 54, 105, 44)
-              ..cubicTo(94, 66, 65, 51, 52, 76)
-              ..close(),
-            p));
+    if (character == 1) {
+      fill(
+          canvas,
+          hair,
+          (p) => canvas.drawPath(
+              Path()
+                ..moveTo(50, 74)
+                ..cubicTo(38, 42, 56, 18, 96, 16)
+                ..cubicTo(134, 12, 166, 26, 162, 64)
+                ..cubicTo(156, 76, 146, 70, 130, 64)
+                ..cubicTo(110, 56, 88, 54, 72, 60)
+                ..cubicTo(60, 66, 54, 70, 50, 74)
+                ..close(),
+              p));
+    } else {
+      // Kristina and Zara. The second shape overlaps the cap and the
+      // right side of the skull, down to the top of the ear.
+      fill(
+          canvas,
+          hair,
+          (p) => canvas.drawPath(
+              Path()
+                ..moveTo(46, 80)
+                ..cubicTo(24, 46, 34, 8, 78, 6)
+                ..cubicTo(118, 2, 156, 8, 172, 34)
+                ..cubicTo(184, 52, 176, 74, 154, 72)
+                ..cubicTo(134, 70, 112, 62, 92, 60)
+                ..cubicTo(72, 58, 56, 68, 46, 80)
+                ..close(),
+              p));
+      fill(
+          canvas,
+          hair,
+          (p) => canvas.drawPath(
+              Path()
+                ..moveTo(128, 34)
+                ..cubicTo(156, 22, 186, 32, 186, 58)
+                ..cubicTo(186, 80, 168, 98, 146, 92)
+                ..lineTo(134, 84)
+                ..cubicTo(128, 72, 124, 52, 128, 34)
+                ..close(),
+              p));
+    }
     if (character == 1) {
       fill(
           canvas,

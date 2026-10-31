@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'widgets/animated_kristina.dart';
 import 'widgets/tactile_button.dart';
 import 'widgets/learning_object.dart';
@@ -308,7 +309,7 @@ class KristinaApp extends StatefulWidget {
 class _KristinaAppState extends State<KristinaApp> {
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
   int tab = 0, xp = 0, streak = 0;
-  Set<String> done = {};
+  Set<String> done = {}, completedRounds = {};
   String? reviewLessonId;
   String? token;
   Map<String, dynamic>? user;
@@ -330,6 +331,7 @@ class _KristinaAppState extends State<KristinaApp> {
     final p = await SharedPreferences.getInstance();
     setState(() {
       done = (p.getStringList('done') ?? []).toSet();
+      completedRounds = (p.getStringList('completedRounds') ?? []).toSet();
       xp = p.getInt('xp') ?? 0;
       streak = p.getInt('streak') ?? 0;
       token = p.getString('token');
@@ -387,6 +389,8 @@ class _KristinaAppState extends State<KristinaApp> {
       setState(() {
         done.addAll(
             (progress?['completedLessons'] as List? ?? []).cast<String>());
+        completedRounds.addAll(
+            (progress?['completedRounds'] as List? ?? []).cast<String>());
         final suggestion = jsonDecode(r.body)['recommendation'];
         reviewLessonId = suggestion?['reason'] == 'review'
             ? suggestion['lessonId'] as String?
@@ -396,21 +400,30 @@ class _KristinaAppState extends State<KristinaApp> {
       });
       final p = await SharedPreferences.getInstance();
       await p.setStringList('done', done.toList());
+      await p.setStringList('completedRounds', completedRounds.toList());
       await p.setInt('xp', xp);
       await p.setInt('streak', streak);
     } catch (_) {}
   }
 
-  Future<void> finish(Lesson lesson, int correct, List<bool> answers) async {
+  Future<void> finish(
+      Lesson lesson, int correct, List<bool> answers, int roundIndex) async {
     final passed = correct * 100 >= lesson.minPassPercent * answers.length;
-    final first = !done.contains(lesson.id);
+    final roundKey = '${lesson.id}:$roundIndex';
+    final first =
+        !done.contains(lesson.id) && !completedRounds.contains(roundKey);
     setState(() {
-      if (passed) done.add(lesson.id);
+      if (passed) {
+        completedRounds.add(roundKey);
+        if (List.generate(5, (i) => '${lesson.id}:$i')
+            .every(completedRounds.contains)) done.add(lesson.id);
+      }
       if (passed && first) xp += (10 + correct * 5).clamp(0, 30);
       streak = streak == 0 ? 1 : streak;
     });
     final p = await SharedPreferences.getInstance();
     await p.setStringList('done', done.toList());
+    await p.setStringList('completedRounds', completedRounds.toList());
     await p.setInt('xp', xp);
     await p.setInt('streak', streak);
     if (token != null) {
@@ -422,6 +435,7 @@ class _KristinaAppState extends State<KristinaApp> {
             },
             body: jsonEncode({
               'lessonId': lesson.id,
+              'roundIndex': roundIndex,
               'courseId': 'serbian-en',
               'score': 10 + correct * 5,
               'answers': answers,
@@ -456,12 +470,14 @@ class _KristinaAppState extends State<KristinaApp> {
     final p = await SharedPreferences.getInstance();
     await p.setString('token', data['token']);
     await p.remove('done');
+    await p.remove('completedRounds');
     await p.remove('xp');
     await p.remove('streak');
     setState(() {
       token = data['token'];
       user = data['user'];
       done = {};
+      completedRounds = {};
       xp = 0;
       streak = 0;
       SharedToken.value = token;
@@ -474,12 +490,14 @@ class _KristinaAppState extends State<KristinaApp> {
     final p = await SharedPreferences.getInstance();
     await p.remove('token');
     await p.remove('done');
+    await p.remove('completedRounds');
     await p.remove('xp');
     await p.remove('streak');
     setState(() {
       token = null;
       user = null;
       done = {};
+      completedRounds = {};
       xp = 0;
       streak = 0;
       reviewLessonId = null;
@@ -511,13 +529,45 @@ class _KristinaAppState extends State<KristinaApp> {
     }
   }
 
-  void lesson(Lesson l) {
-    final completedBefore = done.contains(l.id);
+  void lesson(Lesson l, [int? requestedRound]) {
+    final roundIndex = requestedRound ??
+        List.generate(5, (i) => i).firstWhere(
+            (i) => !completedRounds.contains('${l.id}:$i'),
+            orElse: () => 4);
+    final completedBefore =
+        done.contains(l.id) || completedRounds.contains('${l.id}:$roundIndex');
+    // Revisit the same learning goal with a different order on each practice round.
+    final questions = l.questions.asMap().entries.map((entry) {
+      final q = entry.value;
+      final options = List<String>.from(q.options)
+        ..shuffle(math.Random(l.id.codeUnits.fold<int>(0, (sum, c) => sum + c) +
+            roundIndex * 31 +
+            entry.key));
+      return Question(q.type, q.prompt, q.answer, options, q.detail,
+          audioText: q.audioText, audioAsset: q.audioAsset);
+    }).toList();
+    if (roundIndex > 0) {
+      final offset = roundIndex % questions.length;
+      final rotated = [...questions.skip(offset), ...questions.take(offset)];
+      questions
+        ..clear()
+        ..addAll(roundIndex.isEven ? rotated.reversed : rotated);
+    }
+    final practice = Lesson(l.id, '${l.title} · ${roundIndex + 1}/5',
+        l.subtitle, l.icon, l.color, questions,
+        theoryTitle: l.theoryTitle,
+        theoryBody: roundIndex == 0 ? l.theoryBody : '',
+        unitTitle: l.unitTitle,
+        level: l.level,
+        kind: l.kind,
+        minPassPercent: l.minPassPercent,
+        vocabulary: l.vocabulary);
     navigatorKey.currentState?.push(MaterialPageRoute(
         builder: (_) => LessonPage(
-            lesson: l,
+            lesson: practice,
             alreadyCompleted: completedBefore,
-            onComplete: (n, a) => finish(l, n, a))));
+            practiceRound: roundIndex,
+            onComplete: (n, a) => finish(l, n, a, roundIndex))));
   }
 
   @override
@@ -554,6 +604,10 @@ class _KristinaAppState extends State<KristinaApp> {
                                     child: IndexedStack(index: tab, children: [
                                   PathPage(
                                       done: done,
+                                      completedRounds: completedRounds,
+                                      avatarFace: avatarFace,
+                                      avatarColor: avatarColor,
+                                      onProfile: () => setState(() => tab = 4),
                                       reviewLessonId: reviewLessonId,
                                       xp: xp,
                                       streak: streak,
@@ -562,7 +616,11 @@ class _KristinaAppState extends State<KristinaApp> {
                                           ?.push(MaterialPageRoute(
                                               builder: (_) =>
                                                   ChatPage(token: token)))),
-                                  WordsPage(done: done),
+                                  WordsPage(done: {
+                                    ...done,
+                                    ...completedRounds.map((key) =>
+                                        key.substring(0, key.lastIndexOf(':')))
+                                  }),
                                   LettersPage(),
                                   FriendsPage(token: token),
                                   ProfilePage(
@@ -744,456 +802,502 @@ class PageHead extends StatelessWidget {
 }
 
 class PathPage extends StatefulWidget {
-  final Set<String> done;
+  final Set<String> done, completedRounds;
   final String? reviewLessonId;
   final int xp, streak;
-  final void Function(Lesson) onLesson;
-  final VoidCallback onChat;
+  final String avatarFace;
+  final Color avatarColor;
+  final void Function(Lesson, int) onLesson;
+  final VoidCallback onChat, onProfile;
   const PathPage(
       {super.key,
       required this.done,
+      required this.completedRounds,
       required this.reviewLessonId,
       required this.xp,
       required this.streak,
       required this.onLesson,
-      required this.onChat});
-
+      required this.onChat,
+      required this.avatarFace,
+      required this.avatarColor,
+      required this.onProfile});
   @override
   State<PathPage> createState() => _PathPageState();
 }
 
 class _PathPageState extends State<PathPage> {
-  int? selectedUnitIndex;
+  final ScrollController scroll = ScrollController();
+  @override
+  void dispose() {
+    scroll.dispose();
+    super.dispose();
+  }
 
+  int count(Lesson lesson) => widget.done.contains(lesson.id)
+      ? 5
+      : List.generate(5, (i) => '${lesson.id}:$i')
+          .where(widget.completedRounds.contains)
+          .length;
+  void open(Lesson lesson) {
+    final total = count(lesson);
+    showModalBottomSheet(
+        context: context,
+        backgroundColor: panel,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
+        builder: (context) => SafeArea(
+            child: SingleChildScrollView(
+                child: Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      Container(
+                          width: 38,
+                          height: 4,
+                          decoration: BoxDecoration(
+                              color: muted.withValues(alpha: .4),
+                              borderRadius: BorderRadius.circular(4))),
+                      const SizedBox(height: 20),
+                      Text(lesson.title,
+                          style: const TextStyle(
+                              fontSize: 25, fontWeight: FontWeight.w900)),
+                      const SizedBox(height: 5),
+                      Text('$total of 5 practice sessions complete',
+                          style: const TextStyle(color: muted)),
+                      const SizedBox(height: 20),
+                      ...List.generate(5, (i) {
+                        final complete = widget.done.contains(lesson.id) ||
+                            widget.completedRounds.contains('${lesson.id}:$i');
+                        final available = complete || i == total;
+                        return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: ListTile(
+                                enabled: available,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                    side: BorderSide(
+                                        color: available ? panel2 : panel)),
+                                leading: Icon(
+                                    complete
+                                        ? Icons.check_circle_rounded
+                                        : available
+                                            ? Icons.play_circle_fill_rounded
+                                            : Icons.lock_outline_rounded,
+                                    color: complete
+                                        ? lime
+                                        : available
+                                            ? blue
+                                            : muted),
+                                title: Text('Practice ${i + 1}',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w900,
+                                        color:
+                                            available ? Colors.white : muted)),
+                                subtitle: Text(
+                                    i == 0
+                                        ? 'Learn the words and phrases'
+                                        : 'Revisit the words in a mixed order',
+                                    style: const TextStyle(
+                                        color: muted, fontSize: 12)),
+                                trailing: Text('${i + 1}/5',
+                                    style: const TextStyle(color: muted)),
+                                onTap: available
+                                    ? () {
+                                        Navigator.pop(context);
+                                        widget.onLesson(lesson, i);
+                                      }
+                                    : null));
+                      }),
+                    ])))));
+  }
+
+  void selectCourse() => showModalBottomSheet(
+      context: context,
+      backgroundColor: panel,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
+      builder: (context) => SafeArea(
+          child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Your courses',
+                        style: TextStyle(
+                            fontSize: 25, fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 18),
+                    ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const _SerbianFlag(),
+                        title: const Text('Serbian',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w900, fontSize: 18)),
+                        subtitle: const Text('For English speakers',
+                            style: TextStyle(color: muted)),
+                        trailing:
+                            const Icon(Icons.check_circle_rounded, color: lime),
+                        onTap: () => Navigator.pop(context)),
+                    const SizedBox(height: 16),
+                    ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.forum_rounded, color: blue),
+                        title: const Text('Practice with Kristina'),
+                        onTap: () {
+                          Navigator.pop(context);
+                          widget.onChat();
+                        }),
+                    const Text('More languages are on the way.',
+                        style: TextStyle(color: muted)),
+                  ]))));
   @override
   Widget build(BuildContext context) {
-    final done = widget.done;
-    final reviewLessonId = widget.reviewLessonId;
-    final xp = widget.xp, streak = widget.streak;
-    final onLesson = widget.onLesson, onChat = widget.onChat;
-    final allLessons = lessons;
-    final unitTitles =
-        allLessons.map((lesson) => lesson.unitTitle).toSet().toList();
-    final globalNext =
-        allLessons.indexWhere((lesson) => !done.contains(lesson.id));
-    final currentTitle = globalNext < 0
-        ? allLessons.last.unitTitle
-        : allLessons[globalNext].unitTitle;
-    final currentUnitIndex = unitTitles.indexOf(currentTitle);
-    final activeUnitIndex =
-        selectedUnitIndex == null || selectedUnitIndex! > currentUnitIndex
-            ? currentUnitIndex
-            : selectedUnitIndex!;
-    final unitLessons = allLessons
-        .where((lesson) => lesson.unitTitle == unitTitles[activeUnitIndex])
-        .toList();
-    final courseCompleted =
-        allLessons.where((lesson) => done.contains(lesson.id)).length;
-    final next = unitLessons.indexWhere((lesson) => !done.contains(lesson.id));
-    final nextLesson = next < 0 ? unitLessons.last : unitLessons[next];
-    final completedCount =
-        unitLessons.where((lesson) => done.contains(lesson.id)).length;
-    final section = activeUnitIndex + 1;
-    return ListView(
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 34),
-        children: [
-          Center(
-              child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 620),
-                  child: Column(
+    final titles = lessons.map((l) => l.unitTitle).toSet().toList();
+    final next = lessons.indexWhere((l) => !widget.done.contains(l.id));
+    return Column(children: [
+      // The learner identity, course and streak stay outside the scroll view.
+      Container(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+          decoration: const BoxDecoration(
+              color: bg, border: Border(bottom: BorderSide(color: panel2))),
+          child: Row(children: [
+            Tooltip(
+                message: 'Your profile',
+                child: InkWell(
+                    onTap: widget.onProfile,
+                    borderRadius: BorderRadius.circular(22),
+                    child: Container(
+                        width: 46,
+                        height: 46,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                            color: widget.avatarColor,
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                                color: Colors.white.withValues(alpha: .2),
+                                width: 2)),
+                        child: Text(widget.avatarFace,
+                            style: const TextStyle(fontSize: 29))))),
+            const SizedBox(width: 16),
+            Expanded(
+                child: InkWell(
+                    onTap: selectCourse,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          const _SerbianFlag(),
+                          const SizedBox(width: 8),
+                          const Flexible(
+                              child: Text('Serbian',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 16))),
+                          const Icon(Icons.expand_more_rounded,
+                              color: muted, size: 20)
+                        ])))),
+            const SizedBox(width: 8),
+            const Icon(Icons.local_fire_department_rounded,
+                color: Color(0xFFFF9A43), size: 30),
+            Text('${widget.streak}',
+                style: const TextStyle(
+                    color: Color(0xFFFFAB56),
+                    fontWeight: FontWeight.w900,
+                    fontSize: 18)),
+            const SizedBox(width: 12),
+            const Icon(Icons.bolt_rounded, color: Color(0xFFFFD454), size: 25),
+            Text('${widget.xp}',
+                style: const TextStyle(
+                    color: Color(0xFFFFD454),
+                    fontWeight: FontWeight.w900,
+                    fontSize: 15)),
+          ])),
+      Expanded(
+          child: ListView.builder(
+              controller: scroll,
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 36),
+              itemCount: titles.length,
+              itemBuilder: (context, unitIndex) {
+                final unit = lessons
+                    .where((l) => l.unitTitle == titles[unitIndex])
+                    .toList();
+                final color = [
+                  lime,
+                  blue,
+                  purple,
+                  const Color(0xFFFFAD55),
+                  pink
+                ][unitIndex % 5];
+                return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Row(children: [
-                        Container(
-                            width: 42,
-                            height: 42,
-                            decoration: BoxDecoration(
-                                color: panel2,
-                                borderRadius: BorderRadius.circular(13)),
-                            child: const Center(
-                                child: Text('🇷🇸',
-                                    style: TextStyle(fontSize: 24)))),
-                        const SizedBox(width: 10),
-                        const Expanded(
-                            child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                              Text('LEARNING',
-                                  style: TextStyle(
-                                      color: muted,
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 9,
-                                      letterSpacing: 1.4)),
-                              Text('Serbian',
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 17)),
-                            ])),
-                        _stat('🔥', '$streak', const Color(0xFFFFB654)),
-                        const SizedBox(width: 8),
-                        _stat('⚡', '$xp', lime),
-                      ]),
-                      const SizedBox(height: 24),
-                      const Text('Your journey',
-                          style: TextStyle(
-                              fontSize: 30, fontWeight: FontWeight.w900)),
-                      const SizedBox(height: 3),
-                      const Text(
-                          'One small win at a time. Kristina is watching. 👀',
-                          style: TextStyle(color: muted, fontSize: 13)),
-                      const SizedBox(height: 20),
                       Container(
-                          height: 154,
-                          clipBehavior: Clip.antiAlias,
+                          margin: EdgeInsets.only(
+                              top: unitIndex == 0 ? 0 : 18, bottom: 16),
+                          padding: const EdgeInsets.all(18),
                           decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0xFF7756D8),
-                                    Color(0xFF7756D8)
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight),
-                              borderRadius: BorderRadius.circular(25)),
-                          child: Stack(children: [
-                            Positioned(
-                                right: -25,
-                                top: -20,
-                                child: Container(
-                                    width: 195,
-                                    height: 215,
-                                    decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: Colors.white
-                                            .withValues(alpha: .08)))),
-                            Positioned(
-                                right: 2,
-                                bottom: -12,
-                                child: const SassyKristina(
-                                    width: 110, height: 160)),
-                            Positioned(
-                                left: 20,
-                                top: 21,
-                                bottom: 20,
-                                right: 117,
-                                child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                          'SECTION $section  ·  ${nextLesson.level}',
-                                          style: TextStyle(
-                                              color: Color(0xFFE8DCFF),
-                                              fontWeight: FontWeight.w900,
-                                              letterSpacing: 1.5,
-                                              fontSize: 10)),
-                                      const SizedBox(height: 6),
-                                      Text(
-                                          nextLesson.unitTitle.isEmpty
-                                              ? 'First words,\nbig energy'
-                                              : nextLesson.unitTitle,
-                                          style: TextStyle(
-                                              fontSize: 22,
-                                              fontWeight: FontWeight.w900,
-                                              height: 1.05)),
-                                      const Spacer(),
-                                      Text(
-                                          '$courseCompleted of ${allLessons.length} lessons complete',
-                                          style: const TextStyle(
-                                              color: Color(0xFFE9DDFF),
-                                              fontWeight: FontWeight.w800,
-                                              fontSize: 11)),
-                                      const SizedBox(height: 7),
-                                      ClipRRect(
-                                          borderRadius:
-                                              BorderRadius.circular(6),
-                                          child: LinearProgressIndicator(
-                                              value: courseCompleted /
-                                                  allLessons.length,
-                                              minHeight: 8,
-                                              backgroundColor: Colors.white
-                                                  .withValues(alpha: .25),
-                                              valueColor:
-                                                  const AlwaysStoppedAnimation(
-                                                      lime))),
-                                    ])),
-                          ])),
-                      const SizedBox(height: 13),
-                      KCard(
-                          color: const Color(0xFF263E37),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 15, vertical: 13),
+                              color: color,
+                              borderRadius: BorderRadius.circular(19),
+                              boxShadow: [
+                                BoxShadow(
+                                    color:
+                                        Color.lerp(color, Colors.black, .25)!,
+                                    offset: const Offset(0, 5))
+                              ]),
                           child: Row(children: [
-                            const Kristina(size: 50),
-                            const SizedBox(width: 12),
-                            Expanded(
-                                child: Text(
-                                    done.isEmpty
-                                        ? '“Come on. I made the first lesson easy for you.”'
-                                        : '“Look at you showing up. Keep that streak alive.”',
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 13))),
-                          ])),
-                      if (reviewLessonId != null &&
-                          allLessons.any((l) => l.id == reviewLessonId)) ...[
-                        const SizedBox(height: 12),
-                        KCard(
-                            onTap: () => onLesson(allLessons
-                                .firstWhere((l) => l.id == reviewLessonId)),
-                            color: const Color(0xFF4B3B2A),
-                            padding: const EdgeInsets.all(15),
-                            child: Row(children: [
-                              const Text('🧠', style: TextStyle(fontSize: 26)),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                  child: Text(
-                                      'Kristina says: review ${allLessons.firstWhere((l) => l.id == reviewLessonId).title}',
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w900))),
-                              const Icon(Icons.arrow_forward_rounded,
-                                  color: lime)
-                            ])),
-                      ],
-                      const SizedBox(height: 20),
-                      KCard(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Row(children: [
-                            const Icon(Icons.map_rounded, color: lime),
-                            const SizedBox(width: 12),
-                            Expanded(
-                                child: DropdownButton<int>(
-                              value: activeUnitIndex,
-                              isExpanded: true,
-                              underline: const SizedBox.shrink(),
-                              items: unitTitles
-                                  .asMap()
-                                  .entries
-                                  .map((entry) => DropdownMenuItem<int>(
-                                        value: entry.key,
-                                        enabled: entry.key <= currentUnitIndex,
-                                        child: Text(
-                                            'Section ${entry.key + 1}: ${entry.value.isEmpty ? 'The basics' : entry.value}',
-                                            overflow: TextOverflow.ellipsis),
-                                      ))
-                                  .toList(),
-                              onChanged: (index) =>
-                                  setState(() => selectedUnitIndex = index),
-                            ))
-                          ])),
-                      const SizedBox(height: 17),
-                      Row(children: [
-                        Expanded(
-                            child: Text(
-                                nextLesson.unitTitle.isEmpty
-                                    ? 'THE BASICS'
-                                    : nextLesson.unitTitle.toUpperCase(),
-                                style: TextStyle(
-                                    color: lime,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 1.7))),
-                        Text('$completedCount/${unitLessons.length}',
-                            style: const TextStyle(
-                                color: muted,
-                                fontWeight: FontWeight.w900,
-                                fontSize: 12)),
-                      ]),
-                      const SizedBox(height: 3),
-                      const Text('Follow the path. Collect your wins.',
-                          style: TextStyle(color: muted, fontSize: 12)),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                          height: unitLessons.length * 128.0 + 24,
-                          child: LayoutBuilder(builder: (context, constraints) {
-                            final center = constraints.maxWidth / 2;
-                            return Stack(children: [
-                              Positioned.fill(
-                                  child: CustomPaint(
-                                      painter: _PathLinePainter(
-                                          completedCount, unitLessons.length))),
-                              ...unitLessons.asMap().entries.map((e) {
-                                final i = e.key, l = e.value;
-                                final completed = done.contains(l.id);
-                                final locked = i > 0 &&
-                                    !done.contains(unitLessons[i - 1].id);
-                                final active = i == next;
-                                final shift =
-                                    [0.0, 74.0, 90.0, 0.0, -90.0, -74.0][i % 6];
-                                return Positioned(
-                                    top: i * 128.0 + 5,
-                                    left: center + shift - 60,
-                                    width: 120,
-                                    child: Column(children: [
-                                      GestureDetector(
-                                          onTap: locked
-                                              ? null
-                                              : () => onLesson(l),
-                                          child: AnimatedContainer(
-                                              duration: const Duration(
-                                                  milliseconds: 220),
-                                              width: active ? 82 : 74,
-                                              height: active ? 82 : 74,
-                                              decoration: BoxDecoration(
-                                                  shape: BoxShape.circle,
-                                                  color: locked
-                                                      ? panel2
-                                                      : completed
-                                                          ? const Color(
-                                                              0xFF5B9D2F)
-                                                          : colorFor(l.color),
-                                                  border: Border.all(
-                                                      color: active
-                                                          ? Colors.white
-                                                          : Colors.white
-                                                              .withValues(
-                                                                  alpha: locked
-                                                                      ? .07
-                                                                      : .17),
-                                                      width: active ? 4 : 2),
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                        color: locked
-                                                            ? Colors.transparent
-                                                            : colorFor(l.color)
-                                                                .withValues(
-                                                                    alpha: .55),
-                                                        blurRadius: 0,
-                                                        offset:
-                                                            const Offset(0, 6))
-                                                  ]),
-                                              child: Center(
-                                                  child: Text(
-                                                      locked
-                                                          ? '🔒'
-                                                          : completed
-                                                              ? '✓'
-                                                              : l.icon,
-                                                      style: TextStyle(
-                                                          fontSize: completed
-                                                              ? 36
-                                                              : 29,
-                                                          color: bg,
-                                                          fontWeight: FontWeight
-                                                              .w900))))),
-                                      const SizedBox(height: 8),
-                                      Text(l.title,
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w900,
-                                              color: locked
-                                                  ? muted
-                                                  : Colors.white)),
-                                      if (active)
-                                        const Text('START HERE',
-                                            style: TextStyle(
-                                                color: lime,
-                                                fontSize: 9,
-                                                fontWeight: FontWeight.w900,
-                                                letterSpacing: 1.2)),
-                                    ]));
-                              }),
-                            ]);
-                          })),
-                      const SizedBox(height: 4),
-                      KCard(
-                          onTap: () => onLesson(nextLesson),
-                          color: const Color(0xFF294B38),
-                          child: Row(children: [
-                            Container(
-                                width: 46,
-                                height: 46,
-                                decoration: BoxDecoration(
-                                    color: lime,
-                                    borderRadius: BorderRadius.circular(14)),
-                                child: const Icon(Icons.play_arrow_rounded,
-                                    color: bg, size: 30)),
-                            const SizedBox(width: 13),
                             Expanded(
                                 child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
                                   Text(
-                                      next < 0
-                                          ? 'Review your skills'
-                                          : 'Continue: ${nextLesson.title}',
-                                      style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w900)),
-                                  Text(nextLesson.subtitle,
-                                      style: const TextStyle(
-                                          color: muted, fontSize: 12)),
-                                ])),
-                            const Icon(Icons.arrow_forward_ios_rounded,
-                                color: lime, size: 18),
-                          ])),
-                      const SizedBox(height: 14),
-                      KCard(
-                          onTap: onChat,
-                          color: const Color(0xFF302A49),
-                          child: const Row(children: [
-                            Text('💬', style: TextStyle(fontSize: 31)),
-                            SizedBox(width: 13),
-                            Expanded(
-                                child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                  Text('Practice with Kristina',
+                                      'SECTION ${unitIndex + 1} • ${unit.first.level}',
                                       style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w900)),
-                                  Text('A little chat goes a long way.',
-                                      style: TextStyle(
-                                          color: muted, fontSize: 12)),
+                                          color: bg.withValues(alpha: .65),
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 1.1)),
+                                  const SizedBox(height: 5),
+                                  Text(titles[unitIndex],
+                                      style: const TextStyle(
+                                          color: bg,
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 22,
+                                          height: 1.15)),
                                 ])),
-                            Icon(Icons.chevron_right_rounded, color: purple),
+                            Icon(Icons.menu_book_rounded,
+                                color: bg.withValues(alpha: .7), size: 30)
                           ])),
-                    ],
-                  ))),
-        ]);
+                      LayoutBuilder(builder: (context, constraints) {
+                        final center = constraints.maxWidth / 2;
+                        return SizedBox(
+                            height: unit.length * 148.0 + 30,
+                            child: Stack(children: [
+                              Positioned.fill(
+                                  child: CustomPaint(
+                                      painter: _TrailLinePainter(
+                                          unit.length, color))),
+                              ...unit.asMap().entries.map((entry) {
+                                final i = entry.key,
+                                    l = entry.value,
+                                    global = lessons.indexOf(entry.value);
+                                final locked = global > 0 &&
+                                    !widget.done
+                                        .contains(lessons[global - 1].id) &&
+                                    !widget.done.contains(l.id);
+                                final active = global == next;
+                                final shift = [
+                                  0.0,
+                                  62.0,
+                                  82.0,
+                                  24.0,
+                                  -62.0,
+                                  -82.0,
+                                  0.0
+                                ][i % 7];
+                                return Positioned(
+                                    top: i * 148.0 + 10,
+                                    left: center + shift - 72,
+                                    width: 144,
+                                    child: Column(children: [
+                                      if (active)
+                                        Container(
+                                            margin: const EdgeInsets.only(
+                                                bottom: 5),
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 12, vertical: 4),
+                                            decoration: BoxDecoration(
+                                                color: panel,
+                                                borderRadius:
+                                                    BorderRadius.circular(9),
+                                                border: Border.all(
+                                                    color: color, width: 2)),
+                                            child: Text(
+                                                count(l) == 0
+                                                    ? 'START'
+                                                    : 'CONTINUE',
+                                                style: TextStyle(
+                                                    color: color,
+                                                    fontSize: 10,
+                                                    fontWeight:
+                                                        FontWeight.w900))),
+                                      Semantics(
+                                          button: true,
+                                          label:
+                                              '${l.title}, ${count(l)} of 5 sessions complete${locked ? ', locked' : ''}',
+                                          child: GestureDetector(
+                                              onTap:
+                                                  locked ? null : () => open(l),
+                                              child: SizedBox(
+                                                  width: 86,
+                                                  height: 86,
+                                                  child: CustomPaint(
+                                                      painter:
+                                                          _TrailCirclePainter(
+                                                              count(l),
+                                                              locked
+                                                                  ? panel2
+                                                                  : color,
+                                                              locked),
+                                                      child: Center(
+                                                          child: Icon(
+                                                              locked
+                                                                  ? Icons
+                                                                      .lock_rounded
+                                                                  : count(l) ==
+                                                                          5
+                                                                      ? Icons
+                                                                          .check_rounded
+                                                                      : l.kind ==
+                                                                              'assessment'
+                                                                          ? Icons
+                                                                              .emoji_events_rounded
+                                                                          : l.kind ==
+                                                                                  'checkpoint'
+                                                                              ? Icons
+                                                                                  .fitness_center_rounded
+                                                                              : Icons
+                                                                                  .star_rounded,
+                                                              color: locked
+                                                                  ? const Color(
+                                                                      0xFF617780)
+                                                                  : Colors
+                                                                      .white,
+                                                              size: 38)))))),
+                                      const SizedBox(height: 7),
+                                      Text(l.title,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                              color:
+                                                  locked ? muted : Colors.white,
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 12,
+                                              height: 1.15)),
+                                      if (count(l) > 0 && count(l) < 5)
+                                        Text('${count(l)}/5',
+                                            style: TextStyle(
+                                                color: color,
+                                                fontWeight: FontWeight.w900,
+                                                fontSize: 11)),
+                                    ]));
+                              }),
+                              // A different friend joins each section; no duplicated hero cards.
+                              Positioned(
+                                  top: unit.length > 3
+                                      ? (unitIndex.isEven ? 340 : 590)
+                                      : 170,
+                                  left: unitIndex.isEven ? 0 : null,
+                                  right: unitIndex.isEven ? null : 0,
+                                  child: Column(children: [
+                                    AnimatedKristina(
+                                        width: 100,
+                                        height: 150,
+                                        character: unitIndex % 3),
+                                    Text(
+                                        [
+                                          'KRISTINA',
+                                          'MILOŠ',
+                                          'ZARA'
+                                        ][unitIndex % 3],
+                                        style: const TextStyle(
+                                            color: muted,
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: 1.2))
+                                  ])),
+                            ]));
+                      }),
+                    ]);
+              })),
+    ]);
   }
-
-  Widget _stat(String icon, String value, Color color) => Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration:
-          BoxDecoration(color: panel, borderRadius: BorderRadius.circular(13)),
-      child: Text('$icon $value',
-          style: TextStyle(
-              color: color, fontWeight: FontWeight.w900, fontSize: 13)));
 }
 
-class _PathLinePainter extends CustomPainter {
-  final int completed, total;
-  _PathLinePainter(this.completed, this.total);
+class _SerbianFlag extends StatelessWidget {
+  const _SerbianFlag();
+  @override
+  Widget build(BuildContext context) => Container(
+      width: 33,
+      height: 24,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: Colors.white.withValues(alpha: .2))),
+      child: Column(children: [
+        Expanded(child: Container(color: const Color(0xFFD8444D))),
+        Expanded(child: Container(color: const Color(0xFF316FB2))),
+        Expanded(child: Container(color: Colors.white))
+      ]));
+}
+
+class _TrailLinePainter extends CustomPainter {
+  final int count;
+  final Color color;
+  _TrailLinePainter(this.count, this.color);
   @override
   void paint(Canvas canvas, Size size) {
-    final center = size.width / 2;
-    const shifts = [0.0, 74.0, 90.0, 0.0, -90.0, -74.0];
-    final paint = Paint()
-      ..color = const Color(0xFF425462)
-      ..strokeWidth = 7
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
-    final active = Paint()
-      ..color = lime.withValues(alpha: .7)
-      ..strokeWidth = 7
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
-    for (int i = 0; i < total - 1; i++) {
-      final a = Offset(center + shifts[i % 6], i * 128.0 + 43);
-      final b = Offset(center + shifts[(i + 1) % 6], (i + 1) * 128.0 + 43);
-      final path = Path()
-        ..moveTo(a.dx, a.dy)
-        ..cubicTo(a.dx, a.dy + 58, b.dx, b.dy - 58, b.dx, b.dy);
-      canvas.drawPath(path, i < completed ? active : paint);
+    final p = Paint()
+      ..color = panel2.withValues(alpha: .45)
+      ..strokeWidth = 4
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    const shifts = [0.0, 62.0, 82.0, 24.0, -62.0, -82.0, 0.0];
+    for (var i = 0; i < count - 1; i++) {
+      final x = size.width / 2 + shifts[i % 7], y = i * 148.0 + 58;
+      final nx = size.width / 2 + shifts[(i + 1) % 7],
+          ny = (i + 1) * 148.0 + 58;
+      canvas.drawPath(
+          Path()
+            ..moveTo(x, y)
+            ..cubicTo(x, y + 65, nx, ny - 65, nx, ny),
+          p);
     }
   }
 
   @override
-  bool shouldRepaint(covariant _PathLinePainter oldDelegate) =>
-      completed != oldDelegate.completed || total != oldDelegate.total;
+  bool shouldRepaint(covariant _TrailLinePainter old) =>
+      old.count != count || old.color != color;
+}
+
+class _TrailCirclePainter extends CustomPainter {
+  final int completed;
+  final Color color;
+  final bool locked;
+  _TrailCirclePainter(this.completed, this.color, this.locked);
+  @override
+  void paint(Canvas c, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final p = Paint()..isAntiAlias = true;
+    p.color = Color.lerp(color, Colors.black, .28)!;
+    c.drawCircle(center + const Offset(0, 5), 33, p);
+    p.color = color;
+    c.drawCircle(center, 33, p);
+    p.color = Colors.white.withValues(alpha: locked ? 0.025 : 0.12);
+    c.drawOval(
+        Rect.fromCenter(
+            center: center - const Offset(8, 12), width: 36, height: 18),
+        p);
+    p
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5
+      ..strokeCap = StrokeCap.round;
+    for (var i = 0; i < 5; i++) {
+      p.color = i < completed ? color : panel2;
+      c.drawArc(
+          Rect.fromCircle(center: center, radius: 40),
+          -math.pi / 2 + i * 2 * math.pi / 5 + .07,
+          2 * math.pi / 5 - .14,
+          false,
+          p);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _TrailCirclePainter old) =>
+      old.completed != completed || old.color != color || old.locked != locked;
 }
 
 Color colorFor(String c) => switch (c) {
@@ -1207,12 +1311,14 @@ Color colorFor(String c) => switch (c) {
 class LessonPage extends StatefulWidget {
   final Lesson lesson;
   final bool alreadyCompleted;
+  final int practiceRound;
   final Future<void> Function(int, List<bool>) onComplete;
   const LessonPage(
       {super.key,
       required this.lesson,
       required this.onComplete,
-      this.alreadyCompleted = false});
+      this.alreadyCompleted = false,
+      this.practiceRound = 0});
   @override
   State<LessonPage> createState() => _LessonPageState();
 }
@@ -1386,7 +1492,15 @@ class _LessonPageState extends State<LessonPage> {
                                                             AnimatedKristina(
                                                                 width: 112,
                                                                 height: 170,
-                                                                mood: mood),
+                                                                mood: mood,
+                                                                character: (widget
+                                                                            .lesson
+                                                                            .id
+                                                                            .codeUnits
+                                                                            .fold<int>(0,
+                                                                                (sum, c) => sum + c) +
+                                                                        index) %
+                                                                    3),
                                                             const SizedBox(
                                                                 width: 12),
                                                             Expanded(
@@ -1780,10 +1894,12 @@ class _LessonPageState extends State<LessonPage> {
               !passed
                   ? 'KEEP PRACTICING'
                   : correct == widget.lesson.questions.length
-                      ? 'PERFECT LESSON!'
+                      ? 'PERFECT PRACTICE!'
                       : widget.lesson.kind == 'assessment'
                           ? 'A1 KNOWLEDGE CHECK PASSED!'
-                          : 'LESSON COMPLETE!',
+                          : widget.practiceRound == 4
+                              ? 'CIRCLE COMPLETE!'
+                              : 'PRACTICE ${widget.practiceRound + 1} COMPLETE!',
               style: TextStyle(
                   color: accent,
                   fontSize: 12,
@@ -1826,7 +1942,7 @@ class _LessonPageState extends State<LessonPage> {
           ]),
           const SizedBox(height: 28),
           KButton(
-              text: passed ? 'BACK TO THE PATH' : 'TRY AGAIN',
+              text: passed ? 'BACK TO THE TRAIL' : 'TRY AGAIN',
               onTap: () {
                 if (passed)
                   Navigator.pop(context);
@@ -2660,35 +2776,67 @@ class BottomNav extends StatelessWidget {
   final int tab;
   final ValueChanged<int> onTap;
   const BottomNav({super.key, required this.tab, required this.onTap});
+  static const icons = [
+    Icons.cottage_rounded,
+    Icons.auto_stories_rounded,
+    Icons.translate_rounded,
+    Icons.diversity_1_rounded,
+    Icons.face_rounded
+  ];
+  static const colors = [
+    Color(0xFFFFB94A),
+    Color(0xFF59C5F5),
+    Color(0xFFAB8AF3),
+    Color(0xFFFF86BE),
+    Color(0xFF63D6B6)
+  ];
+  static const names = [
+    'Course trail',
+    'Words',
+    'Letters',
+    'Friends',
+    'Profile'
+  ];
   @override
   Widget build(BuildContext context) => Container(
+      height: 72,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: const BoxDecoration(
-          color: panel, border: Border(top: BorderSide(color: panel2))),
-      padding: const EdgeInsets.only(top: 8, bottom: 5),
+          color: bg, border: Border(top: BorderSide(color: panel2, width: 2))),
       child: Row(
           children: List.generate(
               5,
               (i) => Expanded(
-                  child: InkWell(
-                      onTap: () => onTap(i),
-                      child: Column(mainAxisSize: MainAxisSize.min, children: [
-                        Text(['🏠', '📖', '🔤', '👯', '👤'][i],
-                            style: const TextStyle(fontSize: 23)),
-                        const SizedBox(height: 2),
-                        Text(
-                            [
-                              'PATH',
-                              'WORDS',
-                              'LETTERS',
-                              'FRIENDS',
-                              'PROFILE'
-                            ][i],
-                            style: TextStyle(
-                                fontSize: 9,
-                                color: tab == i ? lime : muted,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: .3))
-                      ]))))));
+                  child: Tooltip(
+                      message: names[i],
+                      child: Semantics(
+                          selected: tab == i,
+                          label: names[i],
+                          button: true,
+                          child: Center(
+                              child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                      onTap: () => onTap(i),
+                                      borderRadius: BorderRadius.circular(16),
+                                      child: AnimatedContainer(
+                                          duration:
+                                              const Duration(milliseconds: 180),
+                                          width: 54,
+                                          height: 52,
+                                          decoration: BoxDecoration(
+                                              color: tab == i
+                                                  ? const Color(0xFF1C3542)
+                                                  : Colors.transparent,
+                                              borderRadius:
+                                                  BorderRadius.circular(16),
+                                              border: Border.all(
+                                                  color: tab == i
+                                                      ? const Color(0xFF4387A3)
+                                                      : Colors.transparent,
+                                                  width: 2)),
+                                          child:
+                                              Icon(icons[i], color: colors[i], size: 31)))))))))));
 }
 
 class SideNav extends StatelessWidget {
@@ -2713,7 +2861,7 @@ class SideNav extends StatelessWidget {
                 onTap: () => onTap(i),
                 selected: tab == i,
                 selectedTileColor: panel2,
-                leading: Text(['🏠', '📖', '🔤', '👯', '👤'][i]),
+                leading: Icon(BottomNav.icons[i], color: BottomNav.colors[i]),
                 title: Text(
                     ['Path', 'Words', 'Letters', 'Friends', 'Profile'][i],
                     style: TextStyle(

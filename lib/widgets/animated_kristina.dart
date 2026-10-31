@@ -5,8 +5,13 @@ import 'package:flutter/material.dart';
 class AnimatedKristina extends StatefulWidget {
   final double width, height;
   final String mood;
+  final int character;
   const AnimatedKristina(
-      {super.key, this.width = 150, this.height = 220, this.mood = 'idle'});
+      {super.key,
+      this.width = 150,
+      this.height = 220,
+      this.mood = 'idle',
+      this.character = 0});
   @override
   State<AnimatedKristina> createState() => _AnimatedKristinaState();
 }
@@ -36,7 +41,11 @@ class _AnimatedKristinaState extends State<AnimatedKristina>
   Widget build(BuildContext context) {
     final reduced = MediaQuery.disableAnimationsOf(context);
     return Semantics(
-        label: 'Kristina, your Serbian tutor',
+        label: [
+          'Kristina, your Serbian tutor',
+          'Miloš, your practice friend',
+          'Zara, your practice friend'
+        ][widget.character % 3],
         image: true,
         child: RepaintBoundary(
             child: SizedBox(
@@ -45,19 +54,35 @@ class _AnimatedKristinaState extends State<AnimatedKristina>
                 child: AnimatedBuilder(
                     animation: Listenable.merge([idle, reaction]),
                     builder: (_, __) => CustomPaint(
-                        painter: _KristinaPainter(reduced ? .3 : idle.value,
-                            reduced ? 1 : reaction.value, widget.mood))))));
+                        painter: _KristinaPainter(
+                            reduced ? .3 : idle.value,
+                            reduced ? 1 : reaction.value,
+                            widget.mood,
+                            widget.character))))));
   }
 }
 
 class _KristinaPainter extends CustomPainter {
   final double time, reaction;
   final String mood;
-  _KristinaPainter(this.time, this.reaction, this.mood);
-  static const hair = Color(0xFF56372D),
-      skin = Color(0xFFFFBC9D),
-      shirt = Color(0xFFC43F72),
-      jeans = Color(0xFF3478C8);
+  final int character;
+  _KristinaPainter(this.time, this.reaction, this.mood, this.character);
+  Color get hair => [
+        const Color(0xFF56372D),
+        const Color(0xFF273A49),
+        const Color(0xFF302536)
+      ][character % 3];
+  Color get skin => [
+        const Color(0xFFFFBC9D),
+        const Color(0xFFE6AF7F),
+        const Color(0xFFB97959)
+      ][character % 3];
+  Color get shirt => [
+        const Color(0xFFC43F72),
+        const Color(0xFFFFAE45),
+        const Color(0xFF31B6A6)
+      ][character % 3];
+  static const jeans = Color(0xFF3478C8);
   final Paint p = Paint()..isAntiAlias = true;
   void fill(Canvas c, Color color, void Function(Paint) draw) {
     p
@@ -105,23 +130,25 @@ class _KristinaPainter extends CustomPainter {
     canvas.save();
     canvas.translate(0, jump);
     // Hair behind body, separated from head so it swings subtly.
-    canvas.save();
-    canvas.translate(90, 100);
-    canvas.rotate(.025 * breath);
-    canvas.translate(-90, -100);
-    fill(
-        canvas,
-        hair,
-        (p) => canvas.drawPath(
-            Path()
-              ..moveTo(47, 47)
-              ..cubicTo(30, 86, 44, 121, 30, 151)
-              ..cubicTo(22, 172, 42, 184, 77, 176)
-              ..lineTo(145, 162)
-              ..lineTo(153, 65)
-              ..close(),
-            p));
-    canvas.restore();
+    if (character != 1) {
+      canvas.save();
+      canvas.translate(90, 100);
+      canvas.rotate(.025 * breath);
+      canvas.translate(-90, -100);
+      fill(
+          canvas,
+          hair,
+          (p) => canvas.drawPath(
+              Path()
+                ..moveTo(47, 47)
+                ..cubicTo(30, 86, 44, 121, 30, 151)
+                ..cubicTo(22, 172, 42, 184, 77, 176)
+                ..lineTo(145, 162)
+                ..lineTo(153, 65)
+                ..close(),
+              p));
+      canvas.restore();
+    }
     // Legs and shoes.
     stroke(
         canvas,
@@ -194,7 +221,7 @@ class _KristinaPainter extends CustomPainter {
     // Magenta turtleneck.
     round(canvas, Rect.fromLTWH(61, 133 + breath, 79, 79), 20, shirt);
     round(canvas, Rect.fromLTWH(82, 120 + breath, 40, 28), 9,
-        const Color(0xFFB63466));
+        Color.lerp(shirt, Colors.black, .12)!);
     // Head pivots, rather than translating a flat picture.
     canvas.save();
     canvas.translate(102, 93 + breath);
@@ -217,6 +244,27 @@ class _KristinaPainter extends CustomPainter {
               ..cubicTo(94, 66, 65, 51, 52, 76)
               ..close(),
             p));
+    if (character == 1) {
+      fill(
+          canvas,
+          hair,
+          (p) => canvas.drawPath(
+              Path()
+                ..moveTo(44, 66)
+                ..lineTo(40, 38)
+                ..lineTo(57, 39)
+                ..lineTo(65, 20)
+                ..lineTo(83, 30)
+                ..lineTo(101, 13)
+                ..lineTo(117, 29)
+                ..lineTo(141, 25)
+                ..lineTo(155, 54)
+                ..lineTo(148, 73)
+                ..lineTo(140, 58)
+                ..lineTo(65, 55)
+                ..close(),
+              p));
+    }
     // Eyelids blink twice per idle cycle; eyes track gently.
     final blink = (time > .72 && time < .75) || (time > .79 && time < .805);
     final eyeHeight = blink
@@ -242,6 +290,21 @@ class _KristinaPainter extends CustomPainter {
           const Color(0xFF82400F));
       oval(canvas, Rect.fromLTWH(82 + look, 70, 5, 7), Colors.white);
       oval(canvas, Rect.fromLTWH(120 + look, 70, 5, 7), Colors.white);
+    }
+    if (character == 2) {
+      final glasses = Paint()
+        ..color = const Color(0xFF7455C4)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 4;
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(
+              const Rect.fromLTWH(64, 62, 33, 38), const Radius.circular(12)),
+          glasses);
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(
+              const Rect.fromLTWH(102, 62, 33, 38), const Radius.circular(12)),
+          glasses);
+      canvas.drawLine(const Offset(97, 78), const Offset(102, 78), glasses);
     }
     stroke(
         canvas,
@@ -306,5 +369,8 @@ class _KristinaPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _KristinaPainter old) =>
-      old.time != time || old.reaction != reaction || old.mood != mood;
+      old.time != time ||
+      old.reaction != reaction ||
+      old.mood != mood ||
+      old.character != character;
 }

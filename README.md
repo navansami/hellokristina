@@ -34,3 +34,9 @@ The app has the Kristina mascot, a challenge path, word bank, 30-letter Cyrillic
 ## Visual design and animation
 
 The exercise layout follows the supplied mobile references: a compact progress bar, character beside the prompt, outlined answer tiles, raised sentence tiles and buttons, and contextual feedback footer. Kristina is drawn as an articulated Flutter vector character in `lib/widgets/animated_kristina.dart`, with blinking, eye movement, head and arm gestures, correct/wrong expressions, and a brief celebration. It honors the device's reduced-motion preference. `learning_object.dart` supplies consistent illustrations for image questions, and `tactile_button.dart` provides the shared pressed button treatment.
+
+## Course trail and practice rounds
+
+The learner header (profile avatar, Serbian course selector, streak and XP) and icon-only bottom tabs stay fixed while the complete trail scrolls through all sections. Each circle contains five practice sessions. Sessions revisit the same lesson goal with shuffled question and answer order. Completing a session fills one of five ring segments; the next circle unlocks after all five. Previous completed lessons remain fully complete. Round progress is stored locally and in MongoDB; repeats do not award the same session XP again. Vocabulary is available after the first successful session.
+
+Kristina is joined by Miloš (short dark hair and amber shirt) and Zara (glasses and teal shirt). The animated cast rotates through exercises and accompanies the trail. Run `node scripts/check-practice-rounds.mjs` to check progression, failure/retry behavior and compatibility with older completions.

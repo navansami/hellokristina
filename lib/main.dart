@@ -1,7 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
+import 'widgets/animated_kristina.dart';
+import 'widgets/tactile_button.dart';
+import 'widgets/learning_object.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter/services.dart' show rootBundle, HapticFeedback;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,11 +12,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
-const bg = Color(0xFF101923),
-    panel = Color(0xFF1B2934),
-    panel2 = Color(0xFF243642),
-    lime = Color(0xFFB5EA55),
-    blue = Color(0xFF60B9F5),
+const bg = Color(0xFF131F24),
+    panel = Color(0xFF192A32),
+    panel2 = Color(0xFF2C404B),
+    lime = Color(0xFF78D72D),
+    blue = Color(0xFF49C0F8),
     pink = Color(0xFFFF72AF),
     purple = Color(0xFFAB86F7),
     muted = Color(0xFF93A7B2);
@@ -509,10 +512,11 @@ class _KristinaAppState extends State<KristinaApp> {
   }
 
   void lesson(Lesson l) {
+    final completedBefore = done.contains(l.id);
     navigatorKey.currentState?.push(MaterialPageRoute(
         builder: (_) => LessonPage(
             lesson: l,
-            alreadyCompleted: done.contains(l.id),
+            alreadyCompleted: completedBefore,
             onComplete: (n, a) => finish(l, n, a))));
   }
 
@@ -625,6 +629,11 @@ class SerbianAudioButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => IconButton.filledTonal(
+      style: IconButton.styleFrom(
+          backgroundColor: panel,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: panel2, width: 2))),
       tooltip: slow ? 'Play Serbian slowly' : 'Play Serbian pronunciation',
       icon: Icon(
           slow ? Icons.slow_motion_video_rounded : Icons.volume_up_rounded),
@@ -671,104 +680,42 @@ class KButton extends StatelessWidget {
       this.color = lime,
       this.outline = false});
   @override
-  Widget build(BuildContext context) => SizedBox(
-      width: double.infinity,
-      height: 54,
-      child: ElevatedButton(
-          onPressed: onTap,
-          style: ElevatedButton.styleFrom(
-              backgroundColor: outline ? panel2 : color,
-              foregroundColor: outline ? Colors.white : bg,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: outline
-                      ? BorderSide(color: muted.withOpacity(.25))
-                      : BorderSide.none)),
-          child: Text(text,
-              style: const TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 15,
-                  letterSpacing: .8))));
+  Widget build(BuildContext context) => TactileButton(
+      label: text,
+      onTap: onTap,
+      color: outline ? panel : color,
+      foreground: outline ? Colors.white : bg,
+      outline: outline);
 }
 
-class Kristina extends StatefulWidget {
+class Kristina extends StatelessWidget {
   final double size;
   final String mood;
-  const Kristina({super.key, this.size = 92, this.mood = 'happy'});
+  const Kristina({super.key, this.size = 92, this.mood = 'idle'});
   @override
-  State<Kristina> createState() => _KristinaState();
+  Widget build(BuildContext context) => SizedBox(
+      width: size,
+      height: size,
+      child: ClipRect(
+          child: OverflowBox(
+              alignment: Alignment.topCenter,
+              maxWidth: size * 1.7,
+              maxHeight: size * 2.55,
+              child: AnimatedKristina(
+                  width: size * 1.7, height: size * 2.55, mood: mood))));
 }
 
-class _KristinaState extends State<Kristina>
-    with SingleTickerProviderStateMixin {
-  late AnimationController c;
-  @override
-  void initState() {
-    super.initState();
-    c = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 1800))
-      ..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-      animation: c,
-      builder: (_, child) => Transform.translate(
-          offset: Offset(0, -5 * c.value),
-          child: Transform.rotate(angle: (c.value - .5) * .04, child: child)),
-      child: Container(
-          width: widget.size,
-          height: widget.size,
-          decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: lime, width: 4),
-              boxShadow: [
-                BoxShadow(color: lime.withOpacity(.18), blurRadius: 26)
-              ]),
-          clipBehavior: Clip.antiAlias,
-          child: Image.asset('assets/kristina.jpg', fit: BoxFit.cover)));
-}
-
-class SassyKristina extends StatefulWidget {
+class SassyKristina extends StatelessWidget {
   final double width, height;
-  const SassyKristina({super.key, required this.width, required this.height});
+  final String mood;
+  const SassyKristina(
+      {super.key,
+      required this.width,
+      required this.height,
+      this.mood = 'idle'});
   @override
-  State<SassyKristina> createState() => _SassyKristinaState();
-}
-
-class _SassyKristinaState extends State<SassyKristina>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController motion;
-  @override
-  void initState() {
-    super.initState();
-    motion = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 2100))
-      ..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    motion.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-      animation: motion,
-      builder: (_, child) => Transform.translate(
-          offset: Offset(0, -6 * motion.value),
-          child: Transform.rotate(
-              angle: (motion.value - .5) * .035, child: child)),
-      child: Image.asset('assets/kristina-pose.png',
-          width: widget.width, height: widget.height, fit: BoxFit.contain));
+  Widget build(BuildContext context) =>
+      AnimatedKristina(width: width, height: height, mood: mood);
 }
 
 class PageHead extends StatelessWidget {
@@ -896,13 +843,13 @@ class _PathPageState extends State<PathPage> {
                           style: TextStyle(color: muted, fontSize: 13)),
                       const SizedBox(height: 20),
                       Container(
-                          height: 190,
+                          height: 154,
                           clipBehavior: Clip.antiAlias,
                           decoration: BoxDecoration(
                               gradient: const LinearGradient(
                                   colors: [
-                                    Color(0xFF7854DD),
-                                    Color(0xFF4E74D5)
+                                    Color(0xFF7756D8),
+                                    Color(0xFF7756D8)
                                   ],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight),
@@ -919,15 +866,15 @@ class _PathPageState extends State<PathPage> {
                                         color: Colors.white
                                             .withValues(alpha: .08)))),
                             Positioned(
-                                right: -9,
-                                bottom: -28,
+                                right: 2,
+                                bottom: -12,
                                 child: const SassyKristina(
-                                    width: 165, height: 220)),
+                                    width: 110, height: 160)),
                             Positioned(
                                 left: 20,
                                 top: 21,
                                 bottom: 20,
-                                right: 155,
+                                right: 117,
                                 child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
@@ -945,7 +892,7 @@ class _PathPageState extends State<PathPage> {
                                               ? 'First words,\nbig energy'
                                               : nextLesson.unitTitle,
                                           style: TextStyle(
-                                              fontSize: 25,
+                                              fontSize: 22,
                                               fontWeight: FontWeight.w900,
                                               height: 1.05)),
                                       const Spacer(),
@@ -1109,11 +1056,10 @@ class _PathPageState extends State<PathPage> {
                                                             ? Colors.transparent
                                                             : colorFor(l.color)
                                                                 .withValues(
-                                                                    alpha: .27),
-                                                        blurRadius:
-                                                            active ? 24 : 12,
+                                                                    alpha: .55),
+                                                        blurRadius: 0,
                                                         offset:
-                                                            const Offset(0, 8))
+                                                            const Offset(0, 6))
                                                   ]),
                                               child: Center(
                                                   child: Text(
@@ -1316,6 +1262,10 @@ class _LessonPageState extends State<LessonPage> {
       if (!canCheck) return;
       FocusScope.of(context).unfocus();
       final right = _matches(response, q.answer);
+      if (right)
+        HapticFeedback.lightImpact();
+      else
+        HapticFeedback.selectionClick();
       setState(() {
         checked = true;
         lastCorrect = right;
@@ -1343,309 +1293,285 @@ class _LessonPageState extends State<LessonPage> {
     }
   }
 
+  String _heading(Question q) => q.type.startsWith('Listen')
+      ? 'What do you hear?'
+      : switch (q.type) {
+          'Arrange the words' => 'Translate this sentence',
+          'Type the answer' => 'Write it in Serbian',
+          'Choose the image' => 'Select the correct image',
+          'Translate to Serbian' => 'How do you say this?',
+          _ => 'Choose the correct meaning',
+        };
+
   @override
   Widget build(BuildContext context) {
     final q = widget.lesson.questions[index];
-    final accent = colorFor(widget.lesson.color);
+    final guide = showTheory && widget.lesson.theoryBody.isNotEmpty;
+    final mood = checked ? (lastCorrect ? 'correct' : 'wrong') : 'idle';
     return Scaffold(
+        backgroundColor: bg,
         body: SafeArea(
             child: Center(
                 child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 660),
+                    constraints: const BoxConstraints(maxWidth: 600),
                     child: Column(children: [
                       Padding(
-                          padding: const EdgeInsets.fromLTRB(15, 12, 20, 10),
+                          padding: const EdgeInsets.fromLTRB(12, 12, 20, 8),
                           child: Row(children: [
                             IconButton(
                                 onPressed: () => Navigator.pop(context),
-                                icon: const Icon(Icons.close_rounded),
+                                icon: const Icon(Icons.close_rounded,
+                                    color: muted),
                                 tooltip: 'Leave lesson'),
-                            const SizedBox(width: 6),
+                            const SizedBox(width: 8),
                             Expanded(
-                                child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(10),
-                                    child: LinearProgressIndicator(
-                                        value: finished
+                                child: TweenAnimationBuilder<double>(
+                                    tween: Tween(
+                                        end: finished
                                             ? 1
-                                            : index /
-                                                widget.lesson.questions.length,
-                                        minHeight: 12,
-                                        backgroundColor: panel2,
-                                        valueColor:
-                                            const AlwaysStoppedAnimation(
-                                                lime)))),
-                            const SizedBox(width: 13),
+                                            : (index + (checked ? 1 : 0)) /
+                                                widget.lesson.questions.length),
+                                    duration: const Duration(milliseconds: 450),
+                                    curve: Curves.easeOutCubic,
+                                    builder: (_, value, __) => ClipRRect(
+                                        borderRadius: BorderRadius.circular(20),
+                                        child: LinearProgressIndicator(
+                                            value: value,
+                                            minHeight: 15,
+                                            backgroundColor: panel2,
+                                            valueColor:
+                                                const AlwaysStoppedAnimation(
+                                                    lime))))),
+                            const SizedBox(width: 16),
                             Text(
                                 '${index + 1}/${widget.lesson.questions.length}',
                                 style: const TextStyle(
-                                    color: muted, fontWeight: FontWeight.w900)),
+                                    color: muted,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 12))
                           ])),
                       Expanded(
                           child: finished
-                              ? _complete(accent)
-                              : showTheory &&
-                                      widget.lesson.theoryBody.isNotEmpty
-                                  ? SingleChildScrollView(
-                                      padding: const EdgeInsets.all(24),
-                                      child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                                '${widget.lesson.level} · ${widget.lesson.unitTitle}'
-                                                    .toUpperCase(),
-                                                style: const TextStyle(
-                                                    color: lime,
-                                                    fontWeight: FontWeight.w900,
-                                                    letterSpacing: 1.2)),
-                                            const SizedBox(height: 18),
-                                            Text(widget.lesson.theoryTitle,
-                                                style: const TextStyle(
-                                                    fontSize: 28,
-                                                    fontWeight:
-                                                        FontWeight.w900)),
-                                            const SizedBox(height: 14),
-                                            Text(widget.lesson.theoryBody,
-                                                style: const TextStyle(
-                                                    fontSize: 17, height: 1.5)),
-                                            const SizedBox(height: 12),
-                                            const Text(
-                                                'Audio pronunciations are AI-generated.',
-                                                style: TextStyle(
-                                                    color: muted,
-                                                    fontSize: 12)),
-                                            const SizedBox(height: 20),
-                                            ...widget.lesson.vocabulary.map(
-                                                (word) => Padding(
-                                                    padding:
-                                                        const EdgeInsets.only(
-                                                            bottom: 10),
-                                                    child: KCard(
-                                                        child: Row(children: [
-                                                      Expanded(
-                                                          child: Column(
-                                                              crossAxisAlignment:
-                                                                  CrossAxisAlignment
-                                                                      .start,
-                                                              children: [
-                                                            Text(word[0],
-                                                                style: const TextStyle(
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .w900,
-                                                                    fontSize:
-                                                                        18)),
-                                                            Text(word[1],
-                                                                style: const TextStyle(
-                                                                    color:
-                                                                        muted))
+                              ? _complete(lime)
+                              : SingleChildScrollView(
+                                  padding:
+                                      const EdgeInsets.fromLTRB(24, 18, 24, 22),
+                                  child: AnimatedSwitcher(
+                                      duration:
+                                          const Duration(milliseconds: 220),
+                                      child: guide
+                                          ? _lessonGuide()
+                                          : Column(
+                                              key: ValueKey(index),
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.stretch,
+                                              children: [
+                                                  Text(_heading(q),
+                                                      style: const TextStyle(
+                                                          fontSize: 25,
+                                                          height: 1.2,
+                                                          fontWeight:
+                                                              FontWeight.w900)),
+                                                  const SizedBox(height: 18),
+                                                  SizedBox(
+                                                      height: q.type ==
+                                                              'Choose the image'
+                                                          ? 135
+                                                          : 175,
+                                                      child: Row(
+                                                          crossAxisAlignment:
+                                                              CrossAxisAlignment
+                                                                  .center,
+                                                          children: [
+                                                            AnimatedKristina(
+                                                                width: 112,
+                                                                height: 170,
+                                                                mood: mood),
+                                                            const SizedBox(
+                                                                width: 12),
+                                                            Expanded(
+                                                                child: Container(
+                                                                    padding: const EdgeInsets.all(16),
+                                                                    decoration: BoxDecoration(border: Border.all(color: panel2, width: 2), borderRadius: BorderRadius.circular(18)),
+                                                                    child: q.type.startsWith('Listen')
+                                                                        ? Column(mainAxisSize: MainAxisSize.min, children: [
+                                                                            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                                                                              SerbianAudioButton(text: q.audioText, asset: q.audioAsset),
+                                                                              const SizedBox(width: 8),
+                                                                              SerbianAudioButton(text: q.audioText, asset: q.audioAsset, slow: true),
+                                                                            ]),
+                                                                            const SizedBox(height: 8),
+                                                                            const Text('Listen carefully',
+                                                                                style: TextStyle(color: muted, fontSize: 12, fontWeight: FontWeight.w700))
+                                                                          ])
+                                                                        : Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                                                            if (q.audioText.isNotEmpty &&
+                                                                                (q.type == 'Choose the meaning' || q.type == 'Choose the image'))
+                                                                              Padding(padding: const EdgeInsets.only(bottom: 4), child: SerbianAudioButton(text: q.audioText, asset: q.audioAsset)),
+                                                                            Text(q.prompt,
+                                                                                style: const TextStyle(fontSize: 19, height: 1.4, fontWeight: FontWeight.w700)),
+                                                                          ])))
                                                           ])),
-                                                      Text(word[2],
-                                                          style: const TextStyle(
-                                                              color: lime,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w800)),
-                                                      const SizedBox(width: 6),
-                                                      SerbianAudioButton(
-                                                          text: word[0],
-                                                          asset: word.length > 4
-                                                              ? word[4]
-                                                              : '')
-                                                    ]))))
-                                          ]))
-                                  : SingleChildScrollView(
-                                      key: ValueKey(index),
-                                      padding: const EdgeInsets.fromLTRB(
-                                          23, 22, 23, 18),
-                                      child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Row(children: [
-                                              Container(
-                                                  padding: const EdgeInsets
-                                                      .symmetric(
-                                                      horizontal: 10,
-                                                      vertical: 7),
-                                                  decoration: BoxDecoration(
-                                                      color: accent.withValues(
-                                                          alpha: .16),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              10)),
-                                                  child: Text(
-                                                      q.type.toUpperCase(),
-                                                      style: TextStyle(
-                                                          color: accent,
-                                                          fontSize: 10,
-                                                          letterSpacing: 1.3,
-                                                          fontWeight: FontWeight
-                                                              .w900))),
-                                              const Spacer(),
-                                              Text(widget.lesson.title,
-                                                  style: const TextStyle(
-                                                      color: muted,
-                                                      fontSize: 11,
-                                                      fontWeight:
-                                                          FontWeight.w800)),
-                                            ]),
-                                            const SizedBox(height: 22),
-                                            Text(q.prompt,
-                                                style: const TextStyle(
-                                                    fontSize: 27,
-                                                    height: 1.15,
-                                                    fontWeight:
-                                                        FontWeight.w900)),
-                                            if (q.audioText.isNotEmpty &&
-                                                (q.type ==
-                                                        'Choose the meaning' ||
-                                                    q.type ==
-                                                        'Choose the image' ||
-                                                    q.type
-                                                        .startsWith('Listen')))
-                                              Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                          top: 12),
-                                                  child: Row(children: [
-                                                    SerbianAudioButton(
-                                                        text: q.audioText,
-                                                        asset: q.audioAsset),
-                                                    const SizedBox(width: 8),
-                                                    if (q.type.startsWith(
-                                                        'Listen')) ...[
-                                                      SerbianAudioButton(
-                                                          text: q.audioText,
-                                                          asset: q.audioAsset,
-                                                          slow: true),
-                                                      const SizedBox(width: 8),
-                                                      const Text('Slow',
-                                                          style: TextStyle(
-                                                              color: muted,
-                                                              fontSize: 12))
-                                                    ] else
-                                                      const Text(
-                                                          'Listen in Serbian',
-                                                          style: TextStyle(
-                                                              color: muted,
-                                                              fontSize: 12))
-                                                  ])),
-                                            const SizedBox(height: 20),
-                                            Row(children: [
-                                              const Kristina(size: 54),
-                                              const SizedBox(width: 10),
-                                              Expanded(
-                                                  child: Container(
-                                                      padding: const EdgeInsets
-                                                          .symmetric(
-                                                          horizontal: 14,
-                                                          vertical: 11),
-                                                      decoration: BoxDecoration(
-                                                          color: panel2,
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(
-                                                                      16)),
-                                                      child: Text(
-                                                          checked
-                                                              ? (lastCorrect
-                                                                  ? 'That’s the stuff. Keep going! ✨'
-                                                                  : 'Close! Here’s the answer. We’ll get it. 😏')
-                                                              : 'Your turn, superstar.',
-                                                          style: const TextStyle(
-                                                              fontSize: 13,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w800)))),
-                                            ]),
-                                            const SizedBox(height: 26),
-                                            if (q.type == 'Arrange the words' ||
-                                                q.type == 'Listen and arrange')
-                                              _arrange(q)
-                                            else if (q.type ==
-                                                    'Type the answer' ||
-                                                q.type == 'Listen and type')
-                                              _typeAnswer(q)
-                                            else if (q.type ==
-                                                'Choose the image')
-                                              _images(q)
-                                            else
-                                              _choices(q),
-                                          ]))),
+                                                  const SizedBox(height: 24),
+                                                  if (q.type == 'Arrange the words' ||
+                                                      q.type ==
+                                                          'Listen and arrange')
+                                                    _arrange(q)
+                                                  else if (q.type ==
+                                                          'Type the answer' ||
+                                                      q.type ==
+                                                          'Listen and type')
+                                                    _typeAnswer(q)
+                                                  else if (q.type ==
+                                                      'Choose the image')
+                                                    _images(q)
+                                                  else
+                                                    _choices(q),
+                                                  const SizedBox(height: 12),
+                                                ])))),
                       if (!finished)
-                        Container(
+                        AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
                             width: double.infinity,
-                            padding: const EdgeInsets.fromLTRB(23, 14, 23, 20),
-                            decoration: const BoxDecoration(
-                                color: bg,
-                                border: Border(top: BorderSide(color: panel2))),
+                            padding: const EdgeInsets.fromLTRB(24, 18, 24, 22),
+                            decoration: BoxDecoration(
+                                color: checked && !guide
+                                    ? (lastCorrect
+                                        ? const Color(0xFF173D30)
+                                        : const Color(0xFF45262C))
+                                    : bg,
+                                border: Border(
+                                    top: BorderSide(
+                                        color: checked
+                                            ? Colors.transparent
+                                            : panel2,
+                                        width: 2))),
                             child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  if (!showTheory && checked) ...[
+                                  if (checked && !guide) ...[
                                     Row(children: [
                                       Icon(
                                           lastCorrect
                                               ? Icons.check_circle_rounded
-                                              : Icons.info_rounded,
-                                          color: lastCorrect ? lime : pink),
-                                      const SizedBox(width: 8),
+                                              : Icons.cancel_rounded,
+                                          color: lastCorrect
+                                              ? lime
+                                              : const Color(0xFFFF777D),
+                                          size: 28),
+                                      const SizedBox(width: 10),
                                       Expanded(
                                           child: Text(
                                               lastCorrect
-                                                  ? 'Brilliant!'
-                                                  : 'Answer: ${q.answer}',
+                                                  ? 'Nicely done!'
+                                                  : 'Let’s get this one.',
                                               style: TextStyle(
-                                                  color:
-                                                      lastCorrect ? lime : pink,
-                                                  fontWeight: FontWeight.w900,
-                                                  fontSize: 16))),
-                                      if (q.audioText.isNotEmpty &&
-                                          q.type != 'Choose the meaning' &&
-                                          q.type != 'Choose the image' &&
-                                          !q.type.startsWith('Listen'))
+                                                  color: lastCorrect
+                                                      ? lime
+                                                      : const Color(0xFFFF777D),
+                                                  fontSize: 22,
+                                                  fontWeight:
+                                                      FontWeight.w900))),
+                                      if (q.audioText.isNotEmpty)
                                         SerbianAudioButton(
                                             text: q.audioText,
                                             asset: q.audioAsset,
-                                            color: lime)
+                                            color: lastCorrect ? lime : pink)
                                     ]),
-                                    const SizedBox(height: 5),
+                                    const SizedBox(height: 8),
+                                    if (!lastCorrect)
+                                      Text('Correct answer: ${q.answer}',
+                                          style: const TextStyle(
+                                              fontSize: 17,
+                                              fontWeight: FontWeight.w800)),
                                     Text(q.detail,
                                         style: const TextStyle(
-                                            color: muted, fontSize: 12)),
-                                    const SizedBox(height: 12),
+                                            fontSize: 14,
+                                            height: 1.4,
+                                            color: Color(0xFFCFDCE2))),
+                                    const SizedBox(height: 18),
                                   ],
                                   KButton(
-                                      text: showTheory &&
-                                              widget
-                                                  .lesson.theoryBody.isNotEmpty
-                                          ? 'START CHALLENGE'
+                                      text: guide
+                                          ? 'LET’S GO'
                                           : submitting
-                                              ? 'SAVING...'
+                                              ? 'SAVING…'
                                               : checked
                                                   ? 'CONTINUE'
-                                                  : 'CHECK ANSWER',
-                                      onTap: showTheory &&
-                                              widget
-                                                  .lesson.theoryBody.isNotEmpty
+                                                  : 'CHECK',
+                                      color: checked && !lastCorrect
+                                          ? const Color(0xFFFF7279)
+                                          : lime,
+                                      onTap: guide
                                           ? () =>
                                               setState(() => showTheory = false)
-                                          : (checked || canCheck) && !submitting
+                                          : ((checked || canCheck) &&
+                                                  !submitting
                                               ? _advance
-                                              : null,
-                                      color: checked && !lastCorrect
-                                          ? blue
-                                          : lime),
+                                              : null)),
                                 ])),
                     ])))));
   }
+
+  Widget _lessonGuide() =>
+      Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text('${widget.lesson.level} • LESSON GUIDE',
+            style: const TextStyle(
+                color: blue,
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.5)),
+        const SizedBox(height: 10),
+        Text(widget.lesson.theoryTitle,
+            style: const TextStyle(
+                fontWeight: FontWeight.w900, fontSize: 28, height: 1.15)),
+        const SizedBox(height: 18),
+        Row(children: [
+          const AnimatedKristina(width: 90, height: 125),
+          const SizedBox(width: 14),
+          Expanded(
+              child: Text(widget.lesson.theoryBody,
+                  style: const TextStyle(
+                      color: Color(0xFFD0DEE5), fontSize: 16, height: 1.5)))
+        ]),
+        const SizedBox(height: 22),
+        ...widget.lesson.vocabulary.map((word) => Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+                border: Border.all(color: panel2, width: 2),
+                borderRadius: BorderRadius.circular(16)),
+            child: Row(children: [
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    Text(word[0],
+                        style: const TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.w900)),
+                    Text(word[1],
+                        style: const TextStyle(color: muted, fontSize: 13))
+                  ])),
+              Flexible(
+                  child: Text(word[2],
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFFD1E0E8)))),
+              SerbianAudioButton(
+                  text: word[0], asset: word.length > 4 ? word[4] : '')
+            ]))),
+        const SizedBox(height: 8),
+        const Text('AI-generated pronunciation • Tap a speaker to listen',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: muted, fontSize: 11)),
+      ]);
 
   Widget _choices(Question q) => Column(
           children: q.options.asMap().entries.map((entry) {
         final option = entry.value;
         final isSelected = selected == option;
         final reveal = checked && option == q.answer;
+        final wrongSelection = checked && isSelected && !reveal;
         return Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: GestureDetector(
@@ -1656,30 +1582,45 @@ class _LessonPageState extends State<LessonPage> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 14),
                     decoration: BoxDecoration(
-                        color: reveal
-                            ? const Color(0xFF2D5939)
-                            : isSelected
-                                ? const Color(0xFF304D5B)
-                                : panel,
+                        color: wrongSelection
+                            ? const Color(0xFF45262C)
+                            : reveal
+                                ? const Color(0xFF2D5939)
+                                : isSelected
+                                    ? const Color(0xFF304D5B)
+                                    : panel,
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                            color: reveal
-                                ? lime
-                                : isSelected
-                                    ? blue
-                                    : panel2,
-                            width: isSelected || reveal ? 2 : 1)),
+                            color: wrongSelection
+                                ? const Color(0xFFFF7279)
+                                : reveal
+                                    ? lime
+                                    : isSelected
+                                        ? blue
+                                        : panel2,
+                            width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                              color: reveal
+                                  ? lime.withValues(alpha: .4)
+                                  : isSelected
+                                      ? blue.withValues(alpha: .4)
+                                      : panel2,
+                              offset: const Offset(0, 3))
+                        ]),
                     child: Row(children: [
                       Container(
                           width: 28,
                           height: 28,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
-                              color: isSelected ? blue : panel2,
+                              color: Colors.transparent,
+                              border: Border.all(
+                                  color: isSelected ? blue : panel2, width: 2),
                               borderRadius: BorderRadius.circular(8)),
                           child: Text('${entry.key + 1}',
                               style: TextStyle(
-                                  color: isSelected ? bg : muted,
+                                  color: isSelected ? blue : muted,
                                   fontWeight: FontWeight.w900,
                                   fontSize: 12))),
                       const SizedBox(width: 13),
@@ -1707,7 +1648,11 @@ class _LessonPageState extends State<LessonPage> {
                       width: width,
                       height: 136,
                       decoration: BoxDecoration(
-                          color: reveal ? const Color(0xFF2D5939) : panel,
+                          color: reveal
+                              ? const Color(0xFF234830)
+                              : isSelected
+                                  ? const Color(0xFF163A4C)
+                                  : bg,
                           borderRadius: BorderRadius.circular(19),
                           border: Border.all(
                               color: reveal
@@ -1715,12 +1660,16 @@ class _LessonPageState extends State<LessonPage> {
                                   : isSelected
                                       ? blue
                                       : panel2,
-                              width: isSelected || reveal ? 3 : 1)),
+                              width: 2),
+                          boxShadow: [
+                            BoxShadow(
+                                color: isSelected ? blue : panel2,
+                                offset: const Offset(0, 4))
+                          ]),
                       child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(parts.first,
-                                style: const TextStyle(fontSize: 49)),
+                            LearningObject(name: option),
                             const SizedBox(height: 8),
                             Text(parts.skip(1).join(' '),
                                 style: const TextStyle(
@@ -1728,59 +1677,56 @@ class _LessonPageState extends State<LessonPage> {
                           ])));
             }).toList());
       });
+  Widget _wordTile(String word, VoidCallback? onTap) => Semantics(
+      button: true,
+      label: word,
+      child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
+              decoration: BoxDecoration(
+                  color: bg,
+                  borderRadius: BorderRadius.circular(11),
+                  border: Border.all(color: const Color(0xFF435761), width: 2),
+                  boxShadow: const [
+                    BoxShadow(color: Color(0xFF435761), offset: Offset(0, 3))
+                  ]),
+              child: Text(word,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w800, fontSize: 17)))));
+
   Widget _arrange(Question q) =>
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('BUILD THE SENTENCE',
-            style: TextStyle(
-                color: muted,
-                fontSize: 10,
-                letterSpacing: 1.3,
-                fontWeight: FontWeight.w900)),
-        const SizedBox(height: 8),
+      Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Container(
-            width: double.infinity,
-            constraints: const BoxConstraints(minHeight: 83),
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-                color: panel,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                    color: picked.isEmpty ? panel2 : blue, width: 2)),
-            child: picked.isEmpty
-                ? const Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text('Tap words below to build your answer',
-                        style: TextStyle(color: muted, fontSize: 13)))
-                : Wrap(
-                    spacing: 7,
-                    runSpacing: 7,
-                    children: picked
-                        .map((word) => ActionChip(
-                            onPressed: checked
-                                ? null
-                                : () => setState(() => picked.remove(word)),
-                            backgroundColor: panel2,
-                            side: const BorderSide(color: blue),
-                            label: Text(word,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w800))))
-                        .toList())),
-        const SizedBox(height: 22),
+            constraints: const BoxConstraints(minHeight: 105),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: const BoxDecoration(
+                border: Border(
+                    top: BorderSide(color: panel2, width: 2),
+                    bottom: BorderSide(color: panel2, width: 2))),
+            child: Wrap(
+                spacing: 8,
+                runSpacing: 10,
+                children: picked
+                    .map((word) => _wordTile(
+                        word,
+                        checked
+                            ? null
+                            : () => setState(() => picked.remove(word))))
+                    .toList())),
+        const SizedBox(height: 32),
         Wrap(
+            alignment: WrapAlignment.center,
             spacing: 9,
-            runSpacing: 9,
+            runSpacing: 13,
             children: q.options
-                .where((word) => !picked.contains(word))
-                .map((word) => ActionChip(
-                    onPressed:
-                        checked ? null : () => setState(() => picked.add(word)),
-                    backgroundColor: panel2,
-                    side: const BorderSide(color: Color(0xFF48616E)),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-                    label: Text(word,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w900, fontSize: 15))))
+                .map((word) => IgnorePointer(
+                    ignoring: checked || picked.contains(word),
+                    child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 150),
+                        opacity: picked.contains(word) ? 0.12 : 1.0,
+                        child: _wordTile(
+                            word, () => setState(() => picked.add(word))))))
                 .toList()),
       ]);
   Widget _typeAnswer(Question q) =>
@@ -1806,7 +1752,7 @@ class _LessonPageState extends State<LessonPage> {
                 fillColor: panel,
                 border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide.none),
+                    borderSide: const BorderSide(color: panel2, width: 2)),
                 focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
                     borderSide: const BorderSide(color: blue, width: 2)))),
@@ -1827,7 +1773,8 @@ class _LessonPageState extends State<LessonPage> {
               height: 250,
               decoration: BoxDecoration(
                   shape: BoxShape.circle, color: accent.withValues(alpha: .12)),
-              child: const SassyKristina(width: 220, height: 250)),
+              child: const SassyKristina(
+                  width: 220, height: 250, mood: 'celebrate')),
           const SizedBox(height: 17),
           Text(
               !passed
@@ -1906,7 +1853,8 @@ class _LessonPageState extends State<LessonPage> {
               color: color.withValues(alpha: .14),
               borderRadius: BorderRadius.circular(17)),
           child: Column(children: [
-            Text(icon, style: const TextStyle(fontSize: 27)),
+            Icon(icon == '⚡' ? Icons.bolt_rounded : Icons.check_circle_rounded,
+                color: color, size: 29),
             const SizedBox(height: 5),
             Text(number,
                 style: TextStyle(

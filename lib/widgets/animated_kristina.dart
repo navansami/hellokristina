@@ -1,0 +1,310 @@
+import 'dart:math' as math;
+import 'package:flutter/material.dart';
+
+/// An articulated, resolution-independent character, based on Kristina's reference.
+class AnimatedKristina extends StatefulWidget {
+  final double width, height;
+  final String mood;
+  const AnimatedKristina(
+      {super.key, this.width = 150, this.height = 220, this.mood = 'idle'});
+  @override
+  State<AnimatedKristina> createState() => _AnimatedKristinaState();
+}
+
+class _AnimatedKristinaState extends State<AnimatedKristina>
+    with TickerProviderStateMixin {
+  late final AnimationController idle = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 5200))
+    ..repeat();
+  late final AnimationController reaction = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 1150))
+    ..forward();
+  @override
+  void didUpdateWidget(covariant AnimatedKristina oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.mood != widget.mood) reaction.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    idle.dispose();
+    reaction.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduced = MediaQuery.disableAnimationsOf(context);
+    return Semantics(
+        label: 'Kristina, your Serbian tutor',
+        image: true,
+        child: RepaintBoundary(
+            child: SizedBox(
+                width: widget.width,
+                height: widget.height,
+                child: AnimatedBuilder(
+                    animation: Listenable.merge([idle, reaction]),
+                    builder: (_, __) => CustomPaint(
+                        painter: _KristinaPainter(reduced ? .3 : idle.value,
+                            reduced ? 1 : reaction.value, widget.mood))))));
+  }
+}
+
+class _KristinaPainter extends CustomPainter {
+  final double time, reaction;
+  final String mood;
+  _KristinaPainter(this.time, this.reaction, this.mood);
+  static const hair = Color(0xFF56372D),
+      skin = Color(0xFFFFBC9D),
+      shirt = Color(0xFFC43F72),
+      jeans = Color(0xFF3478C8);
+  final Paint p = Paint()..isAntiAlias = true;
+  void fill(Canvas c, Color color, void Function(Paint) draw) {
+    p
+      ..color = color
+      ..style = PaintingStyle.fill;
+    draw(p);
+  }
+
+  void oval(Canvas c, Rect r, Color color) =>
+      fill(c, color, (p) => c.drawOval(r, p));
+  void round(Canvas c, Rect r, double radius, Color color) => fill(
+      c,
+      color,
+      (p) =>
+          c.drawRRect(RRect.fromRectAndRadius(r, Radius.circular(radius)), p));
+  void stroke(Canvas c, Path path, Color color, double width) {
+    p
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = width
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    c.drawPath(path, p);
+    p.style = PaintingStyle.fill;
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scale = math.min(size.width / 200, size.height / 300);
+    canvas.translate(
+        (size.width - 200 * scale) / 2, (size.height - 300 * scale) / 2);
+    canvas.scale(scale);
+    final celebrate =
+        mood == 'correct' || mood == 'celebrate' || mood == 'happy';
+    final wrong = mood == 'wrong';
+    final pulse = math.sin(reaction * math.pi);
+    final breath = math.sin(time * math.pi * 2);
+    final jump = celebrate
+        ? -14 * math.sin(reaction * math.pi * 2).abs() * (1 - reaction)
+        : 0.0;
+    oval(
+        canvas,
+        Rect.fromCenter(center: const Offset(100, 287), width: 96, height: 12),
+        const Color(0x18000000));
+    canvas.save();
+    canvas.translate(0, jump);
+    // Hair behind body, separated from head so it swings subtly.
+    canvas.save();
+    canvas.translate(90, 100);
+    canvas.rotate(.025 * breath);
+    canvas.translate(-90, -100);
+    fill(
+        canvas,
+        hair,
+        (p) => canvas.drawPath(
+            Path()
+              ..moveTo(47, 47)
+              ..cubicTo(30, 86, 44, 121, 30, 151)
+              ..cubicTo(22, 172, 42, 184, 77, 176)
+              ..lineTo(145, 162)
+              ..lineTo(153, 65)
+              ..close(),
+            p));
+    canvas.restore();
+    // Legs and shoes.
+    stroke(
+        canvas,
+        Path()
+          ..moveTo(82, 201)
+          ..lineTo(74, 264),
+        jeans,
+        27);
+    stroke(
+        canvas,
+        Path()
+          ..moveTo(119, 201)
+          ..lineTo(126, 264),
+        const Color(0xFF2865B0),
+        27);
+    round(canvas, const Rect.fromLTWH(59, 258, 20, 19), 7, skin);
+    round(canvas, const Rect.fromLTWH(119, 258, 20, 19), 7, skin);
+    round(canvas, const Rect.fromLTWH(43, 271, 43, 15), 7,
+        const Color(0xFFFFF4DF));
+    round(canvas, const Rect.fromLTWH(117, 271, 43, 15), 7,
+        const Color(0xFFFFF4DF));
+    stroke(
+        canvas,
+        Path()
+          ..moveTo(62, 274)
+          ..lineTo(73, 274)
+          ..moveTo(133, 274)
+          ..lineTo(143, 274),
+        const Color(0xFFE2D5BD),
+        3);
+    // Independently articulated arms. Positive reaction raises both hands.
+    void arm(double x, double angle, bool left) {
+      canvas.save();
+      canvas.translate(x, 151 + breath);
+      canvas.rotate(angle);
+      stroke(
+          canvas,
+          Path()
+            ..moveTo(0, 0)
+            ..quadraticBezierTo(left ? -13 : 13, 23, 0, 43),
+          shirt,
+          22);
+      oval(canvas, const Rect.fromLTWH(-10, 34, 21, 25), skin);
+      stroke(
+          canvas,
+          Path()
+            ..moveTo(3, 45)
+            ..lineTo(8, 37),
+          const Color(0xFFE99A7C),
+          2);
+      canvas.restore();
+    }
+
+    arm(
+        65,
+        celebrate
+            ? .9 + pulse * .9
+            : wrong
+                ? -.45
+                : -.22 + breath * .05,
+        true);
+    arm(
+        136,
+        celebrate
+            ? -.9 - pulse * .9
+            : wrong
+                ? .5
+                : -2.1 + math.sin(time * math.pi * 4) * .14,
+        false);
+    // Magenta turtleneck.
+    round(canvas, Rect.fromLTWH(61, 133 + breath, 79, 79), 20, shirt);
+    round(canvas, Rect.fromLTWH(82, 120 + breath, 40, 28), 9,
+        const Color(0xFFB63466));
+    // Head pivots, rather than translating a flat picture.
+    canvas.save();
+    canvas.translate(102, 93 + breath);
+    canvas.rotate(wrong ? -.1 : .025 * breath + (celebrate ? .04 * pulse : 0));
+    canvas.translate(-102, -93);
+    oval(canvas, const Rect.fromLTWH(29, 72, 30, 30), skin);
+    oval(canvas, const Rect.fromLTWH(143, 72, 29, 30), skin);
+    round(canvas, const Rect.fromLTWH(47, 33, 109, 100), 34, skin);
+    fill(
+        canvas,
+        hair,
+        (p) => canvas.drawPath(
+            Path()
+              ..moveTo(44, 80)
+              ..cubicTo(25, 21, 70, 14, 103, 15)
+              ..cubicTo(125, 10, 139, 27, 132, 41)
+              ..cubicTo(163, 35, 163, 64, 153, 79)
+              ..lineTo(146, 61)
+              ..cubicTo(118, 65, 106, 54, 105, 44)
+              ..cubicTo(94, 66, 65, 51, 52, 76)
+              ..close(),
+            p));
+    // Eyelids blink twice per idle cycle; eyes track gently.
+    final blink = (time > .72 && time < .75) || (time > .79 && time < .805);
+    final eyeHeight = blink
+        ? 3.0
+        : wrong
+            ? 24.0
+            : 33.0;
+    oval(
+        canvas,
+        Rect.fromCenter(
+            center: const Offset(81, 81), width: 25, height: eyeHeight),
+        Colors.white);
+    oval(
+        canvas,
+        Rect.fromCenter(
+            center: const Offset(119, 81), width: 25, height: eyeHeight),
+        Colors.white);
+    if (!blink) {
+      final look = math.sin(time * math.pi * 2) * 1.5;
+      oval(canvas, Rect.fromLTWH(81 + look, 70, 12, 22),
+          const Color(0xFF82400F));
+      oval(canvas, Rect.fromLTWH(119 + look, 70, 12, 22),
+          const Color(0xFF82400F));
+      oval(canvas, Rect.fromLTWH(82 + look, 70, 5, 7), Colors.white);
+      oval(canvas, Rect.fromLTWH(120 + look, 70, 5, 7), Colors.white);
+    }
+    stroke(
+        canvas,
+        Path()
+          ..moveTo(69, 59)
+          ..quadraticBezierTo(78, wrong ? 53 : 49, 88, 55),
+        hair,
+        5);
+    stroke(
+        canvas,
+        Path()
+          ..moveTo(108, 54)
+          ..quadraticBezierTo(119, wrong ? 42 : 48, 130, 54),
+        hair,
+        5);
+    oval(canvas, const Rect.fromLTWH(95, 88, 12, 15), const Color(0xFFED9674));
+    for (final point in [
+      const Offset(65, 98),
+      const Offset(74, 103),
+      const Offset(62, 107),
+      const Offset(132, 99),
+      const Offset(139, 104),
+      const Offset(130, 108)
+    ]) {
+      oval(canvas, Rect.fromCircle(center: point, radius: 2.4),
+          const Color(0xFFD78C71));
+    }
+    if (celebrate) {
+      round(canvas, const Rect.fromLTWH(87, 108, 29, 15), 8,
+          const Color(0xFF843F37));
+      round(canvas, const Rect.fromLTWH(91, 108, 21, 5), 2, Colors.white);
+    } else {
+      stroke(
+          canvas,
+          Path()
+            ..moveTo(87, 110)
+            ..quadraticBezierTo(99, wrong ? 104 : 123, 113, 110),
+          const Color(0xFFD77D59),
+          5);
+    }
+    canvas.restore();
+    canvas.restore();
+    // A short celebratory burst, only on answer feedback.
+    if (celebrate && reaction < .95) {
+      for (int i = 0; i < 9; i++) {
+        final angle = i * math.pi * 2 / 9;
+        final radius = 45 + reaction * 55;
+        final pos = Offset(
+            100 + math.cos(angle) * radius, 105 + math.sin(angle) * radius);
+        oval(
+            canvas,
+            Rect.fromCenter(center: pos, width: 5, height: 9),
+            [
+              const Color(0xFFFFC84A),
+              const Color(0xFF58CC02),
+              const Color(0xFF55C8F5)
+            ][i % 3]
+                .withValues(alpha: 1 - reaction));
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _KristinaPainter old) =>
+      old.time != time || old.reaction != reaction || old.mood != mood;
+}

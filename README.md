@@ -30,3 +30,7 @@ Audio references live in both copies of the course JSON. Run `node scripts/valid
 ## Other implemented features
 
 The app has the Kristina mascot, a challenge path, word bank, 30-letter Cyrillic reference, XP and streaks, default avatar and customization, accounts with seven-day remember-me tokens, MongoDB progress, friends and likes, text AI chat, and admin AI draft generation. Course review suggestions use a Bayesian knowledge-tracing estimate, not a trained ML model. Cloudinary upload signing is available to admins; media management and voice practice are not yet in the learner app. Keep service secrets in Vercel environment variables, never in Flutter `--dart-define`.
+
+## Visual design and animation
+
+The exercise layout follows the supplied mobile references: a compact progress bar, character beside the prompt, outlined answer tiles, raised sentence tiles and buttons, and contextual feedback footer. Kristina is drawn as an articulated Flutter vector character in `lib/widgets/animated_kristina.dart`, with blinking, eye movement, head and arm gestures, correct/wrong expressions, and a brief celebration. It honors the device's reduced-motion preference. `learning_object.dart` supplies consistent illustrations for image questions, and `tactile_button.dart` provides the shared pressed button treatment.

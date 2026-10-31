@@ -20,6 +20,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - assets/flags/serbia.jpg
     - assets/kristina.jpg
     - assets/kristina-pose.png
     - assets/course/serbian-en.v1.json

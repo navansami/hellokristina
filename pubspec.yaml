@@ -16,3 +16,4 @@ flutter:
   assets:
     - assets/kristina.jpg
     - assets/kristina-pose.png
+    - assets/course/serbian-en.v1.json

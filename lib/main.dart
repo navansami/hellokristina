@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -36,8 +37,15 @@ void main() {
 class Lesson {
   final String id, title, subtitle, icon, color;
   final List<Question> questions;
-  const Lesson(this.id, this.title, this.subtitle, this.icon, this.color,
-      this.questions);
+  final String theoryTitle, theoryBody, unitTitle, level;
+  final List<List<String>> vocabulary;
+  const Lesson(
+      this.id, this.title, this.subtitle, this.icon, this.color, this.questions,
+      {this.theoryTitle = '',
+      this.theoryBody = '',
+      this.unitTitle = '',
+      this.level = 'A1',
+      this.vocabulary = const []});
 }
 
 class Question {
@@ -47,7 +55,7 @@ class Question {
       this.type, this.prompt, this.answer, this.options, this.detail);
 }
 
-const lessons = <Lesson>[
+var lessons = <Lesson>[
   Lesson('hello', 'Say hello', 'Start with the essentials', '👋', 'green', [
     Question(
         'Choose the meaning',
@@ -158,7 +166,7 @@ const lessons = <Lesson>[
         ['sestra', 'Moj', 'Moja', 'brat'], 'Sestra is feminine, so use moja.'),
   ]),
 ];
-const words = <List<String>>[
+var words = <List<String>>[
   ['Zdravo', 'Здраво', 'Hello', 'zdrah-voh'],
   ['Hvala', 'Хвала', 'Thank you', 'hvah-lah'],
   ['Molim', 'Молим', 'Please', 'moh-leem'],
@@ -177,7 +185,7 @@ const words = <List<String>>[
   ['Brat', 'Брат', 'Brother', 'braht'],
   ['Sestra', 'Сестра', 'Sister', 'ses-trah'],
 ];
-const wordLesson = <String>[
+var wordLesson = <String>[
   'hello',
   'hello',
   'polite',
@@ -229,6 +237,54 @@ const letters = <List<String>>[
   ['Ш', 'Š', 'sh'],
 ];
 
+void applyCourse(Map<String, dynamic> course) {
+  if (course['schemaVersion'] != 1 || course['status'] != 'published') return;
+  final units = (course['units'] as List).cast<Map<String, dynamic>>();
+  final parsed = <Lesson>[];
+  final parsedWords = <List<String>>[];
+  final lessonWords = <String>[];
+  for (final unit in units) {
+    for (final data in (unit['lessons'] as List).cast<Map<String, dynamic>>()) {
+      final vocabulary = (data['vocabulary'] as List).map((raw) {
+        final entry = raw as Map<String, dynamic>;
+        return [
+          entry['latin'],
+          entry['cyrillic'],
+          entry['english'],
+          entry['pronunciation']
+        ].cast<String>();
+      }).toList();
+      parsed.add(Lesson(
+          data['id'],
+          data['title'],
+          data['subtitle'],
+          data['icon'],
+          data['color'],
+          (data['challenges'] as List).map((raw) {
+            final item = raw as Map<String, dynamic>;
+            return Question(item['type'], item['prompt'], item['answer'],
+                (item['options'] as List).cast<String>(), item['explanation']);
+          }).toList(),
+          theoryTitle: data['theory']['title'],
+          theoryBody: data['theory']['body'],
+          unitTitle: unit['title'],
+          level: unit['level'],
+          vocabulary: vocabulary));
+      for (final word in vocabulary) {
+        if (parsedWords.any(
+            (existing) => existing[0].toLowerCase() == word[0].toLowerCase()))
+          continue;
+        parsedWords.add(word);
+        lessonWords.add(data['id']);
+      }
+    }
+  }
+  if (parsed.isEmpty) return;
+  lessons = parsed;
+  words = parsedWords;
+  wordLesson = lessonWords;
+}
+
 class KristinaApp extends StatefulWidget {
   const KristinaApp({super.key});
   @override
@@ -252,6 +308,11 @@ class _KristinaAppState extends State<KristinaApp> {
   }
 
   Future<void> _load() async {
+    try {
+      final bundled =
+          await rootBundle.loadString('assets/course/serbian-en.v1.json');
+      applyCourse(jsonDecode(bundled) as Map<String, dynamic>);
+    } catch (_) {}
     final p = await SharedPreferences.getInstance();
     setState(() {
       done = (p.getStringList('done') ?? []).toSet();
@@ -263,6 +324,13 @@ class _KristinaAppState extends State<KristinaApp> {
       avatarColor = Color(p.getInt('avatarColor') ?? purple.toARGB32());
       loading = false;
     });
+    try {
+      final response = await http.get(api('/api/course/catalog'));
+      if (response.statusCode == 200 && mounted) {
+        setState(() => applyCourse(
+            (jsonDecode(response.body) as Map<String, dynamic>)['course']));
+      }
+    } catch (_) {}
     if (token != null) {
       try {
         final r = await http.get(api('/api/auth/me'),
@@ -339,10 +407,10 @@ class _KristinaAppState extends State<KristinaApp> {
             },
             body: jsonEncode({
               'lessonId': lesson.id,
+              'courseId': 'serbian-en',
               'score': 10 + correct * 5,
               'answers': answers,
-              'words':
-                  lesson.id == 'hello' ? ['Zdravo', 'Hvala', 'Dobar dan'] : []
+              'words': lesson.vocabulary.map((word) => word[0]).toList()
             }));
         if (response.statusCode == 200) {
           final me = await http.get(api('/api/auth/me'),
@@ -673,6 +741,14 @@ class PathPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final next = lessons.indexWhere((l) => !done.contains(l.id));
     final nextLesson = next < 0 ? lessons.last : lessons[next];
+    final completedCount =
+        lessons.where((lesson) => done.contains(lesson.id)).length;
+    final section = lessons
+            .take(lessons.indexOf(nextLesson))
+            .map((lesson) => lesson.unitTitle)
+            .toSet()
+            .length +
+        1;
     return ListView(
         padding: const EdgeInsets.fromLTRB(20, 14, 20, 34),
         children: [
@@ -758,21 +834,25 @@ class PathPage extends StatelessWidget {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      const Text('SECTION 1  ·  A1',
+                                      Text(
+                                          'SECTION $section  ·  ${nextLesson.level}',
                                           style: TextStyle(
                                               color: Color(0xFFE8DCFF),
                                               fontWeight: FontWeight.w900,
                                               letterSpacing: 1.5,
                                               fontSize: 10)),
                                       const SizedBox(height: 6),
-                                      const Text('First words,\nbig energy',
+                                      Text(
+                                          nextLesson.unitTitle.isEmpty
+                                              ? 'First words,\nbig energy'
+                                              : nextLesson.unitTitle,
                                           style: TextStyle(
                                               fontSize: 25,
                                               fontWeight: FontWeight.w900,
                                               height: 1.05)),
                                       const Spacer(),
                                       Text(
-                                          '${done.length} of ${lessons.length} lessons complete',
+                                          '$completedCount of ${lessons.length} lessons complete',
                                           style: const TextStyle(
                                               color: Color(0xFFE9DDFF),
                                               fontWeight: FontWeight.w800,
@@ -782,8 +862,8 @@ class PathPage extends StatelessWidget {
                                           borderRadius:
                                               BorderRadius.circular(6),
                                           child: LinearProgressIndicator(
-                                              value:
-                                                  done.length / lessons.length,
+                                              value: completedCount /
+                                                  lessons.length,
                                               minHeight: 8,
                                               backgroundColor: Colors.white
                                                   .withValues(alpha: .25),
@@ -831,14 +911,17 @@ class PathPage extends StatelessWidget {
                       ],
                       const SizedBox(height: 27),
                       Row(children: [
-                        const Expanded(
-                            child: Text('THE BASICS',
+                        Expanded(
+                            child: Text(
+                                nextLesson.unitTitle.isEmpty
+                                    ? 'THE BASICS'
+                                    : nextLesson.unitTitle.toUpperCase(),
                                 style: TextStyle(
                                     color: lime,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w900,
                                     letterSpacing: 1.7))),
-                        Text('${done.length}/${lessons.length}',
+                        Text('$completedCount/${lessons.length}',
                             style: const TextStyle(
                                 color: muted,
                                 fontWeight: FontWeight.w900,
@@ -855,7 +938,8 @@ class PathPage extends StatelessWidget {
                             return Stack(children: [
                               Positioned.fill(
                                   child: CustomPaint(
-                                      painter: _PathLinePainter(done.length))),
+                                      painter:
+                                          _PathLinePainter(completedCount))),
                               ...lessons.asMap().entries.map((e) {
                                 final i = e.key, l = e.value;
                                 final completed = done.contains(l.id);
@@ -863,7 +947,7 @@ class PathPage extends StatelessWidget {
                                     i > 0 && !done.contains(lessons[i - 1].id);
                                 final active = i == next;
                                 final shift =
-                                    [0.0, 74.0, 90.0, 0.0, -90.0, -74.0][i];
+                                    [0.0, 74.0, 90.0, 0.0, -90.0, -74.0][i % 6];
                                 return Positioned(
                                     top: i * 128.0 + 5,
                                     left: center + shift - 60,
@@ -1028,8 +1112,8 @@ class _PathLinePainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
     for (int i = 0; i < lessons.length - 1; i++) {
-      final a = Offset(center + shifts[i], i * 128.0 + 43);
-      final b = Offset(center + shifts[i + 1], (i + 1) * 128.0 + 43);
+      final a = Offset(center + shifts[i % 6], i * 128.0 + 43);
+      final b = Offset(center + shifts[(i + 1) % 6], (i + 1) * 128.0 + 43);
       final path = Path()
         ..moveTo(a.dx, a.dy)
         ..cubicTo(a.dx, a.dy + 58, b.dx, b.dy - 58, b.dx, b.dy);
@@ -1065,6 +1149,7 @@ class _LessonPageState extends State<LessonPage> {
   final TextEditingController typed = TextEditingController();
   String? selected;
   bool checked = false,
+      showTheory = true,
       finished = false,
       submitting = false,
       lastCorrect = false;
@@ -1166,82 +1251,148 @@ class _LessonPageState extends State<LessonPage> {
                       Expanded(
                           child: finished
                               ? _complete(accent)
-                              : SingleChildScrollView(
-                                  key: ValueKey(index),
-                                  padding:
-                                      const EdgeInsets.fromLTRB(23, 22, 23, 18),
-                                  child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Row(children: [
-                                          Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 10,
-                                                      vertical: 7),
-                                              decoration: BoxDecoration(
-                                                  color: accent.withValues(
-                                                      alpha: .16),
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                          10)),
-                                              child: Text(q.type.toUpperCase(),
-                                                  style: TextStyle(
-                                                      color: accent,
-                                                      fontSize: 10,
-                                                      letterSpacing: 1.3,
-                                                      fontWeight:
-                                                          FontWeight.w900))),
-                                          const Spacer(),
-                                          Text(widget.lesson.title,
-                                              style: const TextStyle(
-                                                  color: muted,
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w800)),
-                                        ]),
-                                        const SizedBox(height: 22),
-                                        Text(q.prompt,
-                                            style: const TextStyle(
-                                                fontSize: 27,
-                                                height: 1.15,
-                                                fontWeight: FontWeight.w900)),
-                                        const SizedBox(height: 20),
-                                        Row(children: [
-                                          const Kristina(size: 54),
-                                          const SizedBox(width: 10),
-                                          Expanded(
-                                              child: Container(
+                              : showTheory &&
+                                      widget.lesson.theoryBody.isNotEmpty
+                                  ? SingleChildScrollView(
+                                      padding: const EdgeInsets.all(24),
+                                      child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                                '${widget.lesson.level} · ${widget.lesson.unitTitle}'
+                                                    .toUpperCase(),
+                                                style: const TextStyle(
+                                                    color: lime,
+                                                    fontWeight: FontWeight.w900,
+                                                    letterSpacing: 1.2)),
+                                            const SizedBox(height: 18),
+                                            Text(widget.lesson.theoryTitle,
+                                                style: const TextStyle(
+                                                    fontSize: 28,
+                                                    fontWeight:
+                                                        FontWeight.w900)),
+                                            const SizedBox(height: 14),
+                                            Text(widget.lesson.theoryBody,
+                                                style: const TextStyle(
+                                                    fontSize: 17, height: 1.5)),
+                                            const SizedBox(height: 26),
+                                            ...widget.lesson.vocabulary.map(
+                                                (word) => Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                            bottom: 10),
+                                                    child: KCard(
+                                                        child: Row(children: [
+                                                      Expanded(
+                                                          child: Column(
+                                                              crossAxisAlignment:
+                                                                  CrossAxisAlignment
+                                                                      .start,
+                                                              children: [
+                                                            Text(word[0],
+                                                                style: const TextStyle(
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w900,
+                                                                    fontSize:
+                                                                        18)),
+                                                            Text(word[1],
+                                                                style: const TextStyle(
+                                                                    color:
+                                                                        muted))
+                                                          ])),
+                                                      Text(word[2],
+                                                          style: const TextStyle(
+                                                              color: lime,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w800))
+                                                    ]))))
+                                          ]))
+                                  : SingleChildScrollView(
+                                      key: ValueKey(index),
+                                      padding: const EdgeInsets.fromLTRB(
+                                          23, 22, 23, 18),
+                                      child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Row(children: [
+                                              Container(
                                                   padding: const EdgeInsets
                                                       .symmetric(
-                                                      horizontal: 14,
-                                                      vertical: 11),
+                                                      horizontal: 10,
+                                                      vertical: 7),
                                                   decoration: BoxDecoration(
-                                                      color: panel2,
+                                                      color: accent.withValues(
+                                                          alpha: .16),
                                                       borderRadius:
                                                           BorderRadius.circular(
-                                                              16)),
+                                                              10)),
                                                   child: Text(
-                                                      checked
-                                                          ? (lastCorrect
-                                                              ? 'That’s the stuff. Keep going! ✨'
-                                                              : 'Close! Here’s the answer. We’ll get it. 😏')
-                                                          : 'Your turn, superstar.',
-                                                      style: const TextStyle(
-                                                          fontSize: 13,
+                                                      q.type.toUpperCase(),
+                                                      style: TextStyle(
+                                                          color: accent,
+                                                          fontSize: 10,
+                                                          letterSpacing: 1.3,
                                                           fontWeight: FontWeight
-                                                              .w800)))),
-                                        ]),
-                                        const SizedBox(height: 26),
-                                        if (q.type == 'Arrange the words')
-                                          _arrange(q)
-                                        else if (q.type == 'Type the answer')
-                                          _typeAnswer(q)
-                                        else if (q.type == 'Choose the image')
-                                          _images(q)
-                                        else
-                                          _choices(q),
-                                      ]))),
+                                                              .w900))),
+                                              const Spacer(),
+                                              Text(widget.lesson.title,
+                                                  style: const TextStyle(
+                                                      color: muted,
+                                                      fontSize: 11,
+                                                      fontWeight:
+                                                          FontWeight.w800)),
+                                            ]),
+                                            const SizedBox(height: 22),
+                                            Text(q.prompt,
+                                                style: const TextStyle(
+                                                    fontSize: 27,
+                                                    height: 1.15,
+                                                    fontWeight:
+                                                        FontWeight.w900)),
+                                            const SizedBox(height: 20),
+                                            Row(children: [
+                                              const Kristina(size: 54),
+                                              const SizedBox(width: 10),
+                                              Expanded(
+                                                  child: Container(
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                          horizontal: 14,
+                                                          vertical: 11),
+                                                      decoration: BoxDecoration(
+                                                          color: panel2,
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(
+                                                                      16)),
+                                                      child: Text(
+                                                          checked
+                                                              ? (lastCorrect
+                                                                  ? 'That’s the stuff. Keep going! ✨'
+                                                                  : 'Close! Here’s the answer. We’ll get it. 😏')
+                                                              : 'Your turn, superstar.',
+                                                          style: const TextStyle(
+                                                              fontSize: 13,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w800)))),
+                                            ]),
+                                            const SizedBox(height: 26),
+                                            if (q.type == 'Arrange the words')
+                                              _arrange(q)
+                                            else if (q.type ==
+                                                'Type the answer')
+                                              _typeAnswer(q)
+                                            else if (q.type ==
+                                                'Choose the image')
+                                              _images(q)
+                                            else
+                                              _choices(q),
+                                          ]))),
                       if (!finished)
                         Container(
                             width: double.infinity,
@@ -1252,7 +1403,7 @@ class _LessonPageState extends State<LessonPage> {
                             child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  if (checked) ...[
+                                  if (!showTheory && checked) ...[
                                     Row(children: [
                                       Icon(
                                           lastCorrect
@@ -1276,13 +1427,21 @@ class _LessonPageState extends State<LessonPage> {
                                     const SizedBox(height: 12),
                                   ],
                                   KButton(
-                                      text: submitting
-                                          ? 'SAVING...'
-                                          : checked
-                                              ? 'CONTINUE'
-                                              : 'CHECK ANSWER',
-                                      onTap:
-                                          (checked || canCheck) && !submitting
+                                      text: showTheory &&
+                                              widget
+                                                  .lesson.theoryBody.isNotEmpty
+                                          ? 'START CHALLENGE'
+                                          : submitting
+                                              ? 'SAVING...'
+                                              : checked
+                                                  ? 'CONTINUE'
+                                                  : 'CHECK ANSWER',
+                                      onTap: showTheory &&
+                                              widget
+                                                  .lesson.theoryBody.isNotEmpty
+                                          ? () =>
+                                              setState(() => showTheory = false)
+                                          : (checked || canCheck) && !submitting
                                               ? _advance
                                               : null,
                                       color: checked && !lastCorrect
@@ -2394,8 +2553,78 @@ class AdminPage extends StatefulWidget {
 
 class _AdminPageState extends State<AdminPage> {
   final topic = TextEditingController(), objectives = TextEditingController();
-  String level = 'A1', result = '';
-  bool loading = false;
+  final courseJson = TextEditingController();
+  String level = 'A1', result = '', courseMessage = '';
+  bool loading = false, courseBusy = false, reviewed = false;
+
+  @override
+  void dispose() {
+    topic.dispose();
+    objectives.dispose();
+    courseJson.dispose();
+    super.dispose();
+  }
+
+  Future<void> loadCourse() async {
+    setState(() => courseBusy = true);
+    try {
+      final r = await http.get(api('/api/course/catalog'));
+      final body = jsonDecode(r.body);
+      if (r.statusCode != 200)
+        throw Exception(body['error'] ?? 'Could not load course');
+      courseJson.text =
+          const JsonEncoder.withIndent('  ').convert(body['course']);
+      setState(() => courseMessage =
+          'Published course loaded. Edit the JSON, then save a draft.');
+    } catch (e) {
+      setState(() => courseMessage = '$e');
+    } finally {
+      setState(() => courseBusy = false);
+    }
+  }
+
+  Future<void> saveCourse({required bool publish}) async {
+    setState(() => courseBusy = true);
+    try {
+      final raw = jsonDecode(courseJson.text) as Map<String, dynamic>;
+      final r = await http.post(api('/api/admin/courses'),
+          headers: {
+            'Authorization': 'Bearer ${widget.token}',
+            'Content-Type': 'application/json'
+          },
+          body: jsonEncode({'course': raw}));
+      final body = jsonDecode(r.body);
+      if (r.statusCode != 200)
+        throw Exception(body['error'] ?? 'Draft failed validation');
+      if (publish) {
+        if (!reviewed)
+          throw Exception(
+              'Review the Serbian content and check the confirmation first.');
+        final response = await http.patch(api('/api/admin/courses'),
+            headers: {
+              'Authorization': 'Bearer ${widget.token}',
+              'Content-Type': 'application/json'
+            },
+            body: jsonEncode({'id': raw['id'], 'reviewed': true}));
+        final published = jsonDecode(response.body);
+        if (response.statusCode != 200)
+          throw Exception(published['error'] ?? 'Publish failed');
+        setState(() {
+          courseMessage =
+              'Published version ${published['course']['version']}. Learners will see it after refresh.';
+          reviewed = false;
+        });
+      } else {
+        setState(() =>
+            courseMessage = 'Draft saved. It is not visible to learners.');
+      }
+    } catch (e) {
+      setState(() => courseMessage = '$e');
+    } finally {
+      setState(() => courseBusy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
       appBar: AppBar(title: const Text('Course studio'), backgroundColor: bg),
@@ -2452,6 +2681,47 @@ class _AdminPageState extends State<AdminPage> {
                               setState(() => loading = false);
                             }
                           }),
+                const SizedBox(height: 26),
+                const PageHead(
+                    eyebrow: 'Course publishing',
+                    title: 'Review the course',
+                    subtitle:
+                        'Edit the versioned JSON. Publishing requires a human content review.'),
+                const SizedBox(height: 12),
+                KButton(
+                    text: courseBusy ? 'WORKING...' : 'LOAD PUBLISHED COURSE',
+                    onTap: courseBusy ? null : loadCourse),
+                const SizedBox(height: 12),
+                TextField(
+                    controller: courseJson,
+                    minLines: 8,
+                    maxLines: 16,
+                    style:
+                        const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                    decoration: _input('Course JSON')),
+                const SizedBox(height: 12),
+                KButton(
+                    text: 'SAVE DRAFT',
+                    onTap: courseBusy ? null : () => saveCourse(publish: false),
+                    color: blue),
+                CheckboxListTile(
+                    value: reviewed,
+                    onChanged: (value) =>
+                        setState(() => reviewed = value ?? false),
+                    title: const Text(
+                        'I reviewed the Serbian content and answer keys'),
+                    controlAffinity: ListTileControlAffinity.leading),
+                KButton(
+                    text: 'PUBLISH REVIEWED COURSE',
+                    onTap: courseBusy || !reviewed
+                        ? null
+                        : () => saveCourse(publish: true),
+                    color: lime),
+                if (courseMessage.isNotEmpty)
+                  Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Text(courseMessage,
+                          style: const TextStyle(color: muted))),
                 const SizedBox(height: 20),
                 if (result.isNotEmpty)
                   KCard(

@@ -1,0 +1,1062 @@
+{
+  "schemaVersion": 1,
+  "id": "serbian-en",
+  "title": "Serbian for English speakers",
+  "sourceLanguage": "en",
+  "targetLanguage": "sr",
+  "version": 1,
+  "status": "published",
+  "contentStage": "A1 foundation — units 1 and 2 of a planned full course",
+  "sources": [
+    "https://www.coe.int/en/web/portfolio/the-common-european-framework-of-reference-for-languages-learning-teaching-assessment-cefr-",
+    "https://learnserbian.fil.bg.ac.rs/programs.php",
+    "https://en.filfak.ni.ac.rs/en/serbian-language-courses"
+  ],
+  "units": [
+    {
+      "id": "a1-first-conversations",
+      "level": "A1",
+      "title": "First conversations",
+      "subtitle": "Greet, introduce yourself, and read familiar words",
+      "outcomes": [
+        "Greet and thank someone",
+        "Introduce yourself and ask a name",
+        "Read familiar words in both Serbian scripts"
+      ],
+      "lessons": [
+        {
+          "id": "hello",
+          "title": "Say hello",
+          "subtitle": "Greet someone with confidence",
+          "icon": "👋",
+          "color": "green",
+          "type": "challenge",
+          "theory": {
+            "title": "Two ways to write Serbian",
+            "body": "Serbian is written in Latin and Cyrillic. Zdravo and Здраво sound the same and both mean hello."
+          },
+          "vocabulary": [
+            {
+              "latin": "Zdravo",
+              "cyrillic": "Здраво",
+              "english": "Hello",
+              "pronunciation": "zdrah-voh"
+            },
+            {
+              "latin": "Hvala",
+              "cyrillic": "Хвала",
+              "english": "Thank you",
+              "pronunciation": "hvah-lah"
+            },
+            {
+              "latin": "Dobar dan",
+              "cyrillic": "Добар дан",
+              "english": "Good day",
+              "pronunciation": "doh-bar dahn"
+            }
+          ],
+          "challenges": [
+            {
+              "id": "hello-1",
+              "type": "Choose the meaning",
+              "prompt": "What does “Zdravo” mean?",
+              "answer": "Hello",
+              "options": [
+                "Goodbye",
+                "Please",
+                "Hello",
+                "Thanks"
+              ],
+              "explanation": "Zdravo (Здраво) is an everyday hello."
+            },
+            {
+              "id": "hello-2",
+              "type": "Translate to Serbian",
+              "prompt": "Hello",
+              "answer": "Zdravo",
+              "options": [
+                "Hvala",
+                "Zdravo",
+                "Da",
+                "Ne"
+              ],
+              "explanation": "Use Zdravo with friends or people you meet."
+            },
+            {
+              "id": "hello-3",
+              "type": "Choose the meaning",
+              "prompt": "What does “Hvala” mean?",
+              "answer": "Thank you",
+              "options": [
+                "Thank you",
+                "Good night",
+                "Sorry",
+                "Hello"
+              ],
+              "explanation": "Hvala (Хвала) means thank you."
+            },
+            {
+              "id": "hello-4",
+              "type": "Arrange the words",
+              "prompt": "Good day",
+              "answer": "Dobar dan",
+              "options": [
+                "dan",
+                "Dobar",
+                "noć",
+                "Hvala"
+              ],
+              "explanation": "Dobar dan is a polite daytime greeting."
+            }
+          ]
+        },
+        {
+          "id": "introductions",
+          "title": "Meet & greet",
+          "subtitle": "Say who you are",
+          "icon": "💬",
+          "color": "blue",
+          "type": "challenge",
+          "theory": {
+            "title": "Introduce yourself",
+            "body": "Ja sam means “I am.” Zovem se means “my name is.” In Cyrillic these are Ја сам and Зовем се."
+          },
+          "vocabulary": [
+            {
+              "latin": "Ja sam",
+              "cyrillic": "Ја сам",
+              "english": "I am",
+              "pronunciation": "yah sahm"
+            },
+            {
+              "latin": "Zovem se",
+              "cyrillic": "Зовем се",
+              "english": "My name is",
+              "pronunciation": "zoh-vem seh"
+            },
+            {
+              "latin": "Kako se zoveš?",
+              "cyrillic": "Како се зовеш?",
+              "english": "What is your name?",
+              "pronunciation": "kah-koh seh zoh-vesh"
+            }
+          ],
+          "challenges": [
+            {
+              "id": "introductions-1",
+              "type": "Choose the meaning",
+              "prompt": "Ja sam Kristina.",
+              "answer": "I am Kristina.",
+              "options": [
+                "I am Kristina.",
+                "You are Kristina.",
+                "Hello Kristina.",
+                "Where is Kristina?"
+              ],
+              "explanation": "Ja sam means I am."
+            },
+            {
+              "id": "introductions-2",
+              "type": "Arrange the words",
+              "prompt": "My name is Ana.",
+              "answer": "Zovem se Ana",
+              "options": [
+                "Ana",
+                "se",
+                "Zovem",
+                "Ja",
+                "sam"
+              ],
+              "explanation": "Zovem se is a natural way to give your name."
+            },
+            {
+              "id": "introductions-3",
+              "type": "Choose the meaning",
+              "prompt": "Kako se zoveš?",
+              "answer": "What is your name?",
+              "options": [
+                "How are you?",
+                "What is your name?",
+                "Where are you?",
+                "Who is that?"
+              ],
+              "explanation": "Use this informal question to ask a name."
+            },
+            {
+              "id": "introductions-4",
+              "type": "Type the answer",
+              "prompt": "Write “I am” in Serbian",
+              "answer": "Ja sam",
+              "options": [],
+              "explanation": "Ja sam is written Ја сам in Cyrillic."
+            }
+          ]
+        },
+        {
+          "id": "polite",
+          "title": "Be polite",
+          "subtitle": "Please, thanks, and sorry",
+          "icon": "✨",
+          "color": "pink",
+          "type": "challenge",
+          "theory": {
+            "title": "Small words, big impact",
+            "body": "Molim means “please” and can also mean “you are welcome.” Izvini is an informal “sorry” or “excuse me.”"
+          },
+          "vocabulary": [
+            {
+              "latin": "Molim",
+              "cyrillic": "Молим",
+              "english": "Please",
+              "pronunciation": "moh-leem"
+            },
+            {
+              "latin": "Izvini",
+              "cyrillic": "Извини",
+              "english": "Sorry",
+              "pronunciation": "eez-vee-nee"
+            },
+            {
+              "latin": "Da",
+              "cyrillic": "Да",
+              "english": "Yes",
+              "pronunciation": "dah"
+            },
+            {
+              "latin": "Ne",
+              "cyrillic": "Не",
+              "english": "No",
+              "pronunciation": "neh"
+            }
+          ],
+          "challenges": [
+            {
+              "id": "polite-1",
+              "type": "Translate to Serbian",
+              "prompt": "Please",
+              "answer": "Molim",
+              "options": [
+                "Izvini",
+                "Molim",
+                "Hvala",
+                "Ćao"
+              ],
+              "explanation": "Molim is a useful polite word."
+            },
+            {
+              "id": "polite-2",
+              "type": "Choose the meaning",
+              "prompt": "Izvini",
+              "answer": "Sorry",
+              "options": [
+                "Please",
+                "Goodbye",
+                "Sorry",
+                "Yes"
+              ],
+              "explanation": "Izvini is informal. Izvinite is the polite form."
+            },
+            {
+              "id": "polite-3",
+              "type": "Type the answer",
+              "prompt": "Write “thank you” in Serbian",
+              "answer": "Hvala",
+              "options": [],
+              "explanation": "Hvala (Хвала) means thank you."
+            },
+            {
+              "id": "polite-4",
+              "type": "Choose the meaning",
+              "prompt": "Da",
+              "answer": "Yes",
+              "options": [
+                "No",
+                "Maybe",
+                "Yes",
+                "Please"
+              ],
+              "explanation": "Da means yes; ne means no."
+            }
+          ]
+        },
+        {
+          "id": "script-basics",
+          "title": "Read the signs",
+          "subtitle": "Connect Cyrillic to Latin",
+          "icon": "🔤",
+          "color": "purple",
+          "type": "challenge",
+          "theory": {
+            "title": "A letter for each sound",
+            "body": "Serbian has 30 Cyrillic letters. A few familiar words show how the scripts line up: Здраво = Zdravo, Хвала = Hvala, Да = Da."
+          },
+          "vocabulary": [
+            {
+              "latin": "Zdravo",
+              "cyrillic": "Здраво",
+              "english": "Hello",
+              "pronunciation": "zdrah-voh"
+            },
+            {
+              "latin": "Hvala",
+              "cyrillic": "Хвала",
+              "english": "Thank you",
+              "pronunciation": "hvah-lah"
+            },
+            {
+              "latin": "Da",
+              "cyrillic": "Да",
+              "english": "Yes",
+              "pronunciation": "dah"
+            }
+          ],
+          "challenges": [
+            {
+              "id": "script-basics-1",
+              "type": "Choose the meaning",
+              "prompt": "Здраво",
+              "answer": "Zdravo",
+              "options": [
+                "Hvala",
+                "Zdravo",
+                "Molim",
+                "Ne"
+              ],
+              "explanation": "Здраво is Zdravo in Cyrillic."
+            },
+            {
+              "id": "script-basics-2",
+              "type": "Choose the meaning",
+              "prompt": "Хвала",
+              "answer": "Hvala",
+              "options": [
+                "Dobar dan",
+                "Hvala",
+                "Ja sam",
+                "Da"
+              ],
+              "explanation": "Хвала is Hvala."
+            },
+            {
+              "id": "script-basics-3",
+              "type": "Choose the meaning",
+              "prompt": "Да",
+              "answer": "Da",
+              "options": [
+                "Da",
+                "Ne",
+                "Tri",
+                "Dan"
+              ],
+              "explanation": "Да is Da, meaning yes."
+            },
+            {
+              "id": "script-basics-4",
+              "type": "Type the answer",
+              "prompt": "Write Здраво in Latin letters",
+              "answer": "Zdravo",
+              "options": [],
+              "explanation": "The two scripts spell the same Serbian word."
+            }
+          ]
+        },
+        {
+          "id": "questions",
+          "title": "How are you?",
+          "subtitle": "Ask and answer simply",
+          "icon": "❓",
+          "color": "blue",
+          "type": "challenge",
+          "theory": {
+            "title": "A first conversation",
+            "body": "Kako si? asks “How are you?” informally. Dobro sam means “I am well.” For a polite or plural question use Kako ste?"
+          },
+          "vocabulary": [
+            {
+              "latin": "Kako si?",
+              "cyrillic": "Како си?",
+              "english": "How are you?",
+              "pronunciation": "kah-koh see"
+            },
+            {
+              "latin": "Dobro sam",
+              "cyrillic": "Добро сам",
+              "english": "I am well",
+              "pronunciation": "doh-broh sahm"
+            },
+            {
+              "latin": "Kako ste?",
+              "cyrillic": "Како сте?",
+              "english": "How are you? (polite)",
+              "pronunciation": "kah-koh steh"
+            }
+          ],
+          "challenges": [
+            {
+              "id": "questions-1",
+              "type": "Choose the meaning",
+              "prompt": "Kako si?",
+              "answer": "How are you?",
+              "options": [
+                "Where are you?",
+                "How are you?",
+                "What is your name?",
+                "Good day"
+              ],
+              "explanation": "Kako si? is informal."
+            },
+            {
+              "id": "questions-2",
+              "type": "Arrange the words",
+              "prompt": "I am well",
+              "answer": "Dobro sam",
+              "options": [
+                "sam",
+                "Dobro",
+                "Kako",
+                "si"
+              ],
+              "explanation": "Dobro sam is a common reply."
+            },
+            {
+              "id": "questions-3",
+              "type": "Choose the meaning",
+              "prompt": "Kako ste?",
+              "answer": "How are you? (polite)",
+              "options": [
+                "How are you? (polite)",
+                "What time is it?",
+                "Where are we?",
+                "What is this?"
+              ],
+              "explanation": "Use ste when addressing someone politely or more than one person."
+            },
+            {
+              "id": "questions-4",
+              "type": "Type the answer",
+              "prompt": "Write “I am well” in Serbian",
+              "answer": "Dobro sam",
+              "options": [],
+              "explanation": "You can answer Kako si? with Dobro sam."
+            }
+          ]
+        },
+        {
+          "id": "unit1-review",
+          "title": "First conversation",
+          "subtitle": "Put your new words together",
+          "icon": "🏆",
+          "color": "orange",
+          "type": "challenge",
+          "theory": {
+            "title": "You can introduce yourself",
+            "body": "You can greet, say your name, ask how someone is, and read a few familiar Cyrillic words. Revisit any lesson you found tricky."
+          },
+          "vocabulary": [
+            {
+              "latin": "Zdravo",
+              "cyrillic": "Здраво",
+              "english": "Hello",
+              "pronunciation": "zdravo"
+            },
+            {
+              "latin": "Zovem se",
+              "cyrillic": "Зовем се",
+              "english": "My name is",
+              "pronunciation": "zovem se"
+            },
+            {
+              "latin": "Dobro sam",
+              "cyrillic": "Добро сам",
+              "english": "I am well",
+              "pronunciation": "dobro sam"
+            }
+          ],
+          "challenges": [
+            {
+              "id": "unit1-review-1",
+              "type": "Arrange the words",
+              "prompt": "Hello, my name is Ana",
+              "answer": "Zdravo, zovem se Ana",
+              "options": [
+                "Ana",
+                "se",
+                "Zdravo,",
+                "zovem",
+                "sam"
+              ],
+              "explanation": "This is a friendly way to begin a conversation."
+            },
+            {
+              "id": "unit1-review-2",
+              "type": "Choose the meaning",
+              "prompt": "Добро сам",
+              "answer": "Dobro sam",
+              "options": [
+                "Dobar dan",
+                "Dobro sam",
+                "Kako si",
+                "Hvala"
+              ],
+              "explanation": "Добро сам means I am well."
+            },
+            {
+              "id": "unit1-review-3",
+              "type": "Translate to Serbian",
+              "prompt": "What is your name?",
+              "answer": "Kako se zoveš?",
+              "options": [
+                "Kako si?",
+                "Kako se zoveš?",
+                "Dobar dan",
+                "Ja sam"
+              ],
+              "explanation": "Kako se zoveš? asks a name informally."
+            },
+            {
+              "id": "unit1-review-4",
+              "type": "Type the answer",
+              "prompt": "Write “please” in Serbian",
+              "answer": "Molim",
+              "options": [],
+              "explanation": "Molim is one of your most useful polite words."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "a1-everyday-essentials",
+      "level": "A1",
+      "title": "Everyday essentials",
+      "subtitle": "Numbers, time, cafés, family, and places",
+      "outcomes": [
+        "Use basic time and number words",
+        "Order a drink politely",
+        "Ask where a place is"
+      ],
+      "lessons": [
+        {
+          "id": "numbers",
+          "title": "Count on me",
+          "subtitle": "Numbers one to ten",
+          "icon": "🔢",
+          "color": "purple",
+          "type": "challenge",
+          "theory": {
+            "title": "First numbers",
+            "body": "Start with jedan (one), dva (two), and tri (three). Serbian number forms can change with noun gender; these forms are a first step."
+          },
+          "vocabulary": [
+            {
+              "latin": "jedan",
+              "cyrillic": "један",
+              "english": "one",
+              "pronunciation": "yeh-dahn"
+            },
+            {
+              "latin": "dva",
+              "cyrillic": "два",
+              "english": "two",
+              "pronunciation": "dvah"
+            },
+            {
+              "latin": "tri",
+              "cyrillic": "три",
+              "english": "three",
+              "pronunciation": "tree"
+            },
+            {
+              "latin": "deset",
+              "cyrillic": "десет",
+              "english": "ten",
+              "pronunciation": "deh-set"
+            }
+          ],
+          "challenges": [
+            {
+              "id": "numbers-1",
+              "type": "Choose the meaning",
+              "prompt": "jedan",
+              "answer": "one",
+              "options": [
+                "three",
+                "one",
+                "five",
+                "two"
+              ],
+              "explanation": "Jedan means one."
+            },
+            {
+              "id": "numbers-2",
+              "type": "Choose the meaning",
+              "prompt": "dva",
+              "answer": "two",
+              "options": [
+                "one",
+                "four",
+                "two",
+                "seven"
+              ],
+              "explanation": "Dva means two."
+            },
+            {
+              "id": "numbers-3",
+              "type": "Translate to Serbian",
+              "prompt": "Three",
+              "answer": "tri",
+              "options": [
+                "pet",
+                "deset",
+                "tri",
+                "šest"
+              ],
+              "explanation": "Tri means three."
+            },
+            {
+              "id": "numbers-4",
+              "type": "Type the answer",
+              "prompt": "Write “ten” in Serbian",
+              "answer": "deset",
+              "options": [],
+              "explanation": "Deset (десет) means ten."
+            }
+          ]
+        },
+        {
+          "id": "time",
+          "title": "Today or tomorrow?",
+          "subtitle": "Simple time words",
+          "icon": "🕒",
+          "color": "blue",
+          "type": "challenge",
+          "theory": {
+            "title": "Talk about when",
+            "body": "Danas means today, sutra means tomorrow, and sada means now. These words help you make simple plans."
+          },
+          "vocabulary": [
+            {
+              "latin": "danas",
+              "cyrillic": "данас",
+              "english": "today",
+              "pronunciation": "dah-nahs"
+            },
+            {
+              "latin": "sutra",
+              "cyrillic": "сутра",
+              "english": "tomorrow",
+              "pronunciation": "soo-trah"
+            },
+            {
+              "latin": "sada",
+              "cyrillic": "сада",
+              "english": "now",
+              "pronunciation": "sah-dah"
+            }
+          ],
+          "challenges": [
+            {
+              "id": "time-1",
+              "type": "Choose the meaning",
+              "prompt": "danas",
+              "answer": "today",
+              "options": [
+                "today",
+                "tomorrow",
+                "yesterday",
+                "later"
+              ],
+              "explanation": "Danas means today."
+            },
+            {
+              "id": "time-2",
+              "type": "Choose the meaning",
+              "prompt": "sutra",
+              "answer": "tomorrow",
+              "options": [
+                "today",
+                "now",
+                "tomorrow",
+                "always"
+              ],
+              "explanation": "Sutra means tomorrow."
+            },
+            {
+              "id": "time-3",
+              "type": "Choose the meaning",
+              "prompt": "sada",
+              "answer": "now",
+              "options": [
+                "later",
+                "tomorrow",
+                "now",
+                "today"
+              ],
+              "explanation": "Sada means now."
+            },
+            {
+              "id": "time-4",
+              "type": "Type the answer",
+              "prompt": "Write “today” in Serbian",
+              "answer": "danas",
+              "options": [],
+              "explanation": "Danas (данас) means today."
+            }
+          ]
+        },
+        {
+          "id": "coffee",
+          "title": "At the café",
+          "subtitle": "Order a drink politely",
+          "icon": "☕",
+          "color": "orange",
+          "type": "challenge",
+          "theory": {
+            "title": "Order with a smile",
+            "body": "Kafa is coffee. When ordering one coffee, you can say Jednu kafu, molim. Voda means water; when ordering it, use vodu."
+          },
+          "vocabulary": [
+            {
+              "latin": "kafa",
+              "cyrillic": "кафа",
+              "english": "coffee",
+              "pronunciation": "kah-fah"
+            },
+            {
+              "latin": "kafu",
+              "cyrillic": "кафу",
+              "english": "coffee (object)",
+              "pronunciation": "kah-foo"
+            },
+            {
+              "latin": "voda",
+              "cyrillic": "вода",
+              "english": "water",
+              "pronunciation": "voh-dah"
+            },
+            {
+              "latin": "molim",
+              "cyrillic": "молим",
+              "english": "please",
+              "pronunciation": "moh-leem"
+            }
+          ],
+          "challenges": [
+            {
+              "id": "coffee-1",
+              "type": "Translate to Serbian",
+              "prompt": "Coffee, please.",
+              "answer": "Kafu, molim.",
+              "options": [
+                "Vodu, hvala.",
+                "Kafu, molim.",
+                "Dobar dan.",
+                "Ja sam kafa."
+              ],
+              "explanation": "Kafu is used when coffee is the thing you order."
+            },
+            {
+              "id": "coffee-2",
+              "type": "Choose the image",
+              "prompt": "Which one is “kafa”?",
+              "answer": "☕ Coffee",
+              "options": [
+                "💧 Water",
+                "☕ Coffee",
+                "🥛 Milk",
+                "🍞 Bread"
+              ],
+              "explanation": "Kafa means coffee."
+            },
+            {
+              "id": "coffee-3",
+              "type": "Choose the meaning",
+              "prompt": "voda",
+              "answer": "water",
+              "options": [
+                "coffee",
+                "water",
+                "bread",
+                "tea"
+              ],
+              "explanation": "Voda is water."
+            },
+            {
+              "id": "coffee-4",
+              "type": "Arrange the words",
+              "prompt": "One coffee, please",
+              "answer": "Jednu kafu molim",
+              "options": [
+                "molim",
+                "kafu",
+                "Jednu",
+                "voda"
+              ],
+              "explanation": "Jednu kafu, molim is a polite order."
+            }
+          ]
+        },
+        {
+          "id": "family",
+          "title": "My people",
+          "subtitle": "Talk about family",
+          "icon": "🏡",
+          "color": "green",
+          "type": "challenge",
+          "theory": {
+            "title": "People close to you",
+            "body": "Majka is mother, brat is brother, and sestra is sister. Moj is “my” with masculine nouns; moja goes with feminine nouns."
+          },
+          "vocabulary": [
+            {
+              "latin": "majka",
+              "cyrillic": "мајка",
+              "english": "mother",
+              "pronunciation": "mai-kah"
+            },
+            {
+              "latin": "brat",
+              "cyrillic": "брат",
+              "english": "brother",
+              "pronunciation": "braht"
+            },
+            {
+              "latin": "sestra",
+              "cyrillic": "сестра",
+              "english": "sister",
+              "pronunciation": "ses-trah"
+            },
+            {
+              "latin": "moja",
+              "cyrillic": "моја",
+              "english": "my (feminine)",
+              "pronunciation": "moh-yah"
+            }
+          ],
+          "challenges": [
+            {
+              "id": "family-1",
+              "type": "Choose the meaning",
+              "prompt": "majka",
+              "answer": "mother",
+              "options": [
+                "father",
+                "sister",
+                "mother",
+                "brother"
+              ],
+              "explanation": "Majka means mother."
+            },
+            {
+              "id": "family-2",
+              "type": "Choose the meaning",
+              "prompt": "brat",
+              "answer": "brother",
+              "options": [
+                "brother",
+                "father",
+                "friend",
+                "son"
+              ],
+              "explanation": "Brat means brother."
+            },
+            {
+              "id": "family-3",
+              "type": "Arrange the words",
+              "prompt": "My sister",
+              "answer": "Moja sestra",
+              "options": [
+                "sestra",
+                "Moj",
+                "Moja",
+                "brat"
+              ],
+              "explanation": "Sestra is feminine, so use moja."
+            },
+            {
+              "id": "family-4",
+              "type": "Type the answer",
+              "prompt": "Write “sister” in Serbian",
+              "answer": "sestra",
+              "options": [],
+              "explanation": "Sestra (сестра) means sister."
+            }
+          ]
+        },
+        {
+          "id": "places",
+          "title": "Where is it?",
+          "subtitle": "Ask about a place",
+          "icon": "📍",
+          "color": "pink",
+          "type": "challenge",
+          "theory": {
+            "title": "Find your way",
+            "body": "Gde? means “where?” Gde je stanica? asks “Where is the station?” Ovde means here, and tamo means there."
+          },
+          "vocabulary": [
+            {
+              "latin": "gde",
+              "cyrillic": "где",
+              "english": "where",
+              "pronunciation": "gdeh"
+            },
+            {
+              "latin": "stanica",
+              "cyrillic": "станица",
+              "english": "station",
+              "pronunciation": "stah-nee-tsah"
+            },
+            {
+              "latin": "ovde",
+              "cyrillic": "овде",
+              "english": "here",
+              "pronunciation": "ov-deh"
+            },
+            {
+              "latin": "tamo",
+              "cyrillic": "тамо",
+              "english": "there",
+              "pronunciation": "tah-moh"
+            }
+          ],
+          "challenges": [
+            {
+              "id": "places-1",
+              "type": "Choose the meaning",
+              "prompt": "gde",
+              "answer": "where",
+              "options": [
+                "what",
+                "who",
+                "where",
+                "when"
+              ],
+              "explanation": "Gde means where."
+            },
+            {
+              "id": "places-2",
+              "type": "Choose the meaning",
+              "prompt": "Gde je stanica?",
+              "answer": "Where is the station?",
+              "options": [
+                "Where is the station?",
+                "Is this a station?",
+                "Where is the café?",
+                "When is the train?"
+              ],
+              "explanation": "Je means is in this question."
+            },
+            {
+              "id": "places-3",
+              "type": "Arrange the words",
+              "prompt": "Where is the station?",
+              "answer": "Gde je stanica",
+              "options": [
+                "je",
+                "stanica",
+                "Gde",
+                "ovde"
+              ],
+              "explanation": "A simple question gets you a long way."
+            },
+            {
+              "id": "places-4",
+              "type": "Choose the meaning",
+              "prompt": "ovde",
+              "answer": "here",
+              "options": [
+                "there",
+                "here",
+                "now",
+                "today"
+              ],
+              "explanation": "Ovde means here; tamo means there."
+            }
+          ]
+        },
+        {
+          "id": "daily-life",
+          "title": "A simple day",
+          "subtitle": "Say what you do",
+          "icon": "🌤️",
+          "color": "green",
+          "type": "challenge",
+          "theory": {
+            "title": "First present-tense phrases",
+            "body": "Radim means “I work.” Spavam means “I sleep.” Idem kući means “I am going home.” You can pair these with danas or sada."
+          },
+          "vocabulary": [
+            {
+              "latin": "radim",
+              "cyrillic": "радим",
+              "english": "I work",
+              "pronunciation": "rah-deem"
+            },
+            {
+              "latin": "spavam",
+              "cyrillic": "спавам",
+              "english": "I sleep",
+              "pronunciation": "spah-vahm"
+            },
+            {
+              "latin": "idem kući",
+              "cyrillic": "идем кући",
+              "english": "I am going home",
+              "pronunciation": "ee-dem koo-chee"
+            }
+          ],
+          "challenges": [
+            {
+              "id": "daily-life-1",
+              "type": "Choose the meaning",
+              "prompt": "Radim danas.",
+              "answer": "I work today.",
+              "options": [
+                "I work today.",
+                "I sleep tomorrow.",
+                "I am home.",
+                "Where do you work?"
+              ],
+              "explanation": "Radim means I work; danas means today."
+            },
+            {
+              "id": "daily-life-2",
+              "type": "Choose the meaning",
+              "prompt": "Spavam.",
+              "answer": "I sleep.",
+              "options": [
+                "I am eating.",
+                "I sleep.",
+                "I work.",
+                "I go."
+              ],
+              "explanation": "Spavam means I sleep."
+            },
+            {
+              "id": "daily-life-3",
+              "type": "Arrange the words",
+              "prompt": "I am going home",
+              "answer": "Idem kući",
+              "options": [
+                "kući",
+                "Radim",
+                "Idem",
+                "sada"
+              ],
+              "explanation": "Idem kući means I am going home."
+            },
+            {
+              "id": "daily-life-4",
+              "type": "Type the answer",
+              "prompt": "Write “I work” in Serbian",
+              "answer": "radim",
+              "options": [],
+              "explanation": "Radim (радим) means I work."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
+import 'avatar/avatar_editor.dart';
+import 'avatar/learner_look.dart';
+import 'avatar/learner_portrait.dart';
 import 'widgets/animated_kristina.dart';
 import 'widgets/tactile_button.dart';
 import 'widgets/learning_object.dart';
@@ -334,8 +337,7 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
   String? reviewLessonId;
   String? token;
   Map<String, dynamic>? user;
-  Color avatarColor = purple;
-  String avatarFace = '😊';
+  LearnerLook avatar = const LearnerLook();
   bool loading = true;
   @override
   void initState() {
@@ -376,8 +378,7 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
       streak = p.getInt('streak') ?? 0;
       token = p.getString('token');
       SharedToken.value = token;
-      avatarFace = p.getString('avatarFace') ?? '😊';
-      avatarColor = Color(p.getInt('avatarColor') ?? purple.toARGB32());
+      avatar = _storedLook(p);
       loading = false;
     });
     try {
@@ -409,14 +410,20 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
     }
   }
 
-  void _applyAvatar(Map<String, dynamic>? account) {
-    final avatar = account?['avatar'];
-    if (avatar is! Map) return;
-    if (avatar['face'] is String) avatarFace = avatar['face'];
-    final hex = avatar['color'];
-    if (hex is String && RegExp(r'^#[0-9a-fA-F]{6}$').hasMatch(hex)) {
-      avatarColor = Color(int.parse('FF${hex.substring(1)}', radix: 16));
+  LearnerLook _storedLook(SharedPreferences prefs) {
+    final raw = prefs.getString('avatarLook');
+    if (raw == null || raw.isEmpty) return const LearnerLook();
+    try {
+      return LearnerLook.decode(jsonDecode(raw));
+    } catch (_) {
+      return const LearnerLook();
     }
+  }
+
+  void _applyAvatar(Map<String, dynamic>? account) {
+    final stored = account?['avatar'];
+    if (stored is! Map || stored['look'] is! Map) return;
+    avatar = LearnerLook.decode(stored['look']);
   }
 
   Future<void> _syncProgress() async {
@@ -545,17 +552,11 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
     });
   }
 
-  Future<void> changeAvatar(String face, Color color) async {
+  Future<void> changeAvatar(LearnerLook look) async {
     final p = await SharedPreferences.getInstance();
-    await p.setString('avatarFace', face);
-    await p.setInt('avatarColor', color.toARGB32());
-    setState(() {
-      avatarFace = face;
-      avatarColor = color;
-    });
+    await p.setString('avatarLook', jsonEncode(look.toJson()));
+    setState(() => avatar = look);
     if (token != null) {
-      final hex =
-          color.toARGB32().toRadixString(16).padLeft(8, '0').substring(2);
       try {
         await http.patch(api('/api/auth/profile'),
             headers: {
@@ -563,7 +564,11 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
               'Content-Type': 'application/json'
             },
             body: jsonEncode({
-              'avatar': {'face': face, 'color': '#$hex'}
+              'avatar': {
+                'face': 'built',
+                'color': look.backgroundHex,
+                'look': look.toJson()
+              }
             }));
       } catch (_) {}
     }
@@ -637,8 +642,7 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
                                   PathPage(
                                       done: done,
                                       completedRounds: completedRounds,
-                                      avatarFace: avatarFace,
-                                      avatarColor: avatarColor,
+                                      look: avatar,
                                       onProfile: () => setState(() => tab = 4),
                                       reviewLessonId: reviewLessonId,
                                       xp: xp,
@@ -660,9 +664,10 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
                                       xp: xp,
                                       streak: streak,
                                       done: done,
-                                      face: avatarFace,
-                                      color: avatarColor,
+                                      look: avatar,
                                       onAvatar: changeAvatar,
+                                      onClose: () => setState(() => tab = 0),
+                                      onFriends: () => setState(() => tab = 3),
                                       onAuth: auth,
                                       onLogout: logout)
                                 ]))
@@ -883,8 +888,7 @@ class PathPage extends StatefulWidget {
   final Set<String> done, completedRounds;
   final String? reviewLessonId;
   final int xp, streak;
-  final String avatarFace;
-  final Color avatarColor;
+  final LearnerLook look;
   final void Function(Lesson, int) onLesson;
   final VoidCallback onChat, onProfile;
   const PathPage(
@@ -896,8 +900,7 @@ class PathPage extends StatefulWidget {
       required this.streak,
       required this.onLesson,
       required this.onChat,
-      required this.avatarFace,
-      required this.avatarColor,
+      required this.look,
       required this.onProfile});
   @override
   State<PathPage> createState() => _PathPageState();
@@ -1107,18 +1110,7 @@ class _PathPageState extends State<PathPage> {
                 child: InkWell(
                     onTap: widget.onProfile,
                     borderRadius: BorderRadius.circular(22),
-                    child: Container(
-                        width: 46,
-                        height: 46,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                            color: widget.avatarColor,
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(
-                                color: Colors.white.withValues(alpha: .2),
-                                width: 2)),
-                        child: Text(widget.avatarFace,
-                            style: const TextStyle(fontSize: 29))))),
+                    child: LearnerBadge(look: widget.look))),
             const SizedBox(width: 16),
             Expanded(
                 child: InkWell(
@@ -3073,12 +3065,11 @@ class _FriendsPageState extends State<FriendsPage> {
                 padding: const EdgeInsets.only(bottom: 9),
                 child: KCard(
                     child: Row(children: [
-                  CircleAvatar(
-                      backgroundColor: purple,
-                      child: Text((f['name'] ?? '?')
-                          .toString()
-                          .substring(0, 1)
-                          .toUpperCase())),
+                  LearnerBadge(
+                      look: LearnerLook.fromAvatar(f['avatar'],
+                          seed: (f['name'] ?? '').toString()),
+                      size: 42,
+                      radius: 21),
                   const SizedBox(width: 12),
                   Expanded(
                       child: Text(f['name'] ?? '',
@@ -3132,9 +3123,10 @@ class ProfilePage extends StatelessWidget {
   final Map<String, dynamic>? user;
   final int xp, streak;
   final Set<String> done;
-  final String face;
-  final Color color;
-  final Future<void> Function(String, Color) onAvatar;
+  final LearnerLook look;
+  final Future<void> Function(LearnerLook) onAvatar;
+  final VoidCallback onClose;
+  final VoidCallback onFriends;
   final Future<void> Function(String, String, String, bool, bool) onAuth;
   final Future<void> Function() onLogout;
   const ProfilePage(
@@ -3143,146 +3135,250 @@ class ProfilePage extends StatelessWidget {
       required this.xp,
       required this.streak,
       required this.done,
-      required this.face,
-      required this.color,
+      required this.look,
       required this.onAvatar,
+      required this.onClose,
+      required this.onFriends,
       required this.onAuth,
       required this.onLogout});
   @override
-  Widget build(BuildContext context) =>
-      ListView(padding: const EdgeInsets.fromLTRB(22, 24, 22, 30), children: [
-        const PageHead(
-            eyebrow: 'Your story',
-            title: 'Look at you go',
-            subtitle: 'Every little win counts.'),
-        const SizedBox(height: 22),
-        KCard(
-            color: const Color(0xFF25374B),
-            child: Column(children: [
-              Row(children: [
-                GestureDetector(
-                    onTap: () => _avatarDialog(context),
-                    child: Stack(children: [
-                      CircleAvatar(
-                          radius: 42,
-                          backgroundColor: color,
-                          child:
-                              Text(face, style: const TextStyle(fontSize: 43))),
-                      const Positioned(
-                          right: 0,
-                          bottom: 0,
-                          child: CircleAvatar(
-                              radius: 12,
-                              backgroundColor: blue,
-                              child: Icon(Icons.edit, size: 13, color: bg)))
+  Widget build(BuildContext context) {
+    final ink = look.backgroundColor.computeLuminance() > .55
+        ? const Color(0xFF131F24)
+        : Colors.white;
+    final created = user?['createdAt'];
+    final year = created is String ? DateTime.tryParse(created)?.year : null;
+    final name = user?['name'] as String? ?? 'Your name';
+    return ListView(padding: EdgeInsets.zero, children: [
+      ColoredBox(
+          color: look.backgroundColor,
+          child: Padding(
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+              child: Column(children: [
+                SizedBox(
+                    height: 48,
+                    child: Stack(alignment: Alignment.center, children: [
+                      Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 52),
+                          child: Text(name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  color: ink,
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.w900))),
+                      Align(
+                          alignment: Alignment.centerLeft,
+                          child: IconButton(
+                              tooltip: 'Close',
+                              onPressed: onClose,
+                              icon: Icon(Icons.close_rounded, color: ink))),
+                      Align(
+                          alignment: Alignment.centerRight,
+                          child: IconButton(
+                              tooltip: 'Settings',
+                              onPressed: () => showFeedbackSettings(context),
+                              icon: Icon(Icons.settings_rounded, color: ink)))
                     ])),
-                const SizedBox(width: 16),
-                Expanded(
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                      Text(user?['name'] ?? 'Serbian superstar',
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w900, fontSize: 20)),
-                      Text(
-                          user == null
-                              ? 'Your journey starts here'
-                              : '@${user!['username']}',
-                          style: const TextStyle(color: muted, fontSize: 13))
-                    ]))
-              ]),
-              const SizedBox(height: 18),
-              Row(children: [
-                Expanded(child: _metric('⚡', '$xp', 'Total XP')),
-                const SizedBox(width: 9),
-                Expanded(child: _metric('🔥', '$streak', 'Day streak')),
-                const SizedBox(width: 9),
-                Expanded(child: _metric('🏆', '${done.length}', 'Lessons'))
-              ])
-            ])),
-        const SizedBox(height: 22),
-        const KCard(child: FeedbackSettingsPanel()),
-        const SizedBox(height: 22),
-        const Text('YOUR LOOK',
-            style: TextStyle(
-                color: lime,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.4,
-                fontSize: 12)),
-        const SizedBox(height: 10),
-        KCard(
-            onTap: () => _avatarDialog(context),
-            child: const Row(children: [
-              Text('🎨', style: TextStyle(fontSize: 27)),
-              SizedBox(width: 14),
-              Expanded(
+                Text(year == null ? 'Learning Serbian' : 'Learning since $year',
+                    style: TextStyle(
+                        color: ink.withValues(alpha: .72),
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15)),
+                GestureDetector(
+                    onTap: () => _editAvatar(context),
+                    child: Semantics(
+                        button: true,
+                        label: 'Edit avatar',
+                        child: SizedBox(
+                            width: 260,
+                            height: 240,
+                            child: LearnerPortrait(look: look))))
+              ]))),
+      Transform.translate(
+          offset: const Offset(0, -36),
+          child: DecoratedBox(
+              decoration: const BoxDecoration(
+                  color: bg,
+                  borderRadius:
+                      BorderRadius.vertical(top: Radius.circular(28))),
+              child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 22, 20, 28),
                   child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                    Text('Avatar builder',
-                        style: TextStyle(fontWeight: FontWeight.w900)),
-                    Text('Make it unmistakably you.',
-                        style: TextStyle(color: muted, fontSize: 13))
-                  ])),
-              Icon(Icons.chevron_right, color: muted)
-            ])),
-        const SizedBox(height: 22),
-        const Text('MILESTONES',
-            style: TextStyle(
-                color: lime,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.4,
-                fontSize: 12)),
-        const SizedBox(height: 10),
-        Row(children: [
-          Expanded(child: _badge('👋', 'First hello', done.isNotEmpty)),
-          const SizedBox(width: 10),
-          Expanded(child: _badge('🔥', 'On a roll', streak >= 3)),
-          const SizedBox(width: 10),
-          Expanded(child: _badge('⭐', '50 XP', xp >= 50))
-        ]),
-        const SizedBox(height: 22),
-        if (user == null)
-          KButton(
-              text: 'CREATE ACCOUNT / SIGN IN',
-              onTap: () => _authDialog(context))
-        else ...[
-          KCard(
-              child: Row(children: [
-            const Icon(Icons.verified_user_outlined, color: lime),
-            const SizedBox(width: 12),
-            Expanded(
-                child: Text(user!['email'] ?? '',
-                    style: const TextStyle(color: muted)))
-          ])),
-          const SizedBox(height: 12),
-          if (user!['role'] == 'admin')
-            KCard(
-                onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => AdminPage(token: SharedToken.value))),
-                child: const Row(children: [
-                  Icon(Icons.admin_panel_settings, color: blue),
-                  SizedBox(width: 12),
-                  Expanded(
-                      child: Text('Course studio',
-                          style: TextStyle(fontWeight: FontWeight.w900))),
-                  Icon(Icons.chevron_right)
-                ])),
-          const SizedBox(height: 12),
-          KButton(text: 'SIGN OUT', outline: true, onTap: () => onLogout())
-        ]
-      ]);
-  Widget _metric(String icon, String value, String label) => Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      decoration:
-          BoxDecoration(color: panel, borderRadius: BorderRadius.circular(15)),
+                        Text(
+                            user == null
+                                ? 'Sign in to save your look'
+                                : '@${user!['username']}${year == null ? '' : ' · JOINED $year'}',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                                color: muted,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: .4,
+                                fontSize: 13)),
+                        const SizedBox(height: 18),
+                        Row(children: [
+                          _stat(const _SerbianFlag(), 'Courses'),
+                          _stat(
+                              Text('$streak',
+                                  style: const TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w900)),
+                              'Streak'),
+                          _stat(
+                              Text('${done.length}',
+                                  style: const TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w900)),
+                              'Lessons'),
+                        ]),
+                        const SizedBox(height: 16),
+                        OutlinedButton.icon(
+                            onPressed: onFriends,
+                            icon: const Icon(Icons.person_add_alt_1,
+                                color: Colors.white),
+                            label: const Text('ADD FRIENDS',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: .6)),
+                            style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: panel2, width: 2),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16)),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 14))),
+                        const SizedBox(height: 18),
+                        Material(
+                            color: const Color(0xFF3C2F78),
+                            borderRadius: BorderRadius.circular(22),
+                            child: Padding(
+                                padding:
+                                    const EdgeInsets.fromLTRB(18, 18, 18, 16),
+                                child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('Shape your look',
+                                          style: TextStyle(
+                                              fontSize: 24,
+                                              fontWeight: FontWeight.w900,
+                                              height: 1.05)),
+                                      const SizedBox(height: 6),
+                                      const Text(
+                                          'Mix skin, hair, glasses, and clothes. It stays on your profile.',
+                                          style: TextStyle(
+                                              color: Color(0xFFD9D0F2),
+                                              fontSize: 13)),
+                                      const SizedBox(height: 14),
+                                      Material(
+                                          color: Colors.white,
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                          child: InkWell(
+                                              onTap: () => _editAvatar(context),
+                                              borderRadius:
+                                                  BorderRadius.circular(14),
+                                              child: const Padding(
+                                                  padding: EdgeInsets.symmetric(
+                                                      vertical: 14),
+                                                  child: Center(
+                                                      child: Text(
+                                                          'EDIT YOUR LOOK',
+                                                          style: TextStyle(
+                                                              color: blue,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w900,
+                                                              letterSpacing:
+                                                                  .4))))))
+                                    ]))),
+                        const SizedBox(height: 22),
+                        const Text('OVERVIEW',
+                            style: TextStyle(
+                                color: muted,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 1.3,
+                                fontSize: 12)),
+                        const SizedBox(height: 12),
+                        Row(children: [
+                          const Icon(Icons.local_fire_department_rounded,
+                              color: Color(0xFFFF9A43), size: 28),
+                          const SizedBox(width: 6),
+                          Text('$streak days',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w900, fontSize: 16)),
+                          const SizedBox(width: 22),
+                          const _SerbianFlag(),
+                          const SizedBox(width: 8),
+                          Text('$xp XP',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w900, fontSize: 16)),
+                        ]),
+                        const SizedBox(height: 22),
+                        Row(children: [
+                          Expanded(
+                              child:
+                                  _badge('👋', 'First hello', done.isNotEmpty)),
+                          const SizedBox(width: 10),
+                          Expanded(
+                              child: _badge('🔥', 'On a roll', streak >= 3)),
+                          const SizedBox(width: 10),
+                          Expanded(child: _badge('⭐', '50 XP', xp >= 50))
+                        ]),
+                        const SizedBox(height: 22),
+                        if (user == null)
+                          KButton(
+                              text: 'CREATE ACCOUNT / SIGN IN',
+                              onTap: () => _authDialog(context))
+                        else ...[
+                          KCard(
+                              child: Row(children: [
+                            const Icon(Icons.verified_user_outlined,
+                                color: lime),
+                            const SizedBox(width: 12),
+                            Expanded(
+                                child: Text(user!['email'] ?? '',
+                                    style: const TextStyle(color: muted)))
+                          ])),
+                          const SizedBox(height: 12),
+                          if (user!['role'] == 'admin')
+                            KCard(
+                                onTap: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) => AdminPage(
+                                            token: SharedToken.value))),
+                                child: const Row(children: [
+                                  Icon(Icons.admin_panel_settings, color: blue),
+                                  SizedBox(width: 12),
+                                  Expanded(
+                                      child: Text('Course studio',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.w900))),
+                                  Icon(Icons.chevron_right)
+                                ])),
+                          const SizedBox(height: 12),
+                          KButton(
+                              text: 'SIGN OUT',
+                              outline: true,
+                              onTap: () => onLogout())
+                        ]
+                      ]))))
+    ]);
+  }
+
+  Widget _stat(Widget value, String label) => Expanded(
       child: Column(children: [
-        Text('$icon $value',
-            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-        Text(label, style: const TextStyle(color: muted, fontSize: 10))
+        SizedBox(height: 32, child: Center(child: value)),
+        const SizedBox(height: 4),
+        Text(label,
+            style: const TextStyle(
+                color: muted, fontSize: 12, fontWeight: FontWeight.w800))
       ]));
+
   Widget _badge(String icon, String label, bool unlocked) => Container(
       height: 96,
       decoration: BoxDecoration(
@@ -3297,76 +3393,14 @@ class ProfilePage extends StatelessWidget {
                 fontWeight: FontWeight.w900,
                 color: unlocked ? Colors.white : muted))
       ]));
-  void _avatarDialog(BuildContext context) {
-    const faces = ['😊', '😎', '🤠', '🦊', '🐻', '🐱', '👽', '🤩'];
-    const colors = [
-      purple,
-      blue,
-      pink,
-      lime,
-      Color(0xFFFFB65D),
-      Color(0xFF65D9C1)
-    ];
-    showModalBottomSheet(
-        context: context,
-        backgroundColor: panel,
-        isScrollControlled: true,
-        shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
-        builder: (ctx) => Padding(
-            padding: const EdgeInsets.all(24),
-            child: SafeArea(
-                child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                  const Text('Build your avatar',
-                      style:
-                          TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
-                  const SizedBox(height: 6),
-                  const Text('Pick a face with personality.',
-                      style: TextStyle(color: muted)),
-                  const SizedBox(height: 20),
-                  Wrap(
-                      spacing: 11,
-                      runSpacing: 11,
-                      children: faces
-                          .map((f) => GestureDetector(
-                              onTap: () {
-                                onAvatar(f, color);
-                                Navigator.pop(ctx);
-                              },
-                              child: CircleAvatar(
-                                  radius: 31,
-                                  backgroundColor: color,
-                                  child: Text(f,
-                                      style: const TextStyle(fontSize: 32)))))
-                          .toList()),
-                  const SizedBox(height: 25),
-                  const Text('PICK A COLOR',
-                      style: TextStyle(
-                          color: lime,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w900)),
-                  const SizedBox(height: 10),
-                  Wrap(
-                      spacing: 13,
-                      children: colors
-                          .map((c) => GestureDetector(
-                              onTap: () {
-                                onAvatar(face, c);
-                                Navigator.pop(ctx);
-                              },
-                              child: CircleAvatar(
-                                  radius: 22,
-                                  backgroundColor: c,
-                                  child: c == color
-                                      ? const Icon(Icons.check, color: bg)
-                                      : null)))
-                          .toList()),
-                  const SizedBox(height: 20)
-                ]))));
+
+  void _editAvatar(BuildContext context) {
+    Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (_) => AvatarEditor(look: look, onDone: onAvatar)));
   }
+
 
   void _authDialog(BuildContext context) {
     final email = TextEditingController(),

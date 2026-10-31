@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hello_kristina/avatar/learner_look.dart';
 import 'package:hello_kristina/main.dart';
 
 Lesson trailLesson(String id, String unit) =>
@@ -20,8 +21,7 @@ Future<void> pumpTrail(WidgetTester tester, Set<String> done, Size size) async {
               reviewLessonId: null,
               xp: 0,
               streak: 0,
-              avatarFace: '🙂',
-              avatarColor: const Color(0xFF49C0F8),
+              look: const LearnerLook(),
               onLesson: (_, __) {},
               onChat: () {},
               onProfile: () {}))));

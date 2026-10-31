@@ -1426,69 +1426,85 @@ class _LessonPageState extends State<LessonPage> {
                 child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 600),
                     child: LayoutBuilder(
-                        builder: (context, viewport) => Column(children: [
-                              SizedBox(
-                                  height: 48,
-                                  child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 12),
-                                      child: Row(children: [
-                                        IconButton(
-                                            onPressed: () =>
-                                                Navigator.pop(context),
-                                            icon: const Icon(
-                                                Icons.close_rounded,
-                                                color: muted),
-                                            tooltip: 'Leave lesson'),
-                                        const SizedBox(width: 6),
-                                        Expanded(
-                                            child: TweenAnimationBuilder<double>(
-                                                tween: Tween(
-                                                    end: finished
-                                                        ? 1
-                                                        : (index +
-                                                                (checked
-                                                                    ? 1
-                                                                    : 0)) /
-                                                            widget
-                                                                .lesson
-                                                                .questions
-                                                                .length),
-                                                duration: const Duration(
-                                                    milliseconds: 350),
-                                                builder: (_, value, __) => ClipRRect(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            20),
-                                                    child: LinearProgressIndicator(
-                                                        value: value,
-                                                        minHeight: 13,
-                                                        backgroundColor: panel2,
-                                                        valueColor:
-                                                            const AlwaysStoppedAnimation(
-                                                                lime))))),
-                                        const SizedBox(width: 12),
-                                        Text(
-                                            '${index + 1}/${widget.lesson.questions.length}',
-                                            style: const TextStyle(
-                                                color: muted,
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w900)),
-                                      ]))),
-                              Expanded(
-                                  child: Padding(
-                                      padding: EdgeInsets.fromLTRB(
-                                          20,
-                                          viewport.maxHeight < 600 ? 6 : 12,
-                                          20,
-                                          8),
-                                      child: finished
-                                          ? _completeViewport()
-                                          : guide
-                                              ? _guideViewport()
-                                              : _exerciseViewport(q))),
+                        builder: (context, viewport) =>
+                            Stack(fit: StackFit.expand, children: [
+                              Column(children: [
+                                SizedBox(
+                                    height: 48,
+                                    child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 12),
+                                        child: Row(children: [
+                                          IconButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(context),
+                                              icon: const Icon(
+                                                  Icons.close_rounded,
+                                                  color: muted),
+                                              tooltip: 'Leave lesson'),
+                                          const SizedBox(width: 6),
+                                          Expanded(
+                                              child: TweenAnimationBuilder<double>(
+                                                  tween: Tween(
+                                                      end: finished
+                                                          ? 1
+                                                          : (index + (checked ? 1 : 0)) /
+                                                              widget
+                                                                  .lesson
+                                                                  .questions
+                                                                  .length),
+                                                  duration: const Duration(
+                                                      milliseconds: 350),
+                                                  builder: (_, value, __) => ClipRRect(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              20),
+                                                      child: LinearProgressIndicator(
+                                                          value: value,
+                                                          minHeight: 13,
+                                                          backgroundColor:
+                                                              panel2,
+                                                          valueColor:
+                                                              const AlwaysStoppedAnimation(
+                                                                  lime))))),
+                                          const SizedBox(width: 12),
+                                          Text(
+                                              '${index + 1}/${widget.lesson.questions.length}',
+                                              style: const TextStyle(
+                                                  color: muted,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w900)),
+                                        ]))),
+                                Expanded(
+                                    child: Padding(
+                                        padding: EdgeInsets.fromLTRB(
+                                            20,
+                                            viewport.maxHeight < 600 ? 6 : 12,
+                                            20,
+                                            8),
+                                        child: finished
+                                            ? _completeViewport()
+                                            : guide
+                                                ? _guideViewport()
+                                                : _exerciseViewport(q))),
+                                // Reserve only the resting action bar height. Feedback paints over the exercise.
+                                if (!finished)
+                                  SizedBox(
+                                      height:
+                                          viewport.maxHeight < 600 ? 78 : 89),
+                              ]),
                               if (!finished)
-                                _footer(q, guide, viewport.maxHeight < 600),
+                                Positioned(
+                                    left: 0,
+                                    right: 0,
+                                    bottom: 0,
+                                    child: AnimatedSize(
+                                        duration:
+                                            const Duration(milliseconds: 200),
+                                        alignment: Alignment.bottomCenter,
+                                        curve: Curves.easeOutCubic,
+                                        child: _footer(q, guide,
+                                            viewport.maxHeight < 600))),
                             ]))))));
   }
 

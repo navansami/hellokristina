@@ -46,3 +46,5 @@ Kristina is joined by Miloš (short dark hair and amber shirt) and Zara (glasses
 Exercises size the heading, character/prompt, answer area and feedback to the available viewport; the exercise page has no vertical scroll. Choice tiles, image tiles and sentence banks adapt to smaller screens, and typed answers keep CHECK above the keyboard. Lesson guides use horizontal pages; completion fits the same screen. Underlined prompt words open vocabulary-backed translation and usage hints. Unrecognized words stay plain, and listening transcripts remain hidden before checking.
 
 Run `flutter test test/lesson_viewport_test.dart` for viewport, keyboard, hint, guide and completion coverage. The suite checks the longest current examples of every exercise format at 320×568, 360×640 and 390×700.
+
+Answer feedback is a bottom overlay. Its expansion covers the lower exercise area while preserving the prompt and answer positions; it never resizes or pushes the exercise upward.

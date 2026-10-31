@@ -89,6 +89,44 @@ void main() {
       });
     }
   }
+  for (final correct in [true, false]) {
+    for (final size in [const Size(320, 568), const Size(390, 700)]) {
+      testWidgets('feedback overlays without moving answers $correct $size',
+          (tester) async {
+        addTearDown(() => clean(tester));
+        const q = Question(
+            'Choose the meaning',
+            'Ja sam Kristina.',
+            'I am Kristina.',
+            [
+              'I am Kristina.',
+              'Hello Kristina.',
+              'You are Kristina.',
+              'Where is Kristina?'
+            ],
+            'Ja sam means I am.',
+            audioText: 'Ja sam Kristina.');
+        await screen(tester, q, size);
+        final tiles = q.options
+            .map((option) => find.byWidgetPredicate((widget) =>
+                widget is Semantics && widget.properties.label == option))
+            .toList();
+        await tester.tap(find.text(correct ? q.answer : q.options.last));
+        await tester.pump();
+        final before = tiles.map(tester.getRect).toList();
+        final prompt = tester.getRect(find.text('Ja'));
+        await tester.tap(find.text('CHECK'));
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(find.text(correct ? 'Nicely done!' : 'Let’s get this one.'),
+            findsOneWidget);
+        expect(tiles.map(tester.getRect).toList(), before);
+        expect(tester.getRect(find.text('Ja')), prompt);
+        expect(tester.getRect(find.text('CONTINUE')).bottom,
+            lessThan(size.height));
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
   testWidgets('typing keeps input and CHECK above the keyboard',
       (tester) async {
     addTearDown(() => clean(tester));

@@ -136,20 +136,39 @@ class _KristinaPainter extends CustomPainter {
     // Hair behind body, separated from head so it swings subtly.
     if (character != 1) {
       canvas.save();
-      canvas.translate(90, 100);
-      canvas.rotate(.025 * breath);
-      canvas.translate(-90, -100);
+      if (character == 0) {
+        // Keep the roots attached to the head through every reaction.
+        canvas.translate(102, 93 + breath);
+        canvas.rotate(
+            wrong ? -.1 : .025 * breath + (celebrate ? .04 * pulse : 0));
+        canvas.translate(-102, -93);
+      } else {
+        canvas.translate(90, 100);
+        canvas.rotate(.025 * breath);
+        canvas.translate(-90, -100);
+      }
       fill(
           canvas,
           hair,
           (p) => canvas.drawPath(
-              Path()
-                ..moveTo(62, 52)
-                ..cubicTo(34, 58, 16, 96, 24, 146)
-                ..cubicTo(30, 178, 52, 190, 74, 172)
-                ..cubicTo(88, 160, 84, 118, 74, 78)
-                ..cubicTo(70, 64, 66, 56, 62, 52)
-                ..close(),
+              character == 0
+                  ? (Path()
+                    ..moveTo(34, 47)
+                    ..cubicTo(34, 64, 18, 72, 21, 90)
+                    ..cubicTo(22, 106, 34, 113, 28, 129)
+                    ..cubicTo(23, 141, 16, 144, 21, 154)
+                    ..cubicTo(25, 163, 40, 157, 55, 157)
+                    ..cubicTo(64, 156, 68, 146, 79, 142)
+                    ..lineTo(83, 113)
+                    ..lineTo(66, 59)
+                    ..close())
+                  : (Path()
+                    ..moveTo(62, 52)
+                    ..cubicTo(34, 58, 16, 96, 24, 146)
+                    ..cubicTo(30, 178, 52, 190, 74, 172)
+                    ..cubicTo(88, 160, 84, 118, 74, 78)
+                    ..cubicTo(70, 64, 66, 56, 62, 52)
+                    ..close()),
               p));
       canvas.restore();
     }
@@ -249,21 +268,38 @@ class _KristinaPainter extends CustomPainter {
                 ..close(),
               p));
     } else {
-      // Tall sweep on the left, a lower rounded section on the right,
-      // and a dip between them. The dip stays above the skull.
+      // Kristina's reference has a broad swept crown, a small part, and a
+      // low right temple. Keep the forehead open beneath the swept fringe.
       fill(
           canvas,
           hair,
           (p) => canvas.drawPath(
-              Path()
-                ..moveTo(54, 76)
-                ..cubicTo(20, 52, 18, 8, 58, 4)
-                ..cubicTo(88, 1, 108, 14, 116, 24)
-                ..cubicTo(126, 16, 154, 18, 168, 36)
-                ..cubicTo(178, 50, 170, 68, 154, 72)
-                ..cubicTo(138, 64, 116, 58, 98, 58)
-                ..cubicTo(78, 58, 64, 66, 54, 76)
-                ..close(),
+              character == 0
+                  ? (Path()
+                    ..moveTo(52, 76)
+                    ..cubicTo(47, 72, 42, 71, 35, 75)
+                    ..cubicTo(38, 62, 29, 54, 31, 39)
+                    ..cubicTo(29, 21, 44, 9, 62, 6)
+                    ..cubicTo(76, 4, 90, 1, 99, 4)
+                    ..cubicTo(112, 8, 118, 20, 116, 32)
+                    ..lineTo(133, 32)
+                    ..cubicTo(151, 31, 160, 42, 157, 62)
+                    ..lineTo(156, 76)
+                    ..cubicTo(154, 61, 149, 48, 133, 48)
+                    ..lineTo(120, 48)
+                    ..cubicTo(111, 48, 105, 46, 102, 38)
+                    ..cubicTo(97, 48, 89, 49, 79, 49)
+                    ..cubicTo(62, 48, 53, 56, 52, 76)
+                    ..close())
+                  : (Path()
+                    ..moveTo(54, 76)
+                    ..cubicTo(20, 52, 18, 8, 58, 4)
+                    ..cubicTo(88, 1, 108, 14, 116, 24)
+                    ..cubicTo(126, 16, 154, 18, 168, 36)
+                    ..cubicTo(178, 50, 170, 68, 154, 72)
+                    ..cubicTo(138, 64, 116, 58, 98, 58)
+                    ..cubicTo(78, 58, 64, 66, 54, 76)
+                    ..close()),
               p));
     }
     if (character == 1) {

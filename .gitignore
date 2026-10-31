@@ -1,0 +1,11 @@
+.dart_tool/
+.flutter-plugins*
+.packages
+build/
+.pub-cache/
+.env*
+node_modules/
+.DS_Store
+
+.idea/
+*.iml

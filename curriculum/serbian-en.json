@@ -1,0 +1,16 @@
+{
+  "id": "serbian-en",
+  "title": "Serbian for English speakers",
+  "sourceLanguage": "en",
+  "targetLanguage": "sr",
+  "scriptPolicy": "Latin and Cyrillic side by side",
+  "status": "curriculum-outline",
+  "levels": [
+    {"level":"A1","goal":"Handle basic greetings and everyday needs","units":["Greetings and introductions","Serbian sounds and Cyrillic","Numbers, time and dates","Family and people","Food, cafés and shopping","Present tense and simple questions"]},
+    {"level":"A2","goal":"Manage routine conversations and simple descriptions","units":["Home and daily routines","Travel and directions","Health and appointments","Past and future time","Cases in common phrases","Comparisons and preferences"]},
+    {"level":"B1","goal":"Discuss experiences, plans and opinions","units":["Narrating stories","Work and education","Media and culture","Aspect of verbs","All seven cases in context","Giving reasons and advice"]},
+    {"level":"B2","goal":"Discuss complex topics with fluency","units":["Debate and persuasion","Serbian news and society","Nuanced aspect and motion verbs","Idioms and register","Long-form listening and reading","Formal writing and presentation"]},
+    {"level":"C1","goal":"Use Serbian flexibly in academic and professional contexts","units":["Advanced syntax","Literary and journalistic Serbian","Subtle tone and humor","Professional negotiation","Research and analysis","Extended speaking and writing"]},
+    {"level":"C2","goal":"Understand and express fine shades of meaning","units":["Regional varieties","Dense literary texts","Rhetoric and style","Specialist domains","Impromptu debate","Mastery capstone"]}
+  ]
+}

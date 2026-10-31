@@ -71,12 +71,22 @@ void main() {
               reason: lesson.id);
         }
         expect(
+            round.any((question) =>
+                question.type == 'Type the answer' ||
+                question.type == 'Listen and type' ||
+                question.type == 'Choose the meaning' ||
+                question.type == 'Translate to Serbian'),
+            isFalse,
+            reason: lesson.id);
+        expect(
             round.where((question) =>
                 !question.id.startsWith('speak:') &&
                 !question.id.startsWith('write:') &&
                 !question.id.startsWith('say:') &&
                 !question.id.startsWith('image:') &&
-                !question.id.startsWith('mean:')),
+                !question.id.startsWith('mean:') &&
+                !question.id.startsWith('tiles:') &&
+                !question.id.startsWith('hear:')),
             isNotEmpty,
             reason: lesson.id);
         for (final question in round) {

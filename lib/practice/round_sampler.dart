@@ -8,6 +8,7 @@ part of '../main.dart';
 /// set. A new draw makes the same lesson come out different next time, while
 /// recent misses stay more likely to return. The round keeps one or two
 /// speaking prompts, and an image choice when the lesson has a drawable word.
+/// Translations are word tiles. Typing prompts are left out.
 List<Question> buildPracticeRound(
         Lesson source, Map<String, List<int>> memory, math.Random random) =>
     selectPracticeRound(practicePool(source), memory, random);
@@ -93,6 +94,12 @@ List<Question> practicePool(Lesson source) {
 
   for (var i = 0; i < source.questions.length; i++) {
     final question = source.questions[i];
+    if (question.type == 'Type the answer' ||
+        question.type == 'Listen and type' ||
+        question.type == 'Choose the meaning' ||
+        question.type == 'Translate to Serbian') {
+      continue;
+    }
     add(question.copy(
         id: question.id.isEmpty ? '${source.id}:authored:$i' : question.id));
   }
@@ -115,49 +122,57 @@ List<Question> practicePool(Lesson source) {
         audioAsset: audio,
         translation: english,
         answerLanguage: 'sr'));
-    add(Question('Type the answer', 'Write “$english” in Serbian', latin,
-        const [], '$latin means $english.',
-        id: 'write:${source.id}:$slug',
-        audioText: latin,
-        audioAsset: audio,
-        translation: english,
-        answerLanguage: 'sr'));
-    add(Question(
-        'Translate to Serbian',
-        english,
-        latin,
-        _wordChoices(latin, latins, const [
-          'zdravo',
-          'hvala',
-          'molim',
-          'voda',
-          'da',
-          'ne'
-        ]),
-        '$english is “$latin”.',
-        id: 'say:${source.id}:$slug',
-        audioText: latin,
-        audioAsset: audio,
-        translation: english,
-        answerLanguage: 'sr'));
-    add(Question(
-        'Choose the meaning',
-        'What does “$latin” mean?',
-        english,
-        _wordChoices(english, glosses, const [
-          'Hello',
-          'Thank you',
-          'Please',
-          'Water',
-          'Yes',
-          'Goodbye'
-        ]),
-        '$latin means $english.',
-        id: 'mean:${source.id}:$slug',
-        audioText: latin,
-        audioAsset: audio,
-        translation: english,
-        answerLanguage: 'en'));
+    final serbian = _plain(latin);
+    final meaning = _plain(english);
+    if (serbian.isNotEmpty) {
+      add(Question(
+          'Arrange the words',
+          english,
+          serbian,
+          _tileOptions(serbian, latins, const [
+            'zdravo',
+            'hvala',
+            'molim',
+            'voda',
+            'da',
+            'ne'
+          ]),
+          '$english is “$latin”.',
+          id: 'say:${source.id}:$slug',
+          audioText: latin,
+          audioAsset: audio,
+          answerLanguage: 'sr'));
+    }
+    if (meaning.isNotEmpty && foldSerbian(meaning) != foldSerbian(serbian)) {
+      final meaningTiles = _tileOptions(meaning, glosses, const [
+        'Hello',
+        'Thank you',
+        'Please',
+        'Yes',
+        'Water',
+        'Goodbye'
+      ]);
+      add(Question(
+          'Arrange the words',
+          latin,
+          meaning,
+          meaningTiles,
+          '$latin means $english.',
+          id: 'tiles:${source.id}:$slug',
+          audioText: latin,
+          audioAsset: audio,
+          answerLanguage: 'en'));
+      add(Question(
+          'Listen and arrange',
+          'Listen and build the translation.',
+          meaning,
+          List<String>.from(meaningTiles),
+          '$latin means $english.',
+          id: 'hear:${source.id}:$slug',
+          audioText: latin,
+          audioAsset: audio,
+          answerLanguage: 'en'));
+    }
     final key = objectKeyFor(english, latin);
     if (key == null) continue;
     final label = objectLabels[key] ?? key;
@@ -202,13 +217,25 @@ List<Question> practicePool(Lesson source) {
   return pool;
 }
 
-List<String> _wordChoices(String answer, List<String> bank, List<String> pad) {
-  final options = <String>[answer];
-  void take(String other) {
-    if (options.length == 4) return;
-    if (foldSerbian(other) == foldSerbian(answer)) return;
-    if (options.any((item) => foldSerbian(item) == foldSerbian(other))) return;
-    options.add(other);
+String _plain(String value) => value
+    .replaceAll(RegExp(r'[.,!?;:“”"]'), '')
+    .trim()
+    .replaceAll(RegExp(r'\s+'), ' ');
+
+/// Answer words plus up to three distractor words. The answer tokens stay
+/// exact so the joined tile order matches the answer.
+List<String> _tileOptions(String answer, List<String> bank, List<String> pad) {
+  final correct =
+      _plain(answer).split(' ').where((word) => word.isNotEmpty).toList();
+  final options = [...correct];
+  void take(String raw) {
+    for (final piece in _plain(raw).split(' ')) {
+      if (piece.isEmpty || options.length >= correct.length + 3) return;
+      if (options.any((item) => foldSerbian(item) == foldSerbian(piece))) {
+        continue;
+      }
+      options.add(piece);
+    }
   }
 
   for (final other in bank) {
@@ -252,7 +279,7 @@ List<Question> _weightedSample(List<Question> items, Map<String, double> weights
 }
 
 bool _authored(Question question) =>
-    !RegExp(r'^(speak|write|say|image|mean):').hasMatch(question.id);
+    !RegExp(r'^(speak|write|say|image|mean|tiles|hear):').hasMatch(question.id);
 
 Question _shuffleOptions(Question question, math.Random random) {
   if (question.options.length < 2) return question;

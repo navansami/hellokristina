@@ -905,11 +905,74 @@ class PathPage extends StatefulWidget {
 
 class _PathPageState extends State<PathPage> {
   final ScrollController scroll = ScrollController();
+  String? _alignedLessonId;
+  int _alignTries = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _showActiveSection());
+  }
+
+  @override
+  void didUpdateWidget(PathPage old) {
+    super.didUpdateWidget(old);
+    final lesson = _activeLesson();
+    if (lesson != null && lesson.id != _alignedLessonId) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _showActiveSection());
+    }
+  }
+
   @override
   void dispose() {
     scroll.dispose();
     super.dispose();
   }
+
+  Lesson? _activeLesson() {
+    if (lessons.isEmpty) return null;
+    final next = lessons.indexWhere((l) => !widget.done.contains(l.id));
+    return next < 0 ? lessons.last : lessons[next];
+  }
+
+  /// Scroll offset where [lesson] sits just under its pinned section title.
+  double _offsetForLesson(Lesson lesson) {
+    final titles = lessons.map((l) => l.unitTitle).toSet().toList();
+    final unitIndex = titles.indexOf(lesson.unitTitle);
+    if (unitIndex < 0) return 0;
+    var offset = 0.0;
+    for (var i = 0; i < unitIndex; i++) {
+      final count = lessons.where((l) => l.unitTitle == titles[i]).length;
+      offset += _sectionHeaderExtent + count * 148.0 + 30;
+    }
+    final indexInUnit = lessons
+        .where((l) => l.unitTitle == lesson.unitTitle)
+        .toList()
+        .indexWhere((item) => item.id == lesson.id);
+    if (indexInUnit > 0) offset += indexInUnit * 148.0;
+    return offset;
+  }
+
+  void _showActiveSection() {
+    final lesson = _activeLesson();
+    if (!mounted || lesson == null || _alignedLessonId == lesson.id) return;
+    if (!scroll.hasClients) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _showActiveSection());
+      return;
+    }
+    final offset = _offsetForLesson(lesson);
+    final max = scroll.position.maxScrollExtent;
+    if (offset > 0 && max == 0 && _alignTries < 3) {
+      _alignTries++;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _showActiveSection());
+      return;
+    }
+    scroll.jumpTo(offset.clamp(0.0, max));
+    _alignedLessonId = lesson.id;
+  }
+
+  Color _sectionColor(int unitIndex) =>
+      [lime, blue, purple, const Color(0xFFFFAD55), pink][unitIndex % 5];
 
   int count(Lesson lesson) => widget.done.contains(lesson.id)
       ? 5
@@ -1033,7 +1096,7 @@ class _PathPageState extends State<PathPage> {
     final titles = lessons.map((l) => l.unitTitle).toSet().toList();
     final next = lessons.indexWhere((l) => !widget.done.contains(l.id));
     return Column(children: [
-      // The learner identity, course and streak stay outside the scroll view.
+      // The learner identity stays fixed. Section titles pin inside the trail.
       Container(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
           decoration: const BoxDecoration(
@@ -1092,64 +1155,39 @@ class _PathPageState extends State<PathPage> {
                     fontSize: 15)),
           ])),
       Expanded(
-          child: ListView.builder(
-              controller: scroll,
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 36),
-              itemCount: titles.length,
-              itemBuilder: (context, unitIndex) {
-                final unit = lessons
-                    .where((l) => l.unitTitle == titles[unitIndex])
-                    .toList();
-                final color = [
-                  lime,
-                  blue,
-                  purple,
-                  const Color(0xFFFFAD55),
-                  pink
-                ][unitIndex % 5];
-                return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Container(
-                          margin: EdgeInsets.only(
-                              top: unitIndex == 0 ? 0 : 18, bottom: 16),
-                          padding: const EdgeInsets.all(18),
-                          decoration: BoxDecoration(
-                              color: color,
-                              borderRadius: BorderRadius.circular(19),
-                              boxShadow: [
-                                BoxShadow(
-                                    color:
-                                        Color.lerp(color, Colors.black, .25)!,
-                                    offset: const Offset(0, 5))
-                              ]),
-                          child: Row(children: [
-                            Expanded(
-                                child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                  Text(
-                                      'SECTION ${unitIndex + 1} • ${unit.first.level}',
-                                      style: TextStyle(
-                                          color: bg.withValues(alpha: .65),
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w900,
-                                          letterSpacing: 1.1)),
-                                  const SizedBox(height: 5),
-                                  Text(titles[unitIndex],
-                                      style: const TextStyle(
-                                          color: bg,
-                                          fontWeight: FontWeight.w900,
-                                          fontSize: 22,
-                                          height: 1.15)),
-                                ])),
-                            Icon(Icons.menu_book_rounded,
-                                color: bg.withValues(alpha: .7), size: 30)
-                          ])),
-                      LayoutBuilder(builder: (context, constraints) {
-                        final center = constraints.maxWidth / 2;
-                        return SizedBox(
+          child: CustomScrollView(controller: scroll, slivers: [
+        for (var unitIndex = 0; unitIndex < titles.length; unitIndex++)
+          ..._sectionSlivers(unitIndex, titles, next),
+        const SliverToBoxAdapter(child: SizedBox(height: 28)),
+      ])),
+    ]);
+  }
+
+  List<Widget> _sectionSlivers(int unitIndex, List<String> titles, int next) {
+    final unit =
+        lessons.where((l) => l.unitTitle == titles[unitIndex]).toList();
+    final color = _sectionColor(unitIndex);
+    return [
+      SliverMainAxisGroup(slivers: [
+        SliverPersistentHeader(
+            pinned: true,
+            delegate: _SectionHeaderDelegate(
+                title: titles[unitIndex],
+                level: unit.first.level,
+                index: unitIndex,
+                color: color)),
+        SliverToBoxAdapter(
+            child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _unitTrail(unit, unitIndex, next, color))),
+      ])
+    ];
+  }
+
+  Widget _unitTrail(List<Lesson> unit, int unitIndex, int next, Color color) =>
+      LayoutBuilder(builder: (context, constraints) {
+        final center = constraints.maxWidth / 2;
+        return SizedBox(
                             height: unit.length * 148.0 + 30,
                             child: Stack(children: [
                               Positioned.fill(
@@ -1287,11 +1325,80 @@ class _PathPageState extends State<PathPage> {
                                             letterSpacing: 1.2))
                                   ])),
                             ]));
-                      }),
-                    ]);
-              })),
-    ]);
+      });
+}
+
+const _sectionHeaderExtent = 112.0;
+
+class _SectionHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final String title, level;
+  final int index;
+  final Color color;
+  const _SectionHeaderDelegate(
+      {required this.title,
+      required this.level,
+      required this.index,
+      required this.color});
+
+  @override
+  double get minExtent => _sectionHeaderExtent;
+  @override
+  double get maxExtent => _sectionHeaderExtent;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return ColoredBox(
+        color: bg,
+        child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+            child: DecoratedBox(
+                decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(19),
+                    boxShadow: [
+                      BoxShadow(
+                          color: Color.lerp(color, Colors.black, .25)!,
+                          offset: const Offset(0, 5))
+                    ]),
+                child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 12),
+                    child: Row(children: [
+                      Expanded(
+                          child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                            Text('SECTION ${index + 1} • $level',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                    color: bg.withValues(alpha: .65),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 1.1)),
+                            const SizedBox(height: 4),
+                            Text(title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    color: bg,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 22,
+                                    height: 1.1))
+                          ])),
+                      const SizedBox(width: 12),
+                      Icon(Icons.menu_book_rounded,
+                          color: bg.withValues(alpha: .7), size: 30)
+                    ])))));
   }
+
+  @override
+  bool shouldRebuild(covariant _SectionHeaderDelegate old) =>
+      old.title != title ||
+      old.level != level ||
+      old.index != index ||
+      old.color != color;
 }
 
 class _SerbianFlag extends StatelessWidget {
@@ -1717,13 +1824,7 @@ class _LessonPageState extends State<LessonPage>
                                                           valueColor:
                                                               const AlwaysStoppedAnimation(
                                                                   lime))))),
-                                          const SizedBox(width: 12),
-                                          Text(
-                                              '${index + 1}/${round.length}',
-                                              style: const TextStyle(
-                                                  color: muted,
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w900)),
+                                          const SizedBox(width: 6),
                                           IconButton(
                                               tooltip: 'Learning feedback',
                                               onPressed: () =>

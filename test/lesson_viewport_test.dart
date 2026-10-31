@@ -264,6 +264,39 @@ void main() {
     expect(find.text('Hvala'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+  testWidgets('the progress bar replaces the question count', (tester) async {
+    addTearDown(() => clean(tester));
+    const q = Question(
+        'Choose the meaning',
+        'Zdravo',
+        'Hello',
+        ['Hello', 'Thanks', 'Please', 'Goodbye'],
+        'Zdravo means hello.',
+        audioText: 'Zdravo');
+    await screen(tester, q, const Size(390, 640));
+    expect(find.text('1/1'), findsNothing);
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    expect(
+        tester
+            .widget<LinearProgressIndicator>(
+                find.byType(LinearProgressIndicator))
+            .value,
+        0);
+    await tester.tap(find.text('Hello'));
+    await tester.pump();
+    await tester.tap(find.text('CHECK'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Nicely done!'), findsOneWidget);
+    expect(
+        tester
+            .widget<LinearProgressIndicator>(
+                find.byType(LinearProgressIndicator))
+            .value,
+        1);
+    expect(find.text('1/1'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('completion fits a small viewport', (tester) async {
     addTearDown(() => clean(tester));
     await screen(

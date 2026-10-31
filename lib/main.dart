@@ -39,7 +39,8 @@ void main() {
 class Lesson {
   final String id, title, subtitle, icon, color;
   final List<Question> questions;
-  final String theoryTitle, theoryBody, unitTitle, level;
+  final String theoryTitle, theoryBody, unitTitle, level, kind;
+  final int minPassPercent;
   final List<List<String>> vocabulary;
   const Lesson(
       this.id, this.title, this.subtitle, this.icon, this.color, this.questions,
@@ -47,6 +48,8 @@ class Lesson {
       this.theoryBody = '',
       this.unitTitle = '',
       this.level = 'A1',
+      this.kind = 'challenge',
+      this.minPassPercent = 0,
       this.vocabulary = const []});
 }
 
@@ -275,6 +278,8 @@ void applyCourse(Map<String, dynamic> course) {
           theoryBody: data['theory']['body'],
           unitTitle: unit['title'],
           level: unit['level'],
+          kind: data['type'] ?? 'challenge',
+          minPassPercent: data['minPassPercent'] ?? 0,
           vocabulary: vocabulary));
       for (final word in vocabulary) {
         if (parsedWords.any(
@@ -394,10 +399,11 @@ class _KristinaAppState extends State<KristinaApp> {
   }
 
   Future<void> finish(Lesson lesson, int correct, List<bool> answers) async {
+    final passed = correct * 100 >= lesson.minPassPercent * answers.length;
     final first = !done.contains(lesson.id);
     setState(() {
-      done.add(lesson.id);
-      if (first) xp += 10 + correct * 5;
+      if (passed) done.add(lesson.id);
+      if (passed && first) xp += (10 + correct * 5).clamp(0, 30);
       streak = streak == 0 ? 1 : streak;
     });
     final p = await SharedPreferences.getInstance();
@@ -504,8 +510,10 @@ class _KristinaAppState extends State<KristinaApp> {
 
   void lesson(Lesson l) {
     navigatorKey.currentState?.push(MaterialPageRoute(
-        builder: (_) =>
-            LessonPage(lesson: l, onComplete: (n, a) => finish(l, n, a))));
+        builder: (_) => LessonPage(
+            lesson: l,
+            alreadyCompleted: done.contains(l.id),
+            onComplete: (n, a) => finish(l, n, a))));
   }
 
   @override
@@ -582,10 +590,12 @@ class SerbianAudio {
     await _tts.stop();
   }
 
-  static Future<void> play(String text, String asset) async {
+  static Future<void> play(String text, String asset,
+      {bool slow = false}) async {
     await stop();
     if (asset.isNotEmpty) {
       try {
+        await _player.setPlaybackRate(slow ? 0.75 : 1.0);
         await _player.play(AssetSource(asset));
         return;
       } catch (_) {
@@ -597,7 +607,7 @@ class SerbianAudio {
       throw StateError('Serbian audio is not available on this device yet.');
     }
     await _tts.setLanguage('sr-RS');
-    await _tts.setSpeechRate(0.45);
+    await _tts.setSpeechRate(slow ? 0.32 : 0.45);
     await _tts.speak(text);
   }
 }
@@ -605,17 +615,23 @@ class SerbianAudio {
 class SerbianAudioButton extends StatelessWidget {
   final String text, asset;
   final Color color;
+  final bool slow;
   const SerbianAudioButton(
-      {super.key, required this.text, this.asset = '', this.color = blue});
+      {super.key,
+      required this.text,
+      this.asset = '',
+      this.color = blue,
+      this.slow = false});
 
   @override
   Widget build(BuildContext context) => IconButton.filledTonal(
-      tooltip: 'Play Serbian pronunciation',
-      icon: const Icon(Icons.volume_up_rounded),
+      tooltip: slow ? 'Play Serbian slowly' : 'Play Serbian pronunciation',
+      icon: Icon(
+          slow ? Icons.slow_motion_video_rounded : Icons.volume_up_rounded),
       color: color,
       onPressed: () async {
         try {
-          await SerbianAudio.play(text, asset);
+          await SerbianAudio.play(text, asset, slow: slow);
         } catch (error) {
           if (context.mounted) {
             ScaffoldMessenger.of(context)
@@ -780,7 +796,7 @@ class PageHead extends StatelessWidget {
       ]);
 }
 
-class PathPage extends StatelessWidget {
+class PathPage extends StatefulWidget {
   final Set<String> done;
   final String? reviewLessonId;
   final int xp, streak;
@@ -796,17 +812,41 @@ class PathPage extends StatelessWidget {
       required this.onChat});
 
   @override
+  State<PathPage> createState() => _PathPageState();
+}
+
+class _PathPageState extends State<PathPage> {
+  int? selectedUnitIndex;
+
+  @override
   Widget build(BuildContext context) {
-    final next = lessons.indexWhere((l) => !done.contains(l.id));
-    final nextLesson = next < 0 ? lessons.last : lessons[next];
+    final done = widget.done;
+    final reviewLessonId = widget.reviewLessonId;
+    final xp = widget.xp, streak = widget.streak;
+    final onLesson = widget.onLesson, onChat = widget.onChat;
+    final allLessons = lessons;
+    final unitTitles =
+        allLessons.map((lesson) => lesson.unitTitle).toSet().toList();
+    final globalNext =
+        allLessons.indexWhere((lesson) => !done.contains(lesson.id));
+    final currentTitle = globalNext < 0
+        ? allLessons.last.unitTitle
+        : allLessons[globalNext].unitTitle;
+    final currentUnitIndex = unitTitles.indexOf(currentTitle);
+    final activeUnitIndex =
+        selectedUnitIndex == null || selectedUnitIndex! > currentUnitIndex
+            ? currentUnitIndex
+            : selectedUnitIndex!;
+    final unitLessons = allLessons
+        .where((lesson) => lesson.unitTitle == unitTitles[activeUnitIndex])
+        .toList();
+    final courseCompleted =
+        allLessons.where((lesson) => done.contains(lesson.id)).length;
+    final next = unitLessons.indexWhere((lesson) => !done.contains(lesson.id));
+    final nextLesson = next < 0 ? unitLessons.last : unitLessons[next];
     final completedCount =
-        lessons.where((lesson) => done.contains(lesson.id)).length;
-    final section = lessons
-            .take(lessons.indexOf(nextLesson))
-            .map((lesson) => lesson.unitTitle)
-            .toSet()
-            .length +
-        1;
+        unitLessons.where((lesson) => done.contains(lesson.id)).length;
+    final section = activeUnitIndex + 1;
     return ListView(
         padding: const EdgeInsets.fromLTRB(20, 14, 20, 34),
         children: [
@@ -910,7 +950,7 @@ class PathPage extends StatelessWidget {
                                               height: 1.05)),
                                       const Spacer(),
                                       Text(
-                                          '$completedCount of ${lessons.length} lessons complete',
+                                          '$courseCompleted of ${allLessons.length} lessons complete',
                                           style: const TextStyle(
                                               color: Color(0xFFE9DDFF),
                                               fontWeight: FontWeight.w800,
@@ -920,8 +960,8 @@ class PathPage extends StatelessWidget {
                                           borderRadius:
                                               BorderRadius.circular(6),
                                           child: LinearProgressIndicator(
-                                              value: completedCount /
-                                                  lessons.length,
+                                              value: courseCompleted /
+                                                  allLessons.length,
                                               minHeight: 8,
                                               backgroundColor: Colors.white
                                                   .withValues(alpha: .25),
@@ -948,10 +988,10 @@ class PathPage extends StatelessWidget {
                                         fontSize: 13))),
                           ])),
                       if (reviewLessonId != null &&
-                          lessons.any((l) => l.id == reviewLessonId)) ...[
+                          allLessons.any((l) => l.id == reviewLessonId)) ...[
                         const SizedBox(height: 12),
                         KCard(
-                            onTap: () => onLesson(lessons
+                            onTap: () => onLesson(allLessons
                                 .firstWhere((l) => l.id == reviewLessonId)),
                             color: const Color(0xFF4B3B2A),
                             padding: const EdgeInsets.all(15),
@@ -960,14 +1000,40 @@ class PathPage extends StatelessWidget {
                               const SizedBox(width: 12),
                               Expanded(
                                   child: Text(
-                                      'Kristina says: review ${lessons.firstWhere((l) => l.id == reviewLessonId).title}',
+                                      'Kristina says: review ${allLessons.firstWhere((l) => l.id == reviewLessonId).title}',
                                       style: const TextStyle(
                                           fontWeight: FontWeight.w900))),
                               const Icon(Icons.arrow_forward_rounded,
                                   color: lime)
                             ])),
                       ],
-                      const SizedBox(height: 27),
+                      const SizedBox(height: 20),
+                      KCard(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Row(children: [
+                            const Icon(Icons.map_rounded, color: lime),
+                            const SizedBox(width: 12),
+                            Expanded(
+                                child: DropdownButton<int>(
+                              value: activeUnitIndex,
+                              isExpanded: true,
+                              underline: const SizedBox.shrink(),
+                              items: unitTitles
+                                  .asMap()
+                                  .entries
+                                  .map((entry) => DropdownMenuItem<int>(
+                                        value: entry.key,
+                                        enabled: entry.key <= currentUnitIndex,
+                                        child: Text(
+                                            'Section ${entry.key + 1}: ${entry.value.isEmpty ? 'The basics' : entry.value}',
+                                            overflow: TextOverflow.ellipsis),
+                                      ))
+                                  .toList(),
+                              onChanged: (index) =>
+                                  setState(() => selectedUnitIndex = index),
+                            ))
+                          ])),
+                      const SizedBox(height: 17),
                       Row(children: [
                         Expanded(
                             child: Text(
@@ -979,7 +1045,7 @@ class PathPage extends StatelessWidget {
                                     fontSize: 12,
                                     fontWeight: FontWeight.w900,
                                     letterSpacing: 1.7))),
-                        Text('$completedCount/${lessons.length}',
+                        Text('$completedCount/${unitLessons.length}',
                             style: const TextStyle(
                                 color: muted,
                                 fontWeight: FontWeight.w900,
@@ -990,19 +1056,19 @@ class PathPage extends StatelessWidget {
                           style: TextStyle(color: muted, fontSize: 12)),
                       const SizedBox(height: 12),
                       SizedBox(
-                          height: lessons.length * 128.0 + 24,
+                          height: unitLessons.length * 128.0 + 24,
                           child: LayoutBuilder(builder: (context, constraints) {
                             final center = constraints.maxWidth / 2;
                             return Stack(children: [
                               Positioned.fill(
                                   child: CustomPaint(
-                                      painter:
-                                          _PathLinePainter(completedCount))),
-                              ...lessons.asMap().entries.map((e) {
+                                      painter: _PathLinePainter(
+                                          completedCount, unitLessons.length))),
+                              ...unitLessons.asMap().entries.map((e) {
                                 final i = e.key, l = e.value;
                                 final completed = done.contains(l.id);
-                                final locked =
-                                    i > 0 && !done.contains(lessons[i - 1].id);
+                                final locked = i > 0 &&
+                                    !done.contains(unitLessons[i - 1].id);
                                 final active = i == next;
                                 final shift =
                                     [0.0, 74.0, 90.0, 0.0, -90.0, -74.0][i % 6];
@@ -1153,8 +1219,8 @@ class PathPage extends StatelessWidget {
 }
 
 class _PathLinePainter extends CustomPainter {
-  final int completed;
-  _PathLinePainter(this.completed);
+  final int completed, total;
+  _PathLinePainter(this.completed, this.total);
   @override
   void paint(Canvas canvas, Size size) {
     final center = size.width / 2;
@@ -1169,7 +1235,7 @@ class _PathLinePainter extends CustomPainter {
       ..strokeWidth = 7
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
-    for (int i = 0; i < lessons.length - 1; i++) {
+    for (int i = 0; i < total - 1; i++) {
       final a = Offset(center + shifts[i % 6], i * 128.0 + 43);
       final b = Offset(center + shifts[(i + 1) % 6], (i + 1) * 128.0 + 43);
       final path = Path()
@@ -1181,7 +1247,7 @@ class _PathLinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _PathLinePainter oldDelegate) =>
-      completed != oldDelegate.completed;
+      completed != oldDelegate.completed || total != oldDelegate.total;
 }
 
 Color colorFor(String c) => switch (c) {
@@ -1194,8 +1260,13 @@ Color colorFor(String c) => switch (c) {
 
 class LessonPage extends StatefulWidget {
   final Lesson lesson;
+  final bool alreadyCompleted;
   final Future<void> Function(int, List<bool>) onComplete;
-  const LessonPage({super.key, required this.lesson, required this.onComplete});
+  const LessonPage(
+      {super.key,
+      required this.lesson,
+      required this.onComplete,
+      this.alreadyCompleted = false});
   @override
   State<LessonPage> createState() => _LessonPageState();
 }
@@ -1221,8 +1292,10 @@ class _LessonPageState extends State<LessonPage> {
 
   String get response {
     final q = widget.lesson.questions[index];
-    if (q.type == 'Arrange the words') return picked.join(' ');
-    if (q.type == 'Type the answer') return typed.text.trim();
+    if (q.type == 'Arrange the words' || q.type == 'Listen and arrange')
+      return picked.join(' ');
+    if (q.type == 'Type the answer' || q.type == 'Listen and type')
+      return typed.text.trim();
     return selected ?? '';
   }
 
@@ -1230,7 +1303,7 @@ class _LessonPageState extends State<LessonPage> {
   bool _matches(String value, String target) {
     String clean(String x) => x
         .toLowerCase()
-        .replaceAll(RegExp(r'[.!?]'), '')
+        .replaceAll(RegExp(r'[.,!?;:]'), '')
         .trim()
         .replaceAll(RegExp(r'\s+'), ' ');
     return clean(value) == clean(target);
@@ -1428,7 +1501,9 @@ class _LessonPageState extends State<LessonPage> {
                                                 (q.type ==
                                                         'Choose the meaning' ||
                                                     q.type ==
-                                                        'Choose the image'))
+                                                        'Choose the image' ||
+                                                    q.type
+                                                        .startsWith('Listen')))
                                               Padding(
                                                   padding:
                                                       const EdgeInsets.only(
@@ -1438,11 +1513,23 @@ class _LessonPageState extends State<LessonPage> {
                                                         text: q.audioText,
                                                         asset: q.audioAsset),
                                                     const SizedBox(width: 8),
-                                                    const Text(
-                                                        'Listen in Serbian',
-                                                        style: TextStyle(
-                                                            color: muted,
-                                                            fontSize: 12))
+                                                    if (q.type.startsWith(
+                                                        'Listen')) ...[
+                                                      SerbianAudioButton(
+                                                          text: q.audioText,
+                                                          asset: q.audioAsset,
+                                                          slow: true),
+                                                      const SizedBox(width: 8),
+                                                      const Text('Slow',
+                                                          style: TextStyle(
+                                                              color: muted,
+                                                              fontSize: 12))
+                                                    ] else
+                                                      const Text(
+                                                          'Listen in Serbian',
+                                                          style: TextStyle(
+                                                              color: muted,
+                                                              fontSize: 12))
                                                   ])),
                                             const SizedBox(height: 20),
                                             Row(children: [
@@ -1473,10 +1560,12 @@ class _LessonPageState extends State<LessonPage> {
                                                                       .w800)))),
                                             ]),
                                             const SizedBox(height: 26),
-                                            if (q.type == 'Arrange the words')
+                                            if (q.type == 'Arrange the words' ||
+                                                q.type == 'Listen and arrange')
                                               _arrange(q)
                                             else if (q.type ==
-                                                'Type the answer')
+                                                    'Type the answer' ||
+                                                q.type == 'Listen and type')
                                               _typeAnswer(q)
                                             else if (q.type ==
                                                 'Choose the image')
@@ -1514,7 +1603,8 @@ class _LessonPageState extends State<LessonPage> {
                                                   fontSize: 16))),
                                       if (q.audioText.isNotEmpty &&
                                           q.type != 'Choose the meaning' &&
-                                          q.type != 'Choose the image')
+                                          q.type != 'Choose the image' &&
+                                          !q.type.startsWith('Listen'))
                                         SerbianAudioButton(
                                             text: q.audioText,
                                             asset: q.audioAsset,
@@ -1725,53 +1815,90 @@ class _LessonPageState extends State<LessonPage> {
             'Tip: accents matter in Serbian, but case and punctuation do not.',
             style: TextStyle(color: muted, fontSize: 12)),
       ]);
-  Widget _complete(Color accent) => SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(children: [
-        const SizedBox(height: 12),
-        Container(
-            width: 220,
-            height: 250,
-            decoration: BoxDecoration(
-                shape: BoxShape.circle, color: accent.withValues(alpha: .12)),
-            child: const SassyKristina(width: 220, height: 250)),
-        const SizedBox(height: 17),
-        Text(
-            correct == widget.lesson.questions.length
-                ? 'PERFECT LESSON!'
-                : 'LESSON COMPLETE!',
-            style: TextStyle(
-                color: accent,
-                fontSize: 12,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 2)),
-        const SizedBox(height: 7),
-        Text(
-            correct == widget.lesson.questions.length
-                ? 'Okay, show-off.'
-                : 'You did it, superstar!',
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 29, fontWeight: FontWeight.w900)),
-        const SizedBox(height: 8),
-        const Text('Kristina approves. She will deny saying that later.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: muted, fontSize: 13)),
-        const SizedBox(height: 25),
-        Row(children: [
-          Expanded(
-              child:
-                  _resultCard('⚡', '+${10 + correct * 5}', 'XP EARNED', lime)),
-          const SizedBox(width: 10),
-          Expanded(
-              child: _resultCard(
-                  '🎯',
-                  '$correct/${widget.lesson.questions.length}',
-                  'CORRECT',
-                  blue)),
-        ]),
-        const SizedBox(height: 28),
-        KButton(text: 'BACK TO THE PATH', onTap: () => Navigator.pop(context)),
-      ]));
+  Widget _complete(Color accent) {
+    final passed = correct * 100 >=
+        widget.lesson.minPassPercent * widget.lesson.questions.length;
+    return SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(children: [
+          const SizedBox(height: 12),
+          Container(
+              width: 220,
+              height: 250,
+              decoration: BoxDecoration(
+                  shape: BoxShape.circle, color: accent.withValues(alpha: .12)),
+              child: const SassyKristina(width: 220, height: 250)),
+          const SizedBox(height: 17),
+          Text(
+              !passed
+                  ? 'KEEP PRACTICING'
+                  : correct == widget.lesson.questions.length
+                      ? 'PERFECT LESSON!'
+                      : widget.lesson.kind == 'assessment'
+                          ? 'A1 KNOWLEDGE CHECK PASSED!'
+                          : 'LESSON COMPLETE!',
+              style: TextStyle(
+                  color: accent,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 2)),
+          const SizedBox(height: 7),
+          Text(
+              !passed
+                  ? 'Not quite yet. Try again.'
+                  : correct == widget.lesson.questions.length
+                      ? 'Okay, show-off.'
+                      : 'You did it, superstar!',
+              textAlign: TextAlign.center,
+              style:
+                  const TextStyle(fontSize: 29, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 8),
+          Text(
+              passed
+                  ? 'Kristina approves. She will deny saying that later.'
+                  : 'You need ${widget.lesson.minPassPercent}% to unlock the next lesson. Kristina believes in a rematch.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: muted, fontSize: 13)),
+          const SizedBox(height: 25),
+          Row(children: [
+            Expanded(
+                child: _resultCard(
+                    '⚡',
+                    passed && !widget.alreadyCompleted
+                        ? '+${(10 + correct * 5).clamp(0, 30)}'
+                        : '+0',
+                    'XP EARNED',
+                    lime)),
+            const SizedBox(width: 10),
+            Expanded(
+                child: _resultCard(
+                    '🎯',
+                    '$correct/${widget.lesson.questions.length}',
+                    'CORRECT',
+                    blue)),
+          ]),
+          const SizedBox(height: 28),
+          KButton(
+              text: passed ? 'BACK TO THE PATH' : 'TRY AGAIN',
+              onTap: () {
+                if (passed)
+                  Navigator.pop(context);
+                else
+                  setState(() {
+                    index = 0;
+                    correct = 0;
+                    answers.clear();
+                    picked.clear();
+                    typed.clear();
+                    selected = null;
+                    checked = false;
+                    finished = false;
+                    showTheory = false;
+                  });
+              }),
+        ]));
+  }
+
   Widget _resultCard(String icon, String number, String label, Color color) =>
       Container(
           padding: const EdgeInsets.symmetric(vertical: 15),

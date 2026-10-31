@@ -10,8 +10,14 @@ const lessons = course.units.flatMap(unit => unit.lessons);
 assert.equal(course.sourceLanguage, 'en');
 assert.equal(course.targetLanguage, 'sr');
 assert.equal(course.status, 'published');
-assert.equal(lessons.length, 12);
-assert.equal(lessons.reduce((sum, lesson) => sum + lesson.challenges.length, 0), 48);
+assert.equal(course.version, 3);
+assert.equal(course.units.length, 11);
+assert.equal(lessons.length, 68);
+assert.equal(lessons.reduce((sum, lesson) => sum + lesson.challenges.length, 0), 424);
+assert.equal(lessons.filter(lesson => lesson.type === 'assessment').length, 1);
+assert.equal(lessons.filter(lesson => lesson.type === 'checkpoint').length, 11);
+assert(lessons.every(lesson => lesson.type === 'challenge' || lesson.minPassPercent >= 75));
+assert(lessons.every(lesson => lesson.challenges.some(question => question.type.startsWith('Listen'))));
 assert(lessons.every(lesson => lesson.theory.body && lesson.vocabulary.length));
 const clips = new Map();
 for (const lesson of lessons) {
@@ -28,4 +34,4 @@ for (const [path, input] of clips) {
   assert(bytes.length > 1000, `Empty clip for ${input}`);
   assert(bytes[0] === 0xff || bytes.subarray(0, 3).toString() === 'ID3', `Invalid MP3 for ${input}`);
 }
-console.log(`Course valid: 2 units, 12 lessons, 48 challenges, ${clips.size} MP3 clips; Flutter bundle matches.`);
+console.log(`Course valid: ${course.units.length} units, ${lessons.length} lessons, 424 challenges, ${clips.size} MP3 clips; Flutter bundle matches.`);

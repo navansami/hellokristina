@@ -6,7 +6,7 @@ export const starterCourse = require('../curriculum/serbian-en.v1.json');
 
 const challenge = z.object({
   id: z.string().min(1),
-  type: z.enum(['Choose the meaning', 'Translate to Serbian', 'Arrange the words', 'Type the answer', 'Choose the image']),
+  type: z.enum(['Choose the meaning', 'Translate to Serbian', 'Arrange the words', 'Type the answer', 'Choose the image', 'Listen and choose', 'Listen and type', 'Listen and arrange']),
   prompt: z.string().min(1),
   answer: z.string().min(1),
   options: z.array(z.string()),
@@ -31,7 +31,8 @@ export const courseSchema = z.object({
     lessons: z.array(z.object({
       id: z.string().regex(/^[a-z0-9-]{2,80}$/), title: z.string().min(1),
       subtitle: z.string().min(1), icon: z.string().min(1), color: z.string().min(1),
-      type: z.literal('challenge'),
+      type: z.enum(['challenge', 'checkpoint', 'assessment']),
+      minPassPercent: z.number().int().min(0).max(100).optional(),
       theory: z.object({ title: z.string().min(1), body: z.string().min(1) }),
       vocabulary: z.array(vocabulary).min(1), challenges: z.array(challenge).min(1),
     })).min(1),
@@ -46,15 +47,17 @@ export function validateCourse(value) {
   for (const lesson of lessons) {
     const challengeIds = lesson.challenges.map(item => item.id);
     if (new Set(challengeIds).size !== challengeIds.length) throw new Error(`Duplicate challenge IDs in ${lesson.id}`);
+    if (lesson.type !== 'challenge' && !lesson.minPassPercent) throw new Error(`Checkpoint requires a passing score: ${lesson.id}`);
     for (const item of lesson.challenges) {
-      if (item.type === 'Arrange the words') {
+      if (item.type.startsWith('Listen') && (!item.audioText || !item.audio)) throw new Error(`Listening audio is required in ${item.id}`);
+      if (item.type === 'Arrange the words' || item.type === 'Listen and arrange') {
         const tokens = item.options.slice();
         for (const word of item.answer.split(' ')) {
           const i = tokens.indexOf(word);
           if (i < 0) throw new Error(`Missing arrangement token in ${item.id}`);
           tokens.splice(i, 1);
         }
-      } else if (item.type !== 'Type the answer' && !item.options.includes(item.answer)) {
+      } else if (item.type !== 'Type the answer' && item.type !== 'Listen and type' && !item.options.includes(item.answer)) {
         throw new Error(`Missing answer option in ${item.id}`);
       }
     }
@@ -63,3 +66,7 @@ export function validateCourse(value) {
 }
 
 validateCourse(starterCourse);
+
+export function lessonPassed(lesson, answers) {
+  return answers.filter(Boolean).length * 100 >= (lesson.minPassPercent || 0) * answers.length;
+}

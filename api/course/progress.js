@@ -1,6 +1,6 @@
 import { updateMastery, recommendation } from '../../server/mastery.js';
 import { safe, method, send, requireUser, db } from '../../server/core.js';
-import { starterCourse } from '../../server/course.js';
+import { starterCourse, lessonPassed } from '../../server/course.js';
 export default safe(async (req, res) => {
   if (!method(req, res, ['GET', 'POST'])) return;
   const user = await requireUser(req, res); if (!user) return;
@@ -11,17 +11,22 @@ export default safe(async (req, res) => {
   const { lessonId, words = [], answers = [] } = req.body || {};
   if (typeof lessonId !== 'string' || !/^[a-z0-9-]{2,80}$/.test(lessonId) || !Array.isArray(words) || !Array.isArray(answers) || answers.length < 1 || answers.length > 30 || answers.some(x => typeof x !== 'boolean')) return send(res, 400, { error: 'Invalid lesson result' });
   const course = await database.collection('courses').findOne({ id: courseId, status: 'published' });
-  const publishedIds = (course || (courseId === starterCourse.id ? starterCourse : null))?.units.flatMap(unit => unit.lessons.map(lesson => lesson.id)) || [];
-  if (!publishedIds.includes(lessonId)) return send(res, 400, { error: 'Lesson is not published' });
+  const activeCourse = course || (courseId === starterCourse.id ? starterCourse : null);
+  const lesson = activeCourse?.units.flatMap(unit => unit.lessons).find(item => item.id === lessonId);
+  if (!lesson) return send(res, 400, { error: 'Lesson is not published' });
+  if (lesson.type !== 'challenge' && answers.length !== lesson.challenges.length) return send(res, 400, { error: 'Complete every checkpoint question' });
+  const passed = lessonPassed(lesson, answers);
   const prior = await collection.findOne(filter);
   const newLesson = !prior?.completedLessons?.includes(lessonId);
-  const xp = newLesson ? Math.min(30, 10 + answers.filter(Boolean).length * 5) : 0;
+  const xp = passed && newLesson ? Math.min(30, 10 + answers.filter(Boolean).length * 5) : 0;
   const today = new Date().toISOString().slice(0, 10); const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
   const last = prior?.lastActiveAt ? new Date(prior.lastActiveAt).toISOString().slice(0, 10) : null;
   const streak = last === today ? user.streak || 1 : last === yesterday ? (user.streak || 0) + 1 : 1;
   const mastery = updateMastery(prior?.mastery?.[lessonId], answers);
-  await collection.updateOne(filter, { $addToSet: { completedLessons: lessonId, learnedWords: { $each: words.filter(x => typeof x === 'string').slice(0, 30) } }, $set: { lastActiveAt: new Date(), [`mastery.${lessonId}`]: mastery } }, { upsert: true });
+  const update = { $set: { lastActiveAt: new Date(), [`mastery.${lessonId}`]: mastery }, $inc: { [`attempts.${lessonId}`]: 1 } };
+  if (passed) update.$addToSet = { completedLessons: lessonId, learnedWords: { $each: lesson.vocabulary.map(word => word.latin) } };
+  await collection.updateOne(filter, update, { upsert: true });
   await database.collection('users').updateOne({ _id: user._id }, { $inc: { xp }, $set: { streak } });
-  if (newLesson) await database.collection('feed').insertOne({ actorId: user._id, actorName: user.name, actorAvatar: user.avatar, type: 'lesson', lessonId, xp, likes: [], createdAt: new Date() });
-  send(res, 200, { xp, streak, progress: await collection.findOne(filter, { projection: { _id: 0, userId: 0 } }) });
+  if (passed && newLesson) await database.collection('feed').insertOne({ actorId: user._id, actorName: user.name, actorAvatar: user.avatar, type: 'lesson', lessonId, xp, likes: [], createdAt: new Date() });
+  send(res, 200, { xp, streak, passed, progress: await collection.findOne(filter, { projection: { _id: 0, userId: 0 } }) });
 });

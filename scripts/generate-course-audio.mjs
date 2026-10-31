@@ -43,7 +43,7 @@ async function worker() {
     if (lastError) throw new Error(`Could not generate ${asset}: ${lastError.message}`);
   }
 }
-await Promise.all([worker(), worker()]);
+await Promise.all([worker(), worker(), worker(), worker()]);
 for (const asset of clips.keys()) {
   const bytes = await readFile(join('assets', asset));
   if (bytes.length < 1000) throw new Error(`Invalid audio: ${asset}`);

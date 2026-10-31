@@ -144,11 +144,11 @@ class _KristinaPainter extends CustomPainter {
           hair,
           (p) => canvas.drawPath(
               Path()
-                ..moveTo(47, 47)
-                ..cubicTo(30, 86, 44, 121, 30, 151)
-                ..cubicTo(22, 172, 42, 184, 77, 176)
-                ..lineTo(145, 162)
-                ..lineTo(153, 65)
+                ..moveTo(62, 52)
+                ..cubicTo(34, 58, 16, 96, 24, 146)
+                ..cubicTo(30, 178, 52, 190, 74, 172)
+                ..cubicTo(88, 160, 84, 118, 74, 78)
+                ..cubicTo(70, 64, 66, 56, 62, 52)
                 ..close(),
               p));
       canvas.restore();
@@ -249,31 +249,20 @@ class _KristinaPainter extends CustomPainter {
                 ..close(),
               p));
     } else {
-      // Kristina and Zara. The second shape overlaps the cap and the
-      // right side of the skull, down to the top of the ear.
+      // Tall sweep on the left, a lower rounded section on the right,
+      // and a dip between them. The dip stays above the skull.
       fill(
           canvas,
           hair,
           (p) => canvas.drawPath(
               Path()
-                ..moveTo(46, 80)
-                ..cubicTo(24, 46, 34, 8, 78, 6)
-                ..cubicTo(118, 2, 156, 8, 172, 34)
-                ..cubicTo(184, 52, 176, 74, 154, 72)
-                ..cubicTo(134, 70, 112, 62, 92, 60)
-                ..cubicTo(72, 58, 56, 68, 46, 80)
-                ..close(),
-              p));
-      fill(
-          canvas,
-          hair,
-          (p) => canvas.drawPath(
-              Path()
-                ..moveTo(128, 34)
-                ..cubicTo(156, 22, 186, 32, 186, 58)
-                ..cubicTo(186, 80, 168, 98, 146, 92)
-                ..lineTo(134, 84)
-                ..cubicTo(128, 72, 124, 52, 128, 34)
+                ..moveTo(54, 76)
+                ..cubicTo(20, 52, 18, 8, 58, 4)
+                ..cubicTo(88, 1, 108, 14, 116, 24)
+                ..cubicTo(126, 16, 154, 18, 168, 36)
+                ..cubicTo(178, 50, 170, 68, 154, 72)
+                ..cubicTo(138, 64, 116, 58, 98, 58)
+                ..cubicTo(78, 58, 64, 66, 54, 76)
                 ..close(),
               p));
     }

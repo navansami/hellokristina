@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hello_kristina/main.dart';
+import 'package:hello_kristina/feedback/learning_feedback.dart';
 import 'package:hello_kristina/widgets/word_hints.dart';
 
 final catalog =
@@ -48,6 +49,11 @@ void clean(WidgetTester tester) {
 }
 
 void main() {
+  setUp(() {
+    learningFeedback.sounds = false;
+    learningFeedback.vibration = false;
+    learningFeedback.spokenWords = false;
+  });
   final types = questions.map((q) => q['type'] as String).toSet();
   for (final type in types) {
     final candidates = questions.where((q) => q['type'] == type).toList()
@@ -186,6 +192,38 @@ void main() {
     await tester.tap(find.text('CHECK'));
     await tester.pump();
     expect(find.text('Nicely done!'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('correct answer streaks celebrate and reset after a mistake',
+      (tester) async {
+    addTearDown(() => clean(tester));
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    const q = Question('Complete the sentence', 'Ovo je ___.', 'kafa',
+        ['kafa', 'voda', 'hleb'], 'This is coffee.',
+        translation: 'This is coffee.', answerLanguage: 'sr');
+    await tester.pumpWidget(MaterialApp(
+        theme: ThemeData.dark(),
+        home: LessonPage(
+            lesson: Lesson('run', 'Run', '', '', 'green', List.filled(5, q)),
+            onComplete: (_, __) async {})));
+    await tester.pump();
+    for (var run = 1; run <= 5; run++) {
+      await tester.tap(find.text(run == 4 ? 'voda' : 'kafa').last);
+      await tester.pump();
+      await tester.tap(find.text('CHECK'));
+      await tester.pump(const Duration(milliseconds: 300));
+      if (run == 3) expect(find.text('3 in a row!'), findsOneWidget);
+      if (run == 4) expect(find.text('Let’s get this one.'), findsOneWidget);
+      if (run == 5) {
+        expect(find.text('Nicely done!'), findsOneWidget);
+        expect(find.text('5 in a row!'), findsNothing);
+      }
+      if (run < 5) {
+        await tester.tap(find.text('CONTINUE'));
+        await tester.pump(const Duration(milliseconds: 300));
+      }
+    }
     expect(tester.takeException(), isNull);
   });
   testWidgets('typing keeps input and CHECK above the keyboard',

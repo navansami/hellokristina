@@ -5,8 +5,10 @@ import 'widgets/animated_kristina.dart';
 import 'widgets/tactile_button.dart';
 import 'widgets/learning_object.dart';
 import 'widgets/word_hints.dart';
+import 'feedback/learning_feedback.dart';
+import 'feedback/feedback_settings.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart' show rootBundle, HapticFeedback;
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart' show CustomSemanticsAction;
 import 'package:http/http.dart' as http;
@@ -313,7 +315,7 @@ class KristinaApp extends StatefulWidget {
   State<KristinaApp> createState() => _KristinaAppState();
 }
 
-class _KristinaAppState extends State<KristinaApp> {
+class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
   int tab = 0, xp = 0, streak = 0;
   Set<String> done = {}, completedRounds = {};
@@ -326,10 +328,28 @@ class _KristinaAppState extends State<KristinaApp> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      learningFeedback.stopSounds();
+      learningFeedback.cancelHaptics();
+      SerbianAudio.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
   Future<void> _load() async {
+    await learningFeedback.load();
+    await SerbianAudio.loadWordIndex();
     try {
       final bundled =
           await rootBundle.loadString('assets/course/serbian-en.v1.json');
@@ -656,31 +676,77 @@ class _KristinaAppState extends State<KristinaApp> {
 class SerbianAudio {
   static final AudioPlayer _player = AudioPlayer();
   static final FlutterTts _tts = FlutterTts();
+  static final ValueNotifier<bool> speaking = ValueNotifier(false);
+  static Map<String, String> _wordAssets = {};
+  static Future<void>? _wordLoading;
+  static int _generation = 0;
+  static bool _wired = false;
+  static String wordKey(String text) =>
+      text.toLowerCase().replaceAll(RegExp(r'[.,!?;:“”"()]'), '').trim();
+  static Future<void> loadWordIndex() => _wordLoading ??= _loadWordIndex();
+  static Future<void> _loadWordIndex() async {
+    try {
+      _wordAssets = (jsonDecode(await rootBundle.loadString(
+              'assets/audio/serbian/word-index.json')) as Map<String, dynamic>)
+          .cast<String, String>();
+    } catch (_) {}
+  }
+
+  static void _wire() {
+    if (_wired) return;
+    _wired = true;
+    _player.onPlayerStateChanged
+        .listen((state) => speaking.value = state == PlayerState.playing);
+    _tts.setStartHandler(() => speaking.value = true);
+    _tts.setCompletionHandler(() => speaking.value = false);
+    _tts.setErrorHandler((_) {
+      speaking.value = false;
+    });
+  }
+
+  static Future<void> speakWord(String text) async {
+    final generation = ++_generation;
+    await loadWordIndex();
+    if (generation != _generation || !learningFeedback.spokenWords) return;
+    try {
+      await play(text, _wordAssets[wordKey(text)] ?? '');
+    } catch (_) {}
+  }
 
   static Future<void> stop() async {
-    await _player.stop();
-    await _tts.stop();
+    _generation++;
+    speaking.value = false;
+    try {
+      await _player.stop();
+      await _tts.stop();
+    } catch (_) {}
   }
 
   static Future<void> play(String text, String asset,
       {bool slow = false}) async {
-    await stop();
+    final generation = ++_generation;
+    _wire();
+    await learningFeedback.stopSounds();
+    speaking.value = false;
+    await _player.stop();
+    await _tts.stop();
+    if (generation != _generation) return;
     if (asset.isNotEmpty) {
       try {
         await _player.setPlaybackRate(slow ? 0.75 : 1.0);
-        await _player.play(AssetSource(asset));
+        await _player.setSource(AssetSource(asset));
+        if (generation != _generation) return;
+        await _player.resume();
         return;
-      } catch (_) {
-        // New course content may not have a bundled recording yet.
-      }
+      } catch (_) {}
     }
     final available = await _tts.isLanguageAvailable('sr-RS');
-    if (available != true && available != 1) {
+    if (available != true && available != 1)
       throw StateError('Serbian audio is not available on this device yet.');
-    }
+    if (generation != _generation) return;
     await _tts.setLanguage('sr-RS');
     await _tts.setSpeechRate(slow ? 0.32 : 0.45);
-    await _tts.speak(text);
+    if (generation == _generation) await _tts.speak(text);
   }
 }
 
@@ -1334,7 +1400,7 @@ class LessonPage extends StatefulWidget {
 }
 
 class _LessonPageState extends State<LessonPage> {
-  int index = 0, correct = 0;
+  int index = 0, correct = 0, answerRun = 0, bestRun = 0;
   final List<bool> answers = [];
   final List<int> picked = [];
   final TextEditingController typed = TextEditingController();
@@ -1348,6 +1414,8 @@ class _LessonPageState extends State<LessonPage> {
   @override
   void dispose() {
     SerbianAudio.stop();
+    learningFeedback.stopSounds();
+    learningFeedback.cancelHaptics();
     typed.dispose();
     guidePages.dispose();
     super.dispose();
@@ -1379,18 +1447,19 @@ class _LessonPageState extends State<LessonPage> {
       if (!canCheck) return;
       FocusScope.of(context).unfocus();
       final right = _matches(response, q.answer);
-      if (right)
-        HapticFeedback.lightImpact();
-      else
-        HapticFeedback.selectionClick();
+      answerRun = right ? answerRun + 1 : 0;
+      bestRun = math.max(bestRun, answerRun);
       setState(() {
         checked = true;
         lastCorrect = right;
         answers.add(right);
         if (right) correct++;
       });
+      unawaited(_answerFeedback(right, answerRun, index));
       return;
     }
+    learningFeedback.tap(sound: false);
+    learningFeedback.stopSounds();
     if (index < widget.lesson.questions.length - 1) {
       setState(() {
         index++;
@@ -1407,7 +1476,24 @@ class _LessonPageState extends State<LessonPage> {
           finished = true;
           submitting = false;
         });
+      if (mounted)
+        learningFeedback.complete(
+            passed: correct * 100 >=
+                widget.lesson.minPassPercent * widget.lesson.questions.length,
+            perfect: correct == widget.lesson.questions.length);
     }
+  }
+
+  Future<void> _answerFeedback(bool right, int run, int questionIndex) async {
+    await SerbianAudio.stop();
+    if (mounted && checked && index == questionIndex)
+      learningFeedback.answer(right, run);
+  }
+
+  void _selectionFeedback(Question q, String word) {
+    final spoken = learningFeedback.shouldSpeakSelection(q.answerLanguage);
+    learningFeedback.tap(sound: !spoken);
+    if (spoken) unawaited(SerbianAudio.speakWord(word));
   }
 
   String _heading(Question q) => q.type == 'Listen and arrange'
@@ -1486,6 +1572,14 @@ class _LessonPageState extends State<LessonPage> {
                                                   color: muted,
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w900)),
+                                          IconButton(
+                                              tooltip: 'Learning feedback',
+                                              onPressed: () =>
+                                                  showFeedbackSettings(context),
+                                              icon: const Icon(
+                                                  Icons.tune_rounded,
+                                                  color: muted,
+                                                  size: 21)),
                                         ]))),
                                 Expanded(
                                     child: Padding(
@@ -1559,17 +1653,27 @@ class _LessonPageState extends State<LessonPage> {
 
   Widget _scene(Question q, double height) {
     final listen = q.type.startsWith('Listen');
-    final mood = checked ? (lastCorrect ? 'correct' : 'wrong') : 'idle';
+    final mood = checked
+        ? (lastCorrect
+            ? (answerRun >= 5
+                ? 'hot'
+                : answerRun >= 3
+                    ? 'celebrate'
+                    : 'correct')
+            : 'wrong')
+        : 'idle';
     final character =
         (widget.lesson.id.codeUnits.fold<int>(0, (sum, c) => sum + c) + index) %
             3;
     return Row(children: [
       if (height >= 72) ...[
-        AnimatedKristina(
-            width: height * .64,
-            height: height,
-            mood: mood,
-            character: character),
+        ValueListenableBuilder<bool>(
+            valueListenable: SerbianAudio.speaking,
+            builder: (_, speaking, __) => AnimatedKristina(
+                width: height * .64,
+                height: height,
+                mood: !checked && speaking ? 'speaking' : mood,
+                character: character)),
         const SizedBox(width: 10)
       ],
       Expanded(
@@ -1773,9 +1877,14 @@ class _LessonPageState extends State<LessonPage> {
                                                       child: GestureDetector(
                                                           onTap: checked
                                                               ? null
-                                                              : () => setState(
-                                                                  () => selected =
-                                                                      option),
+                                                              : () {
+                                                                  setState(() =>
+                                                                      selected =
+                                                                          option);
+                                                                  _selectionFeedback(
+                                                                      q,
+                                                                      option);
+                                                                },
                                                           child: Container(
                                                               padding:
                                                                   const EdgeInsets
@@ -1879,12 +1988,18 @@ class _LessonPageState extends State<LessonPage> {
       final token = picked.removeAt(from);
       picked.insert(to, token);
     });
+    learningFeedback.tap(sound: !SerbianAudio.speaking.value);
+  }
+
+  void _removeTile(int position) {
+    setState(() => picked.removeAt(position));
+    learningFeedback.tap(sound: !SerbianAudio.speaking.value);
   }
 
   Widget _selectedTile(Question q, int position, double font) {
     final word = q.options[picked[position]];
-    Widget tile() => _tile(word,
-        checked ? null : () => setState(() => picked.removeAt(position)), font);
+    Widget tile() =>
+        _tile(word, checked ? null : () => _removeTile(position), font);
     if (checked) return tile();
     return DragTarget<int>(
         onWillAcceptWithDetails: (details) => details.data != position,
@@ -1942,10 +2057,10 @@ class _LessonPageState extends State<LessonPage> {
                       ignoring: checked || picked.contains(entry.key),
                       child: Opacity(
                           opacity: picked.contains(entry.key) ? 0.12 : 1.0,
-                          child: _tile(
-                              entry.value,
-                              () => setState(() => picked.add(entry.key)),
-                              font))))
+                          child: _tile(entry.value, () {
+                            setState(() => picked.add(entry.key));
+                            _selectionFeedback(q, entry.value);
+                          }, font))))
                   .toList())),
         ]);
       });
@@ -2005,7 +2120,11 @@ class _LessonPageState extends State<LessonPage> {
                 const SizedBox(width: 8),
                 Expanded(
                     child: Text(
-                        lastCorrect ? 'Nicely done!' : 'Let’s get this one.',
+                        lastCorrect
+                            ? (answerRun >= 3
+                                ? '$answerRun in a row!'
+                                : 'Nicely done!')
+                            : 'Let’s get this one.',
                         style: TextStyle(
                             color: lastCorrect ? lime : pink,
                             fontSize: compact ? 18 : 20,
@@ -2187,7 +2306,11 @@ class _LessonPageState extends State<LessonPage> {
               child: AnimatedKristina(
                   width: 220,
                   height: space.maxHeight * .44,
-                  mood: passed ? 'celebrate' : 'wrong')),
+                  mood: passed
+                      ? (correct == widget.lesson.questions.length
+                          ? 'hot'
+                          : 'celebrate')
+                      : 'wrong')),
           Text(
               passed
                   ? (widget.practiceRound == 4
@@ -2203,7 +2326,13 @@ class _LessonPageState extends State<LessonPage> {
           FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
-                  passed ? 'You did it, superstar!' : 'Let’s try that again.',
+                  passed
+                      ? (correct == widget.lesson.questions.length
+                          ? 'Flawless. Look at you!'
+                          : bestRun >= 3
+                              ? '$bestRun in a row. Keep it up!'
+                              : 'You did it, superstar!')
+                      : 'Let’s try that again.',
                   style: const TextStyle(
                       fontSize: 27, fontWeight: FontWeight.w900))),
           const SizedBox(height: 12),
@@ -2236,6 +2365,8 @@ class _LessonPageState extends State<LessonPage> {
                   setState(() {
                     index = 0;
                     correct = 0;
+                    answerRun = 0;
+                    bestRun = 0;
                     answers.clear();
                     picked.clear();
                     typed.clear();
@@ -2779,6 +2910,8 @@ class ProfilePage extends StatelessWidget {
                 Expanded(child: _metric('🏆', '${done.length}', 'Lessons'))
               ])
             ])),
+        const SizedBox(height: 22),
+        const KCard(child: FeedbackSettingsPanel()),
         const SizedBox(height: 22),
         const Text('YOUR LOOK',
             style: TextStyle(

@@ -23,7 +23,7 @@ Admins can open **Course studio**, load the published JSON, edit it, save a vali
 
 ## Serbian audio
 
-The current A1 course includes 351 reusable MP3 pronunciations for its words and sentences. Learners can tap a speaker in the lesson theory cards, Serbian challenge prompts, answer feedback, and word bank. Audio is generated with OpenAI and labeled as AI-generated in the learner UI. The files are bundled with Flutter, so playing them does not call the API or require a device voice. New published content without a bundled recording falls back to a Serbian device voice when one is installed.
+The current A1 course includes 414 reusable MP3 pronunciations for its words and sentences. Learners can tap a speaker in the lesson theory cards, Serbian challenge prompts, answer feedback, and word bank. Audio is generated with OpenAI and labeled as AI-generated in the learner UI. The files are bundled with Flutter, so playing them does not call the API or require a device voice. New published content without a bundled recording falls back to a Serbian device voice when one is installed.
 
 Audio references live in both copies of the course JSON. Run `node scripts/validate-course.mjs` to check that every referenced clip exists. To generate new clips after adding course content, set `OPENAI_API_KEY` in your local `.env` and run `node --env-file=.env scripts/generate-course-audio.mjs`. The generator only creates missing files. Its current Speech API model is scheduled for retirement in January 2027, so update the generator before then; existing bundled MP3 files will keep working.
 
@@ -54,3 +54,12 @@ Answer feedback is a bottom overlay. Its expansion covers the lower exercise are
 Course version 4 replaces sentence-sized multiple-choice translations with individual word banks, including wrong-word distractors. Tap tiles to build an answer on the lines, tap a selected tile to return it, or hold and drag selected tiles to change their order. Repeated words have separate tile identities. Listening translation uses the same word-bank interaction.
 
 Numbered choices now complete a Serbian sentence with one blank and three Serbian word options. A short English meaning cue disambiguates the intended sentence for beginners. Source-sentence speakers and tappable word hints remain available; the missing word's audio is available after checking. Lesson, question and practice-round IDs remain compatible with existing progress. `scripts/update-exercise-formats.mjs` documents the one-time v3-to-v4 content migration.
+
+
+## Spoken selections, sound and vibration
+
+Serbian word tiles and sentence choices speak when selected; English answer tiles stay silent. All 184 selectable Serbian words have bundled audio, including 63 extra recordings indexed by `assets/audio/serbian/word-index.json`. Speaking characters animate while pronunciation plays. To add missing selection clips after course changes, run `node --env-file=.env scripts/generate-word-audio.mjs`.
+
+Lessons have quiet original tap/correct/retry sounds, milestones at three and five correct answers (and every five thereafter), and a perfect-practice chime with stronger character celebration. Gentle vibration uses Flutter haptics on native apps and the browser vibration API where supported. No permission prompts are added. Sliders in the lesson header and the profile page offer separate persisted switches for automatic word pronunciation, sound effects and vibration. These switches do not disable manual pronunciation speakers. Playback stops on leaving a lesson or backgrounding the app, and pronunciation takes priority over effects.
+
+Run `flutter test` and `node scripts/validate-feedback-assets.mjs` for preference/milestone, layout, audio-coverage and sound-level checks. The seven effect WAVs can be reproduced without external services using `python3 scripts/generate-feedback-sounds.py`.

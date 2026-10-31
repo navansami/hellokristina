@@ -115,13 +115,17 @@ class _KristinaPainter extends CustomPainter {
     canvas.translate(
         (size.width - 200 * scale) / 2, (size.height - 300 * scale) / 2);
     canvas.scale(scale);
-    final celebrate =
-        mood == 'correct' || mood == 'celebrate' || mood == 'happy';
+    final celebrate = mood == 'correct' ||
+        mood == 'celebrate' ||
+        mood == 'happy' ||
+        mood == 'hot';
     final wrong = mood == 'wrong';
     final pulse = math.sin(reaction * math.pi);
     final breath = math.sin(time * math.pi * 2);
     final jump = celebrate
-        ? -14 * math.sin(reaction * math.pi * 2).abs() * (1 - reaction)
+        ? (mood == 'hot' ? -24 : -14) *
+            math.sin(reaction * math.pi * 2).abs() *
+            (1 - reaction)
         : 0.0;
     oval(
         canvas,
@@ -332,7 +336,16 @@ class _KristinaPainter extends CustomPainter {
       oval(canvas, Rect.fromCircle(center: point, radius: 2.4),
           const Color(0xFFD78C71));
     }
-    if (celebrate) {
+    if (mood == 'speaking') {
+      round(
+          canvas,
+          Rect.fromCenter(
+              center: const Offset(101, 113),
+              width: 20,
+              height: 5 + math.sin(time * math.pi * 24).abs() * 11),
+          7,
+          const Color(0xFF843F37));
+    } else if (celebrate) {
       round(canvas, const Rect.fromLTWH(87, 108, 29, 15), 8,
           const Color(0xFF843F37));
       round(canvas, const Rect.fromLTWH(91, 108, 21, 5), 2, Colors.white);
@@ -349,8 +362,9 @@ class _KristinaPainter extends CustomPainter {
     canvas.restore();
     // A short celebratory burst, only on answer feedback.
     if (celebrate && reaction < .95) {
-      for (int i = 0; i < 9; i++) {
-        final angle = i * math.pi * 2 / 9;
+      final particles = mood == 'hot' ? 14 : 9;
+      for (int i = 0; i < particles; i++) {
+        final angle = i * math.pi * 2 / particles;
         final radius = 45 + reaction * 55;
         final pos = Offset(
             100 + math.cos(angle) * radius, 105 + math.sin(angle) * radius);

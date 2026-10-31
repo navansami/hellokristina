@@ -8,6 +8,10 @@ export default safe(async (req, res) => {
   const collection = (await db()).collection('courses');
   if (id === starterCourse.id) {
     await collection.updateOne({ id }, { $setOnInsert: { ...starterCourse, seededAt: new Date() } }, { upsert: true });
+    await collection.updateOne(
+      { id, seededAt: { $exists: true }, updatedBy: { $exists: false }, version: { $lt: starterCourse.version } },
+      { $set: { ...starterCourse, updatedAt: new Date() } },
+    );
   }
   const course = await collection.findOne({ id, status: 'published' }, { projection: { _id: 0, updatedBy: 0 } });
   if (!course && id !== starterCourse.id) return send(res, 404, { error: 'Course not found' });

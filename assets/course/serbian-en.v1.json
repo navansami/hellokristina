@@ -4,7 +4,7 @@
   "title": "Serbian for English speakers",
   "sourceLanguage": "en",
   "targetLanguage": "sr",
-  "version": 1,
+  "version": 2,
   "status": "published",
   "contentStage": "A1 foundation — units 1 and 2 of a planned full course",
   "sources": [
@@ -40,19 +40,22 @@
               "latin": "Zdravo",
               "cyrillic": "Здраво",
               "english": "Hello",
-              "pronunciation": "zdrah-voh"
+              "pronunciation": "zdrah-voh",
+              "audio": "audio/serbian/11a3522b00ae.mp3"
             },
             {
               "latin": "Hvala",
               "cyrillic": "Хвала",
               "english": "Thank you",
-              "pronunciation": "hvah-lah"
+              "pronunciation": "hvah-lah",
+              "audio": "audio/serbian/5234eca46fe3.mp3"
             },
             {
               "latin": "Dobar dan",
               "cyrillic": "Добар дан",
               "english": "Good day",
-              "pronunciation": "doh-bar dahn"
+              "pronunciation": "doh-bar dahn",
+              "audio": "audio/serbian/9b71b25f0e1b.mp3"
             }
           ],
           "challenges": [
@@ -67,7 +70,9 @@
                 "Hello",
                 "Thanks"
               ],
-              "explanation": "Zdravo (Здраво) is an everyday hello."
+              "explanation": "Zdravo (Здраво) is an everyday hello.",
+              "audioText": "Zdravo",
+              "audio": "audio/serbian/11a3522b00ae.mp3"
             },
             {
               "id": "hello-2",
@@ -80,7 +85,9 @@
                 "Da",
                 "Ne"
               ],
-              "explanation": "Use Zdravo with friends or people you meet."
+              "explanation": "Use Zdravo with friends or people you meet.",
+              "audioText": "Zdravo",
+              "audio": "audio/serbian/11a3522b00ae.mp3"
             },
             {
               "id": "hello-3",
@@ -93,7 +100,9 @@
                 "Sorry",
                 "Hello"
               ],
-              "explanation": "Hvala (Хвала) means thank you."
+              "explanation": "Hvala (Хвала) means thank you.",
+              "audioText": "Hvala",
+              "audio": "audio/serbian/5234eca46fe3.mp3"
             },
             {
               "id": "hello-4",
@@ -106,7 +115,9 @@
                 "noć",
                 "Hvala"
               ],
-              "explanation": "Dobar dan is a polite daytime greeting."
+              "explanation": "Dobar dan is a polite daytime greeting.",
+              "audioText": "Dobar dan",
+              "audio": "audio/serbian/9b71b25f0e1b.mp3"
             }
           ]
         },
@@ -126,19 +137,22 @@
               "latin": "Ja sam",
               "cyrillic": "Ја сам",
               "english": "I am",
-              "pronunciation": "yah sahm"
+              "pronunciation": "yah sahm",
+              "audio": "audio/serbian/32739b0d5c3e.mp3"
             },
             {
               "latin": "Zovem se",
               "cyrillic": "Зовем се",
               "english": "My name is",
-              "pronunciation": "zoh-vem seh"
+              "pronunciation": "zoh-vem seh",
+              "audio": "audio/serbian/f00d5734bb60.mp3"
             },
             {
               "latin": "Kako se zoveš?",
               "cyrillic": "Како се зовеш?",
               "english": "What is your name?",
-              "pronunciation": "kah-koh seh zoh-vesh"
+              "pronunciation": "kah-koh seh zoh-vesh",
+              "audio": "audio/serbian/b72e2a99e62b.mp3"
             }
           ],
           "challenges": [
@@ -153,7 +167,9 @@
                 "Hello Kristina.",
                 "Where is Kristina?"
               ],
-              "explanation": "Ja sam means I am."
+              "explanation": "Ja sam means I am.",
+              "audioText": "Ja sam Kristina.",
+              "audio": "audio/serbian/2541ca200d71.mp3"
             },
             {
               "id": "introductions-2",
@@ -167,7 +183,9 @@
                 "Ja",
                 "sam"
               ],
-              "explanation": "Zovem se is a natural way to give your name."
+              "explanation": "Zovem se is a natural way to give your name.",
+              "audioText": "Zovem se Ana.",
+              "audio": "audio/serbian/c89bb10e1366.mp3"
             },
             {
               "id": "introductions-3",
@@ -180,7 +198,9 @@
                 "Where are you?",
                 "Who is that?"
               ],
-              "explanation": "Use this informal question to ask a name."
+              "explanation": "Use this informal question to ask a name.",
+              "audioText": "Kako se zoveš?",
+              "audio": "audio/serbian/b72e2a99e62b.mp3"
             },
             {
               "id": "introductions-4",
@@ -188,7 +208,9 @@
               "prompt": "Write “I am” in Serbian",
               "answer": "Ja sam",
               "options": [],
-              "explanation": "Ja sam is written Ја сам in Cyrillic."
+              "explanation": "Ja sam is written Ја сам in Cyrillic.",
+              "audioText": "Ja sam",
+              "audio": "audio/serbian/32739b0d5c3e.mp3"
             }
           ]
         },
@@ -208,25 +230,29 @@
               "latin": "Molim",
               "cyrillic": "Молим",
               "english": "Please",
-              "pronunciation": "moh-leem"
+              "pronunciation": "moh-leem",
+              "audio": "audio/serbian/32f01b65767d.mp3"
             },
             {
               "latin": "Izvini",
               "cyrillic": "Извини",
               "english": "Sorry",
-              "pronunciation": "eez-vee-nee"
+              "pronunciation": "eez-vee-nee",
+              "audio": "audio/serbian/a19a0ee4c6c4.mp3"
             },
             {
               "latin": "Da",
               "cyrillic": "Да",
               "english": "Yes",
-              "pronunciation": "dah"
+              "pronunciation": "dah",
+              "audio": "audio/serbian/2de802b0e746.mp3"
             },
             {
               "latin": "Ne",
               "cyrillic": "Не",
               "english": "No",
-              "pronunciation": "neh"
+              "pronunciation": "neh",
+              "audio": "audio/serbian/38cebf4836a9.mp3"
             }
           ],
           "challenges": [
@@ -241,7 +267,9 @@
                 "Hvala",
                 "Ćao"
               ],
-              "explanation": "Molim is a useful polite word."
+              "explanation": "Molim is a useful polite word.",
+              "audioText": "Molim",
+              "audio": "audio/serbian/32f01b65767d.mp3"
             },
             {
               "id": "polite-2",
@@ -254,7 +282,9 @@
                 "Sorry",
                 "Yes"
               ],
-              "explanation": "Izvini is informal. Izvinite is the polite form."
+              "explanation": "Izvini is informal. Izvinite is the polite form.",
+              "audioText": "Izvini",
+              "audio": "audio/serbian/a19a0ee4c6c4.mp3"
             },
             {
               "id": "polite-3",
@@ -262,7 +292,9 @@
               "prompt": "Write “thank you” in Serbian",
               "answer": "Hvala",
               "options": [],
-              "explanation": "Hvala (Хвала) means thank you."
+              "explanation": "Hvala (Хвала) means thank you.",
+              "audioText": "Hvala",
+              "audio": "audio/serbian/5234eca46fe3.mp3"
             },
             {
               "id": "polite-4",
@@ -275,7 +307,9 @@
                 "Yes",
                 "Please"
               ],
-              "explanation": "Da means yes; ne means no."
+              "explanation": "Da means yes; ne means no.",
+              "audioText": "Da",
+              "audio": "audio/serbian/2de802b0e746.mp3"
             }
           ]
         },
@@ -295,19 +329,22 @@
               "latin": "Zdravo",
               "cyrillic": "Здраво",
               "english": "Hello",
-              "pronunciation": "zdrah-voh"
+              "pronunciation": "zdrah-voh",
+              "audio": "audio/serbian/11a3522b00ae.mp3"
             },
             {
               "latin": "Hvala",
               "cyrillic": "Хвала",
               "english": "Thank you",
-              "pronunciation": "hvah-lah"
+              "pronunciation": "hvah-lah",
+              "audio": "audio/serbian/5234eca46fe3.mp3"
             },
             {
               "latin": "Da",
               "cyrillic": "Да",
               "english": "Yes",
-              "pronunciation": "dah"
+              "pronunciation": "dah",
+              "audio": "audio/serbian/2de802b0e746.mp3"
             }
           ],
           "challenges": [
@@ -322,7 +359,9 @@
                 "Molim",
                 "Ne"
               ],
-              "explanation": "Здраво is Zdravo in Cyrillic."
+              "explanation": "Здраво is Zdravo in Cyrillic.",
+              "audioText": "Zdravo",
+              "audio": "audio/serbian/11a3522b00ae.mp3"
             },
             {
               "id": "script-basics-2",
@@ -335,7 +374,9 @@
                 "Ja sam",
                 "Da"
               ],
-              "explanation": "Хвала is Hvala."
+              "explanation": "Хвала is Hvala.",
+              "audioText": "Hvala",
+              "audio": "audio/serbian/5234eca46fe3.mp3"
             },
             {
               "id": "script-basics-3",
@@ -348,7 +389,9 @@
                 "Tri",
                 "Dan"
               ],
-              "explanation": "Да is Da, meaning yes."
+              "explanation": "Да is Da, meaning yes.",
+              "audioText": "Da",
+              "audio": "audio/serbian/2de802b0e746.mp3"
             },
             {
               "id": "script-basics-4",
@@ -356,7 +399,9 @@
               "prompt": "Write Здраво in Latin letters",
               "answer": "Zdravo",
               "options": [],
-              "explanation": "The two scripts spell the same Serbian word."
+              "explanation": "The two scripts spell the same Serbian word.",
+              "audioText": "Zdravo",
+              "audio": "audio/serbian/11a3522b00ae.mp3"
             }
           ]
         },
@@ -376,19 +421,22 @@
               "latin": "Kako si?",
               "cyrillic": "Како си?",
               "english": "How are you?",
-              "pronunciation": "kah-koh see"
+              "pronunciation": "kah-koh see",
+              "audio": "audio/serbian/fdce9d46e038.mp3"
             },
             {
               "latin": "Dobro sam",
               "cyrillic": "Добро сам",
               "english": "I am well",
-              "pronunciation": "doh-broh sahm"
+              "pronunciation": "doh-broh sahm",
+              "audio": "audio/serbian/667fab9e03ec.mp3"
             },
             {
               "latin": "Kako ste?",
               "cyrillic": "Како сте?",
               "english": "How are you? (polite)",
-              "pronunciation": "kah-koh steh"
+              "pronunciation": "kah-koh steh",
+              "audio": "audio/serbian/a6f450def0ee.mp3"
             }
           ],
           "challenges": [
@@ -403,7 +451,9 @@
                 "What is your name?",
                 "Good day"
               ],
-              "explanation": "Kako si? is informal."
+              "explanation": "Kako si? is informal.",
+              "audioText": "Kako si?",
+              "audio": "audio/serbian/fdce9d46e038.mp3"
             },
             {
               "id": "questions-2",
@@ -416,7 +466,9 @@
                 "Kako",
                 "si"
               ],
-              "explanation": "Dobro sam is a common reply."
+              "explanation": "Dobro sam is a common reply.",
+              "audioText": "Dobro sam",
+              "audio": "audio/serbian/667fab9e03ec.mp3"
             },
             {
               "id": "questions-3",
@@ -429,7 +481,9 @@
                 "Where are we?",
                 "What is this?"
               ],
-              "explanation": "Use ste when addressing someone politely or more than one person."
+              "explanation": "Use ste when addressing someone politely or more than one person.",
+              "audioText": "Kako ste?",
+              "audio": "audio/serbian/a6f450def0ee.mp3"
             },
             {
               "id": "questions-4",
@@ -437,7 +491,9 @@
               "prompt": "Write “I am well” in Serbian",
               "answer": "Dobro sam",
               "options": [],
-              "explanation": "You can answer Kako si? with Dobro sam."
+              "explanation": "You can answer Kako si? with Dobro sam.",
+              "audioText": "Dobro sam",
+              "audio": "audio/serbian/667fab9e03ec.mp3"
             }
           ]
         },
@@ -457,19 +513,22 @@
               "latin": "Zdravo",
               "cyrillic": "Здраво",
               "english": "Hello",
-              "pronunciation": "zdravo"
+              "pronunciation": "zdravo",
+              "audio": "audio/serbian/11a3522b00ae.mp3"
             },
             {
               "latin": "Zovem se",
               "cyrillic": "Зовем се",
               "english": "My name is",
-              "pronunciation": "zovem se"
+              "pronunciation": "zovem se",
+              "audio": "audio/serbian/f00d5734bb60.mp3"
             },
             {
               "latin": "Dobro sam",
               "cyrillic": "Добро сам",
               "english": "I am well",
-              "pronunciation": "dobro sam"
+              "pronunciation": "dobro sam",
+              "audio": "audio/serbian/667fab9e03ec.mp3"
             }
           ],
           "challenges": [
@@ -485,7 +544,9 @@
                 "zovem",
                 "sam"
               ],
-              "explanation": "This is a friendly way to begin a conversation."
+              "explanation": "This is a friendly way to begin a conversation.",
+              "audioText": "Zdravo, zovem se Ana.",
+              "audio": "audio/serbian/03c5c415f6bf.mp3"
             },
             {
               "id": "unit1-review-2",
@@ -498,7 +559,9 @@
                 "Kako si",
                 "Hvala"
               ],
-              "explanation": "Добро сам means I am well."
+              "explanation": "Добро сам means I am well.",
+              "audioText": "Dobro sam",
+              "audio": "audio/serbian/667fab9e03ec.mp3"
             },
             {
               "id": "unit1-review-3",
@@ -511,7 +574,9 @@
                 "Dobar dan",
                 "Ja sam"
               ],
-              "explanation": "Kako se zoveš? asks a name informally."
+              "explanation": "Kako se zoveš? asks a name informally.",
+              "audioText": "Kako se zoveš?",
+              "audio": "audio/serbian/b72e2a99e62b.mp3"
             },
             {
               "id": "unit1-review-4",
@@ -519,7 +584,9 @@
               "prompt": "Write “please” in Serbian",
               "answer": "Molim",
               "options": [],
-              "explanation": "Molim is one of your most useful polite words."
+              "explanation": "Molim is one of your most useful polite words.",
+              "audioText": "Molim",
+              "audio": "audio/serbian/32f01b65767d.mp3"
             }
           ]
         }
@@ -552,25 +619,29 @@
               "latin": "jedan",
               "cyrillic": "један",
               "english": "one",
-              "pronunciation": "yeh-dahn"
+              "pronunciation": "yeh-dahn",
+              "audio": "audio/serbian/4fd5c59f4f74.mp3"
             },
             {
               "latin": "dva",
               "cyrillic": "два",
               "english": "two",
-              "pronunciation": "dvah"
+              "pronunciation": "dvah",
+              "audio": "audio/serbian/d27a5f4846f9.mp3"
             },
             {
               "latin": "tri",
               "cyrillic": "три",
               "english": "three",
-              "pronunciation": "tree"
+              "pronunciation": "tree",
+              "audio": "audio/serbian/cddd67830982.mp3"
             },
             {
               "latin": "deset",
               "cyrillic": "десет",
               "english": "ten",
-              "pronunciation": "deh-set"
+              "pronunciation": "deh-set",
+              "audio": "audio/serbian/3d926fa67ce5.mp3"
             }
           ],
           "challenges": [
@@ -585,7 +656,9 @@
                 "five",
                 "two"
               ],
-              "explanation": "Jedan means one."
+              "explanation": "Jedan means one.",
+              "audioText": "jedan",
+              "audio": "audio/serbian/4fd5c59f4f74.mp3"
             },
             {
               "id": "numbers-2",
@@ -598,7 +671,9 @@
                 "two",
                 "seven"
               ],
-              "explanation": "Dva means two."
+              "explanation": "Dva means two.",
+              "audioText": "dva",
+              "audio": "audio/serbian/d27a5f4846f9.mp3"
             },
             {
               "id": "numbers-3",
@@ -611,7 +686,9 @@
                 "tri",
                 "šest"
               ],
-              "explanation": "Tri means three."
+              "explanation": "Tri means three.",
+              "audioText": "tri",
+              "audio": "audio/serbian/cddd67830982.mp3"
             },
             {
               "id": "numbers-4",
@@ -619,7 +696,9 @@
               "prompt": "Write “ten” in Serbian",
               "answer": "deset",
               "options": [],
-              "explanation": "Deset (десет) means ten."
+              "explanation": "Deset (десет) means ten.",
+              "audioText": "deset",
+              "audio": "audio/serbian/3d926fa67ce5.mp3"
             }
           ]
         },
@@ -639,19 +718,22 @@
               "latin": "danas",
               "cyrillic": "данас",
               "english": "today",
-              "pronunciation": "dah-nahs"
+              "pronunciation": "dah-nahs",
+              "audio": "audio/serbian/1c56fa2da2a2.mp3"
             },
             {
               "latin": "sutra",
               "cyrillic": "сутра",
               "english": "tomorrow",
-              "pronunciation": "soo-trah"
+              "pronunciation": "soo-trah",
+              "audio": "audio/serbian/135661eb54ad.mp3"
             },
             {
               "latin": "sada",
               "cyrillic": "сада",
               "english": "now",
-              "pronunciation": "sah-dah"
+              "pronunciation": "sah-dah",
+              "audio": "audio/serbian/b25d0fd93fbf.mp3"
             }
           ],
           "challenges": [
@@ -666,7 +748,9 @@
                 "yesterday",
                 "later"
               ],
-              "explanation": "Danas means today."
+              "explanation": "Danas means today.",
+              "audioText": "danas",
+              "audio": "audio/serbian/1c56fa2da2a2.mp3"
             },
             {
               "id": "time-2",
@@ -679,7 +763,9 @@
                 "tomorrow",
                 "always"
               ],
-              "explanation": "Sutra means tomorrow."
+              "explanation": "Sutra means tomorrow.",
+              "audioText": "sutra",
+              "audio": "audio/serbian/135661eb54ad.mp3"
             },
             {
               "id": "time-3",
@@ -692,7 +778,9 @@
                 "now",
                 "today"
               ],
-              "explanation": "Sada means now."
+              "explanation": "Sada means now.",
+              "audioText": "sada",
+              "audio": "audio/serbian/b25d0fd93fbf.mp3"
             },
             {
               "id": "time-4",
@@ -700,7 +788,9 @@
               "prompt": "Write “today” in Serbian",
               "answer": "danas",
               "options": [],
-              "explanation": "Danas (данас) means today."
+              "explanation": "Danas (данас) means today.",
+              "audioText": "danas",
+              "audio": "audio/serbian/1c56fa2da2a2.mp3"
             }
           ]
         },
@@ -720,25 +810,29 @@
               "latin": "kafa",
               "cyrillic": "кафа",
               "english": "coffee",
-              "pronunciation": "kah-fah"
+              "pronunciation": "kah-fah",
+              "audio": "audio/serbian/2a7c4eeee646.mp3"
             },
             {
               "latin": "kafu",
               "cyrillic": "кафу",
               "english": "coffee (object)",
-              "pronunciation": "kah-foo"
+              "pronunciation": "kah-foo",
+              "audio": "audio/serbian/6ae673f23d6e.mp3"
             },
             {
               "latin": "voda",
               "cyrillic": "вода",
               "english": "water",
-              "pronunciation": "voh-dah"
+              "pronunciation": "voh-dah",
+              "audio": "audio/serbian/3d8d544f8792.mp3"
             },
             {
               "latin": "molim",
               "cyrillic": "молим",
               "english": "please",
-              "pronunciation": "moh-leem"
+              "pronunciation": "moh-leem",
+              "audio": "audio/serbian/cdbcf88bd88a.mp3"
             }
           ],
           "challenges": [
@@ -753,7 +847,9 @@
                 "Dobar dan.",
                 "Ja sam kafa."
               ],
-              "explanation": "Kafu is used when coffee is the thing you order."
+              "explanation": "Kafu is used when coffee is the thing you order.",
+              "audioText": "Kafu, molim.",
+              "audio": "audio/serbian/006c5bb8fce2.mp3"
             },
             {
               "id": "coffee-2",
@@ -766,7 +862,9 @@
                 "🥛 Milk",
                 "🍞 Bread"
               ],
-              "explanation": "Kafa means coffee."
+              "explanation": "Kafa means coffee.",
+              "audioText": "kafa",
+              "audio": "audio/serbian/2a7c4eeee646.mp3"
             },
             {
               "id": "coffee-3",
@@ -779,7 +877,9 @@
                 "bread",
                 "tea"
               ],
-              "explanation": "Voda is water."
+              "explanation": "Voda is water.",
+              "audioText": "voda",
+              "audio": "audio/serbian/3d8d544f8792.mp3"
             },
             {
               "id": "coffee-4",
@@ -792,7 +892,9 @@
                 "Jednu",
                 "voda"
               ],
-              "explanation": "Jednu kafu, molim is a polite order."
+              "explanation": "Jednu kafu, molim is a polite order.",
+              "audioText": "Jednu kafu, molim.",
+              "audio": "audio/serbian/9be3cc6e1801.mp3"
             }
           ]
         },
@@ -812,25 +914,29 @@
               "latin": "majka",
               "cyrillic": "мајка",
               "english": "mother",
-              "pronunciation": "mai-kah"
+              "pronunciation": "mai-kah",
+              "audio": "audio/serbian/619f570e604e.mp3"
             },
             {
               "latin": "brat",
               "cyrillic": "брат",
               "english": "brother",
-              "pronunciation": "braht"
+              "pronunciation": "braht",
+              "audio": "audio/serbian/bf99f7b4f9da.mp3"
             },
             {
               "latin": "sestra",
               "cyrillic": "сестра",
               "english": "sister",
-              "pronunciation": "ses-trah"
+              "pronunciation": "ses-trah",
+              "audio": "audio/serbian/234e3be31882.mp3"
             },
             {
               "latin": "moja",
               "cyrillic": "моја",
               "english": "my (feminine)",
-              "pronunciation": "moh-yah"
+              "pronunciation": "moh-yah",
+              "audio": "audio/serbian/b393e6133b4b.mp3"
             }
           ],
           "challenges": [
@@ -845,7 +951,9 @@
                 "mother",
                 "brother"
               ],
-              "explanation": "Majka means mother."
+              "explanation": "Majka means mother.",
+              "audioText": "majka",
+              "audio": "audio/serbian/619f570e604e.mp3"
             },
             {
               "id": "family-2",
@@ -858,7 +966,9 @@
                 "friend",
                 "son"
               ],
-              "explanation": "Brat means brother."
+              "explanation": "Brat means brother.",
+              "audioText": "brat",
+              "audio": "audio/serbian/bf99f7b4f9da.mp3"
             },
             {
               "id": "family-3",
@@ -871,7 +981,9 @@
                 "Moja",
                 "brat"
               ],
-              "explanation": "Sestra is feminine, so use moja."
+              "explanation": "Sestra is feminine, so use moja.",
+              "audioText": "Moja sestra",
+              "audio": "audio/serbian/d598ba0e6246.mp3"
             },
             {
               "id": "family-4",
@@ -879,7 +991,9 @@
               "prompt": "Write “sister” in Serbian",
               "answer": "sestra",
               "options": [],
-              "explanation": "Sestra (сестра) means sister."
+              "explanation": "Sestra (сестра) means sister.",
+              "audioText": "sestra",
+              "audio": "audio/serbian/234e3be31882.mp3"
             }
           ]
         },
@@ -899,25 +1013,29 @@
               "latin": "gde",
               "cyrillic": "где",
               "english": "where",
-              "pronunciation": "gdeh"
+              "pronunciation": "gdeh",
+              "audio": "audio/serbian/4ad8531274d1.mp3"
             },
             {
               "latin": "stanica",
               "cyrillic": "станица",
               "english": "station",
-              "pronunciation": "stah-nee-tsah"
+              "pronunciation": "stah-nee-tsah",
+              "audio": "audio/serbian/c31c9e578b8c.mp3"
             },
             {
               "latin": "ovde",
               "cyrillic": "овде",
               "english": "here",
-              "pronunciation": "ov-deh"
+              "pronunciation": "ov-deh",
+              "audio": "audio/serbian/80af373c20a8.mp3"
             },
             {
               "latin": "tamo",
               "cyrillic": "тамо",
               "english": "there",
-              "pronunciation": "tah-moh"
+              "pronunciation": "tah-moh",
+              "audio": "audio/serbian/2db73f09c838.mp3"
             }
           ],
           "challenges": [
@@ -932,7 +1050,9 @@
                 "where",
                 "when"
               ],
-              "explanation": "Gde means where."
+              "explanation": "Gde means where.",
+              "audioText": "gde",
+              "audio": "audio/serbian/4ad8531274d1.mp3"
             },
             {
               "id": "places-2",
@@ -945,7 +1065,9 @@
                 "Where is the café?",
                 "When is the train?"
               ],
-              "explanation": "Je means is in this question."
+              "explanation": "Je means is in this question.",
+              "audioText": "Gde je stanica?",
+              "audio": "audio/serbian/2008edb443af.mp3"
             },
             {
               "id": "places-3",
@@ -958,7 +1080,9 @@
                 "Gde",
                 "ovde"
               ],
-              "explanation": "A simple question gets you a long way."
+              "explanation": "A simple question gets you a long way.",
+              "audioText": "Gde je stanica?",
+              "audio": "audio/serbian/2008edb443af.mp3"
             },
             {
               "id": "places-4",
@@ -971,7 +1095,9 @@
                 "now",
                 "today"
               ],
-              "explanation": "Ovde means here; tamo means there."
+              "explanation": "Ovde means here; tamo means there.",
+              "audioText": "ovde",
+              "audio": "audio/serbian/80af373c20a8.mp3"
             }
           ]
         },
@@ -991,19 +1117,22 @@
               "latin": "radim",
               "cyrillic": "радим",
               "english": "I work",
-              "pronunciation": "rah-deem"
+              "pronunciation": "rah-deem",
+              "audio": "audio/serbian/4360d14c9706.mp3"
             },
             {
               "latin": "spavam",
               "cyrillic": "спавам",
               "english": "I sleep",
-              "pronunciation": "spah-vahm"
+              "pronunciation": "spah-vahm",
+              "audio": "audio/serbian/4afa3b360451.mp3"
             },
             {
               "latin": "idem kući",
               "cyrillic": "идем кући",
               "english": "I am going home",
-              "pronunciation": "ee-dem koo-chee"
+              "pronunciation": "ee-dem koo-chee",
+              "audio": "audio/serbian/1c2ed547f13d.mp3"
             }
           ],
           "challenges": [
@@ -1018,7 +1147,9 @@
                 "I am home.",
                 "Where do you work?"
               ],
-              "explanation": "Radim means I work; danas means today."
+              "explanation": "Radim means I work; danas means today.",
+              "audioText": "Radim danas.",
+              "audio": "audio/serbian/34887b2255ca.mp3"
             },
             {
               "id": "daily-life-2",
@@ -1031,7 +1162,9 @@
                 "I work.",
                 "I go."
               ],
-              "explanation": "Spavam means I sleep."
+              "explanation": "Spavam means I sleep.",
+              "audioText": "Spavam.",
+              "audio": "audio/serbian/0871637bb527.mp3"
             },
             {
               "id": "daily-life-3",
@@ -1044,7 +1177,9 @@
                 "Idem",
                 "sada"
               ],
-              "explanation": "Idem kući means I am going home."
+              "explanation": "Idem kući means I am going home.",
+              "audioText": "Idem kući",
+              "audio": "audio/serbian/ed9658bbb1f0.mp3"
             },
             {
               "id": "daily-life-4",
@@ -1052,7 +1187,9 @@
               "prompt": "Write “I work” in Serbian",
               "answer": "radim",
               "options": [],
-              "explanation": "Radim (радим) means I work."
+              "explanation": "Radim (радим) means I work.",
+              "audioText": "radim",
+              "audio": "audio/serbian/4360d14c9706.mp3"
             }
           ]
         }

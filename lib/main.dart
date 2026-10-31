@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
 const bg = Color(0xFF101923),
     panel = Color(0xFF1B2934),
@@ -50,9 +52,10 @@ class Lesson {
 
 class Question {
   final String type, prompt, answer, detail;
+  final String audioText, audioAsset;
   final List<String> options;
-  const Question(
-      this.type, this.prompt, this.answer, this.options, this.detail);
+  const Question(this.type, this.prompt, this.answer, this.options, this.detail,
+      {this.audioText = '', this.audioAsset = ''});
 }
 
 var lessons = <Lesson>[
@@ -251,7 +254,8 @@ void applyCourse(Map<String, dynamic> course) {
           entry['latin'],
           entry['cyrillic'],
           entry['english'],
-          entry['pronunciation']
+          entry['pronunciation'],
+          entry['audio'] ?? '',
         ].cast<String>();
       }).toList();
       parsed.add(Lesson(
@@ -263,7 +267,9 @@ void applyCourse(Map<String, dynamic> course) {
           (data['challenges'] as List).map((raw) {
             final item = raw as Map<String, dynamic>;
             return Question(item['type'], item['prompt'], item['answer'],
-                (item['options'] as List).cast<String>(), item['explanation']);
+                (item['options'] as List).cast<String>(), item['explanation'],
+                audioText: item['audioText'] ?? '',
+                audioAsset: item['audio'] ?? '');
           }).toList(),
           theoryTitle: data['theory']['title'],
           theoryBody: data['theory']['body'],
@@ -565,6 +571,58 @@ class _KristinaAppState extends State<KristinaApp> {
                                     onTap: (i) => setState(() => tab = i))
                             ]))))));
   }
+}
+
+class SerbianAudio {
+  static final AudioPlayer _player = AudioPlayer();
+  static final FlutterTts _tts = FlutterTts();
+
+  static Future<void> stop() async {
+    await _player.stop();
+    await _tts.stop();
+  }
+
+  static Future<void> play(String text, String asset) async {
+    await stop();
+    if (asset.isNotEmpty) {
+      try {
+        await _player.play(AssetSource(asset));
+        return;
+      } catch (_) {
+        // New course content may not have a bundled recording yet.
+      }
+    }
+    final available = await _tts.isLanguageAvailable('sr-RS');
+    if (available != true && available != 1) {
+      throw StateError('Serbian audio is not available on this device yet.');
+    }
+    await _tts.setLanguage('sr-RS');
+    await _tts.setSpeechRate(0.45);
+    await _tts.speak(text);
+  }
+}
+
+class SerbianAudioButton extends StatelessWidget {
+  final String text, asset;
+  final Color color;
+  const SerbianAudioButton(
+      {super.key, required this.text, this.asset = '', this.color = blue});
+
+  @override
+  Widget build(BuildContext context) => IconButton.filledTonal(
+      tooltip: 'Play Serbian pronunciation',
+      icon: const Icon(Icons.volume_up_rounded),
+      color: color,
+      onPressed: () async {
+        try {
+          await SerbianAudio.play(text, asset);
+        } catch (error) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text('$error')));
+          }
+        }
+      });
 }
 
 class KCard extends StatelessWidget {
@@ -1156,6 +1214,7 @@ class _LessonPageState extends State<LessonPage> {
 
   @override
   void dispose() {
+    SerbianAudio.stop();
     typed.dispose();
     super.dispose();
   }
@@ -1276,7 +1335,13 @@ class _LessonPageState extends State<LessonPage> {
                                             Text(widget.lesson.theoryBody,
                                                 style: const TextStyle(
                                                     fontSize: 17, height: 1.5)),
-                                            const SizedBox(height: 26),
+                                            const SizedBox(height: 12),
+                                            const Text(
+                                                'Audio pronunciations are AI-generated.',
+                                                style: TextStyle(
+                                                    color: muted,
+                                                    fontSize: 12)),
+                                            const SizedBox(height: 20),
                                             ...widget.lesson.vocabulary.map(
                                                 (word) => Padding(
                                                     padding:
@@ -1307,7 +1372,13 @@ class _LessonPageState extends State<LessonPage> {
                                                               color: lime,
                                                               fontWeight:
                                                                   FontWeight
-                                                                      .w800))
+                                                                      .w800)),
+                                                      const SizedBox(width: 6),
+                                                      SerbianAudioButton(
+                                                          text: word[0],
+                                                          asset: word.length > 4
+                                                              ? word[4]
+                                                              : '')
                                                     ]))))
                                           ]))
                                   : SingleChildScrollView(
@@ -1353,6 +1424,26 @@ class _LessonPageState extends State<LessonPage> {
                                                     height: 1.15,
                                                     fontWeight:
                                                         FontWeight.w900)),
+                                            if (q.audioText.isNotEmpty &&
+                                                (q.type ==
+                                                        'Choose the meaning' ||
+                                                    q.type ==
+                                                        'Choose the image'))
+                                              Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                          top: 12),
+                                                  child: Row(children: [
+                                                    SerbianAudioButton(
+                                                        text: q.audioText,
+                                                        asset: q.audioAsset),
+                                                    const SizedBox(width: 8),
+                                                    const Text(
+                                                        'Listen in Serbian',
+                                                        style: TextStyle(
+                                                            color: muted,
+                                                            fontSize: 12))
+                                                  ])),
                                             const SizedBox(height: 20),
                                             Row(children: [
                                               const Kristina(size: 54),
@@ -1411,14 +1502,23 @@ class _LessonPageState extends State<LessonPage> {
                                               : Icons.info_rounded,
                                           color: lastCorrect ? lime : pink),
                                       const SizedBox(width: 8),
-                                      Text(
-                                          lastCorrect
-                                              ? 'Brilliant!'
-                                              : 'Answer: ${q.answer}',
-                                          style: TextStyle(
-                                              color: lastCorrect ? lime : pink,
-                                              fontWeight: FontWeight.w900,
-                                              fontSize: 16))
+                                      Expanded(
+                                          child: Text(
+                                              lastCorrect
+                                                  ? 'Brilliant!'
+                                                  : 'Answer: ${q.answer}',
+                                              style: TextStyle(
+                                                  color:
+                                                      lastCorrect ? lime : pink,
+                                                  fontWeight: FontWeight.w900,
+                                                  fontSize: 16))),
+                                      if (q.audioText.isNotEmpty &&
+                                          q.type != 'Choose the meaning' &&
+                                          q.type != 'Choose the image')
+                                        SerbianAudioButton(
+                                            text: q.audioText,
+                                            asset: q.audioAsset,
+                                            color: lime)
                                     ]),
                                     const SizedBox(height: 5),
                                     Text(q.detail,
@@ -1722,6 +1822,9 @@ class _WordsPageState extends State<WordsPage> {
               eyebrow: 'Your word bank',
               title: 'Words you know',
               subtitle: 'Tiny words. Big main character energy.'),
+          const SizedBox(height: 7),
+          const Text('Audio pronunciations are AI-generated.',
+              style: TextStyle(color: muted, fontSize: 12)),
           const SizedBox(height: 22),
           KCard(
               color: const Color(0xFF263B4B),
@@ -1776,8 +1879,9 @@ class _WordsPageState extends State<WordsPage> {
                           decoration: BoxDecoration(
                               color: panel2,
                               borderRadius: BorderRadius.circular(12)),
-                          child:
-                              const Icon(Icons.volume_up_rounded, color: blue)),
+                          child: SerbianAudioButton(
+                              text: e.value[0],
+                              asset: e.value.length > 4 ? e.value[4] : '')),
                       const SizedBox(width: 14),
                       Expanded(
                           child: Column(

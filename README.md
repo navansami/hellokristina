@@ -21,6 +21,12 @@ Admins can open **Course studio**, load the published JSON, edit it, save a vali
 
 `curriculum/serbian-en.json` remains the A1–C2 outline. Two starter A1 units are playable, but the full A1–C2 course is not yet authored. The next content work is completing A1 with more grammar, listening, speaking, review, and assessment, then building higher levels.
 
+## Serbian audio
+
+The current A1 course includes 45 reusable MP3 pronunciations for its words and sentences. Learners can tap a speaker in the lesson theory cards, Serbian challenge prompts, answer feedback, and word bank. Audio is generated with OpenAI and labeled as AI-generated in the learner UI. The files are bundled with Flutter, so playing them does not call the API or require a device voice. New published content without a bundled recording falls back to a Serbian device voice when one is installed.
+
+Audio references live in both copies of the course JSON. Run `node scripts/validate-course.mjs` to check that every referenced clip exists. To generate new clips after adding course content, set `OPENAI_API_KEY` in your local `.env` and run `node --env-file=.env scripts/generate-course-audio.mjs`. The generator only creates missing files. Its current Speech API model is scheduled for retirement in January 2027, so update the generator before then; existing bundled MP3 files will keep working.
+
 ## Other implemented features
 
 The app has the Kristina mascot, a challenge path, word bank, 30-letter Cyrillic reference, XP and streaks, default avatar and customization, accounts with seven-day remember-me tokens, MongoDB progress, friends and likes, text AI chat, and admin AI draft generation. Course review suggestions use a Bayesian knowledge-tracing estimate, not a trained ML model. Cloudinary upload signing is available to admins; media management and voice practice are not yet in the learner app. Keep service secrets in Vercel environment variables, never in Flutter `--dart-define`.

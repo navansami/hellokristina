@@ -11,10 +11,13 @@ const challenge = z.object({
   answer: z.string().min(1),
   options: z.array(z.string()),
   explanation: z.string().min(1),
+  audioText: z.string().min(1).optional(),
+  audio: z.string().regex(/^audio\/serbian\/[a-f0-9]{12}\.mp3$/).optional(),
 });
 const vocabulary = z.object({
   latin: z.string().min(1), cyrillic: z.string().min(1),
   english: z.string().min(1), pronunciation: z.string().min(1),
+  audio: z.string().regex(/^audio\/serbian\/[a-f0-9]{12}\.mp3$/).optional(),
 });
 export const courseSchema = z.object({
   schemaVersion: z.literal(1), id: z.string().regex(/^[a-z0-9-]{3,40}$/),

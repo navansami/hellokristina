@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hello_kristina/main.dart';
 import 'package:hello_kristina/feedback/learning_feedback.dart';
+import 'package:hello_kristina/speech/serbian_speech.dart';
 import 'package:hello_kristina/widgets/learning_object.dart';
 import 'package:hello_kristina/widgets/word_hints.dart';
 
@@ -23,7 +24,9 @@ Question parse(Map<String, dynamic> q) => Question(q['type'], q['prompt'],
     translation: q['translation'] ?? '',
     answerLanguage: q['answerLanguage'] ?? '');
 Future<void> screen(WidgetTester tester, Question q, Size size,
-    {double keyboard = 0, bool guide = false}) async {
+    {double keyboard = 0,
+    bool guide = false,
+    List<Question> replacements = const []}) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   tester.view.viewInsets = FakeViewPadding(bottom: keyboard);
@@ -40,6 +43,7 @@ Future<void> screen(WidgetTester tester, Question q, Size size,
                 ['Hvala', 'Хвала', 'Thank you', 'hvah-lah', ''],
                 ['Zdravo', 'Здраво', 'Hello', 'zdrah-voh', '']
               ]),
+          replacements: replacements,
           onComplete: (_, __) async {})));
   await tester.pump(const Duration(milliseconds: 400));
 }
@@ -53,11 +57,16 @@ void clean(WidgetTester tester) {
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+    SerbianSpeech.debugSupported = false;
+    SerbianSpeech.debugTranscript = null;
     learningFeedback.sounds = false;
     learningFeedback.vibration = false;
     learningFeedback.spokenWords = false;
   });
-  final types = questions.map((q) => q['type'] as String).toSet();
+  final types = questions
+      .map((q) => q['type'] as String)
+      .where((type) => type != 'Type the answer' && type != 'Listen and type')
+      .toSet();
   for (final type in types) {
     final candidates = questions.where((q) => q['type'] == type).toList()
       ..sort((a, b) => (b['prompt'].length + b['options'].join(' ').length)
@@ -75,23 +84,18 @@ void main() {
         expect(find.byType(SingleChildScrollView), findsNothing);
         final check = tester.getRect(find.text('CHECK'));
         expect(check.bottom, lessThan(size.height));
-        if (q.type != 'Type the answer' && q.type != 'Listen and type') {
-          final last = tester.getRect(find
-              .text(q.type == 'Choose the image'
-                  ? q.options.last.split(' ').skip(1).join(' ')
-                  : q.options.last)
-              .last);
-          expect(last.bottom, lessThan(check.top));
-          await tester.tap(find
-              .text(q.type == 'Choose the image'
-                  ? q.options.first.split(' ').skip(1).join(' ')
-                  : q.options.first)
-              .last);
-          await tester.pump();
-        } else {
-          await tester.enterText(find.byType(TextField), q.answer);
-          await tester.pump();
-        }
+        final last = tester.getRect(find
+            .text(q.type == 'Choose the image'
+                ? q.options.last.split(' ').skip(1).join(' ')
+                : q.options.last)
+            .last);
+        expect(last.bottom, lessThan(check.top));
+        await tester.tap(find
+            .text(q.type == 'Choose the image'
+                ? q.options.first.split(' ').skip(1).join(' ')
+                : q.options.first)
+            .last);
+        await tester.pump();
         await tester.tap(find.text('CHECK'));
         await tester.pump(const Duration(milliseconds: 300));
         expect(tester.takeException(), isNull);
@@ -229,19 +233,6 @@ void main() {
     }
     expect(tester.takeException(), isNull);
   });
-  testWidgets('typing keeps input and CHECK above the keyboard',
-      (tester) async {
-    addTearDown(() => clean(tester));
-    await screen(
-        tester,
-        const Question('Type the answer', 'Write “thank you” in Serbian',
-            'Hvala', [], 'Hvala means thank you.'),
-        const Size(390, 640),
-        keyboard: 260);
-    expect(tester.takeException(), isNull);
-    expect(tester.getRect(find.byType(TextField)).height, greaterThan(40));
-    expect(tester.getRect(find.text('CHECK')).bottom, lessThan(380));
-  });
   testWidgets('prompt hint opens without selecting an answer', (tester) async {
     addTearDown(() => clean(tester));
     await screen(
@@ -294,18 +285,6 @@ void main() {
     expect(find.byType(SingleChildScrollView), findsNothing);
     expect(tester.takeException(), isNull);
   });
-  testWidgets('listening prompt does not reveal the transcript',
-      (tester) async {
-    addTearDown(() => clean(tester));
-    await screen(
-        tester,
-        const Question(
-            'Listen and type', 'Listen', 'Zdravo', [], 'Zdravo means hello.',
-            audioText: 'Zdravo'),
-        const Size(360, 640));
-    expect(find.text('Zdravo'), findsNothing);
-    expect(find.bySemanticsLabel('Hint for Zdravo'), findsNothing);
-  });
   testWidgets('image choices use drawings and a spoken word', (tester) async {
     addTearDown(() => clean(tester));
     const q = Question(
@@ -332,36 +311,97 @@ void main() {
     expect(find.text('Nicely done!'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
-  testWidgets('speaking prompt can be typed when there is no microphone',
+  testWidgets('speaking without a microphone is replaced, not typed',
       (tester) async {
     addTearDown(() => clean(tester));
     const q = Question(
         'Speak the phrase', 'Zdravo', 'Zdravo', [], 'Say hello.',
+        id: 'speak:zdravo',
         audioText: 'Zdravo', translation: 'Hello', answerLanguage: 'sr');
-    await screen(tester, q, const Size(320, 568));
-    expect(find.textContaining('Repeat after'), findsOneWidget);
-    expect(find.text('Meaning: Hello'), findsOneWidget);
-    expect(find.byType(TextField), findsOneWidget);
-    expect(find.byType(SingleChildScrollView), findsNothing);
-    await tester.enterText(find.byType(TextField), 'Здраво');
-    await tester.pump();
-    await tester.tap(find.text('CHECK'));
-    await tester.pump();
-    expect(find.text('Nicely done!'), findsOneWidget);
-    expect(tester.getRect(find.text('CONTINUE')).bottom, lessThan(568));
+    await screen(tester, q, const Size(320, 568), replacements: const [
+      Question('Arrange the words', 'Good day', 'Dobar dan',
+          ['Dobar', 'dan', 'Hvala'], 'A greeting.',
+          id: 'spare:day', answerLanguage: 'sr')
+    ]);
+    expect(find.textContaining('Repeat after'), findsNothing);
+    expect(find.byType(TextField), findsNothing);
+    expect(find.text('Good'), findsWidgets);
+    expect(find.text('Dobar'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
-  testWidgets('speaking fallback stays above the keyboard', (tester) async {
+  testWidgets('a heard phrase is checked without a CHECK button',
+      (tester) async {
     addTearDown(() => clean(tester));
-    await screen(
-        tester,
-        const Question('Speak the phrase', 'Hvala', 'Hvala', [], 'Say thanks.',
-            audioText: 'Hvala', translation: 'Thank you'),
-        const Size(390, 640),
-        keyboard: 260);
+    SerbianSpeech.debugSupported = true;
+    SerbianSpeech.debugTranscript = 'Здраво';
+    const q = Question(
+        'Speak the phrase', 'Zdravo', 'Zdravo', [], 'Say hello.',
+        id: 'speak:zdravo',
+        audioText: 'Zdravo', translation: 'Hello', answerLanguage: 'sr');
+    await screen(tester, q, const Size(390, 640));
+    expect(find.text('CHECK'), findsNothing);
+    expect(find.text("CAN'T SPEAK NOW"), findsOneWidget);
+    expect(find.byType(TextField), findsNothing);
+    await tester.tap(find.bySemanticsLabel('Speak the phrase'));
+    await tester.pump();
+    expect(find.text('Nicely done!'), findsOneWidget);
+    expect(find.text('CHECK'), findsNothing);
+    expect(find.text('CONTINUE'), findsOneWidget);
     expect(tester.takeException(), isNull);
-    expect(tester.getRect(find.byType(TextField)).height, greaterThan(40));
-    expect(tester.getRect(find.text('CHECK')).bottom, lessThan(380));
+  });
+  testWidgets('a wrong phrase is checked without a CHECK button',
+      (tester) async {
+    addTearDown(() => clean(tester));
+    SerbianSpeech.debugSupported = true;
+    SerbianSpeech.debugTranscript = 'hvala';
+    const q = Question(
+        'Speak the phrase', 'Zdravo', 'Zdravo', [], 'Say hello.',
+        id: 'speak:zdravo',
+        audioText: 'Zdravo', translation: 'Hello', answerLanguage: 'sr');
+    await screen(tester, q, const Size(390, 640));
+    expect(find.text('CHECK'), findsNothing);
+    await tester.tap(find.bySemanticsLabel('Speak the phrase'));
+    await tester.pump();
+    expect(find.text('Let’s get this one.'), findsOneWidget);
+    expect(find.text('Answer: Zdravo'), findsOneWidget);
+    expect(find.text('CHECK'), findsNothing);
+    expect(find.text('CONTINUE'), findsOneWidget);
+    expect(find.byType(TextField), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('a typing prompt becomes word tiles', (tester) async {
+    addTearDown(() => clean(tester));
+    const q = Question('Type the answer', 'Write this in Serbian',
+        'Zovem se Ana.', [], 'A name.',
+        id: 'write:ana', translation: 'My name is Ana.');
+    await screen(tester, q, const Size(390, 640));
+    expect(find.byType(TextField), findsNothing);
+    expect(find.textContaining('Type the'), findsNothing);
+    expect(find.text('Zovem'), findsOneWidget);
+    expect(find.text('CHECK'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('cannot speak now swaps in another exercise', (tester) async {
+    addTearDown(() => clean(tester));
+    SerbianSpeech.debugSupported = true;
+    const q = Question(
+        'Speak the phrase', 'Hvala', 'Hvala', [], 'Say thanks.',
+        id: 'speak:hvala',
+        audioText: 'Hvala', translation: 'Thank you');
+    await screen(tester, q, const Size(390, 640), replacements: const [
+      Question('Arrange the words', 'Please', 'Molim', ['Molim', 'Da', 'Ne'],
+          'Please.',
+          id: 'spare:please', answerLanguage: 'sr')
+    ]);
+    expect(find.text('CHECK'), findsNothing);
+    await tester.tap(find.text("CAN'T SPEAK NOW"));
+    await tester.pump();
+    expect(find.textContaining('Repeat after'), findsNothing);
+    expect(find.byType(TextField), findsNothing);
+    expect(find.text('Please'), findsOneWidget);
+    expect(find.text('Molim'), findsOneWidget);
+    expect(find.text('CHECK'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
   test('word hints respect phrases and unknown words', () {
     const vocab = [

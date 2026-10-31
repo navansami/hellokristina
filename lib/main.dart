@@ -577,14 +577,14 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
     final completedBefore =
         done.contains(l.id) || completedRounds.contains('${l.id}:$roundIndex');
     final memory = await PracticeMemory.load();
-    final questions = buildPracticeRound(l, memory, math.Random());
+    final deal = buildPracticeRound(l, memory, math.Random());
     final practice = Lesson(
         l.id,
         '${l.title} · ${roundIndex + 1}/5',
         l.subtitle,
         l.icon,
         l.color,
-        questions.isEmpty ? l.questions : questions,
+        deal.questions.isEmpty ? l.questions : deal.questions,
         theoryTitle: l.theoryTitle,
         theoryBody: roundIndex == 0 ? l.theoryBody : '',
         unitTitle: l.unitTitle,
@@ -597,6 +597,7 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
             lesson: practice,
             alreadyCompleted: completedBefore,
             practiceRound: roundIndex,
+            replacements: deal.bench,
             onRetry: () => lesson(l, roundIndex),
             onComplete: (n, a) => finish(l, n, a, roundIndex))));
   }
@@ -1391,12 +1392,14 @@ class LessonPage extends StatefulWidget {
   final int practiceRound;
   final Future<void> Function(int, List<bool>) onComplete;
   final VoidCallback? onRetry;
+  final List<Question> replacements;
   const LessonPage(
       {super.key,
       required this.lesson,
       required this.onComplete,
       this.alreadyCompleted = false,
       this.practiceRound = 0,
+      this.replacements = const [],
       this.onRetry});
   @override
   State<LessonPage> createState() => _LessonPageState();
@@ -1407,7 +1410,8 @@ class _LessonPageState extends State<LessonPage>
   int index = 0, correct = 0, answerRun = 0, bestRun = 0;
   final List<bool> answers = [];
   final List<int> picked = [];
-  final TextEditingController typed = TextEditingController();
+  late final List<Question> round;
+  late final List<Question> spares;
   late final AnimationController _wave;
   String? selected;
   String transcript = '';
@@ -1416,14 +1420,16 @@ class _LessonPageState extends State<LessonPage>
       finished = false,
       submitting = false,
       lastCorrect = false,
-      listening = false,
-      speakFallback = false;
+      listening = false;
 
   @override
   void initState() {
     super.initState();
+    round = [...widget.lesson.questions];
+    spares = [...widget.replacements];
     _wave = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 700));
+    _replaceUnanswerable();
   }
 
   @override
@@ -1433,28 +1439,89 @@ class _LessonPageState extends State<LessonPage>
     learningFeedback.stopSounds();
     learningFeedback.cancelHaptics();
     _wave.dispose();
-    typed.dispose();
     guidePages.dispose();
     super.dispose();
   }
 
+  bool _isTyping(Question question) =>
+      question.type == 'Type the answer' || question.type == 'Listen and type';
+
+  void _replaceUnanswerable() {
+    for (var i = 0; i < round.length; i++) {
+      final question = round[i];
+      if (_isTyping(question) ||
+          (question.type == 'Speak the phrase' && !SerbianSpeech.supported)) {
+        round[i] = _replacementFor(question);
+      }
+    }
+  }
+
+  Question _replacementFor(Question current) {
+    final at = spares.indexWhere((question) =>
+        question.type != 'Speak the phrase' &&
+        !_isTyping(question) &&
+        !round.any((item) => item.id.isNotEmpty && item.id == question.id));
+    if (at >= 0) return spares.removeAt(at);
+    return _tilesInstead(current);
+  }
+
+  Question _tilesInstead(Question current) {
+    final phrase = current.answer
+        .replaceAll(RegExp(r'[.,!?;:“”"]'), '')
+        .trim()
+        .replaceAll(RegExp(r'\s+'), ' ');
+    final tokens =
+        phrase.split(' ').where((word) => word.isNotEmpty).toList();
+    final options = [...tokens];
+    for (final extra in ['hvala', 'molim', 'da', 'ne', 'zdravo']) {
+      if (options.length >= tokens.length + 3) break;
+      if (options.any((item) => foldSerbian(item) == foldSerbian(extra))) {
+        continue;
+      }
+      options.add(extra);
+    }
+    return Question(
+        'Arrange the words',
+        current.translation.trim().isNotEmpty
+            ? current.translation
+            : current.prompt,
+        phrase.isEmpty ? current.answer : phrase,
+        options,
+        current.detail,
+        id: current.id.isEmpty ? '' : 'swap:${current.id}',
+        audioText: current.audioText,
+        audioAsset: current.audioAsset,
+        answerLanguage: 'sr');
+  }
+
+  void _swapOutSpeak() {
+    if (!mounted || checked || finished) return;
+    if (round[index].type != 'Speak the phrase' && !_isTyping(round[index])) {
+      return;
+    }
+    SerbianSpeech.stop();
+    _wave.stop();
+    final replacement = _replacementFor(round[index]);
+    setState(() {
+      round[index] = replacement;
+      listening = false;
+      transcript = '';
+      selected = null;
+      picked.clear();
+    });
+  }
+
   String get response {
-    final q = widget.lesson.questions[index];
+    final q = round[index];
     if (q.type == 'Arrange the words' || q.type == 'Listen and arrange')
       return picked.map((i) => q.options[i]).join(' ');
-    if (q.type == 'Type the answer' || q.type == 'Listen and type')
-      return typed.text.trim();
-    if (q.type == 'Speak the phrase') {
-      return speakFallback || !SerbianSpeech.supported
-          ? typed.text.trim()
-          : transcript.trim();
-    }
+    if (q.type == 'Speak the phrase') return transcript.trim();
     return selected ?? '';
   }
 
   bool get canCheck => response.trim().isNotEmpty;
   bool _matches(String value, String target) {
-    if (widget.lesson.questions[index].type == 'Speak the phrase') {
+    if (round[index].type == 'Speak the phrase') {
       return speechMatches(value, target);
     }
     String clean(String x) => x
@@ -1469,11 +1536,9 @@ class _LessonPageState extends State<LessonPage>
     SerbianSpeech.stop();
     _wave.stop();
     listening = false;
-    speakFallback = false;
     transcript = '';
     selected = null;
     picked.clear();
-    typed.clear();
   }
 
   Future<void> _toggleMic() async {
@@ -1484,27 +1549,33 @@ class _LessonPageState extends State<LessonPage>
       setState(() => listening = false);
       return;
     }
-    await SerbianAudio.stop();
-    await learningFeedback.stopSounds();
+    unawaited(SerbianAudio.stop());
+    unawaited(learningFeedback.stopSounds());
     final questionIndex = index;
     final started = await SerbianSpeech.start(onResult: (text) {
-      if (!mounted || index != questionIndex) return;
-      setState(() => transcript = text);
+      if (!mounted || index != questionIndex || checked) return;
+      transcript = text;
+      if (speechMatches(text, round[questionIndex].answer)) {
+        _advance();
+        return;
+      }
+      setState(() {});
     }, onEnd: () {
-      if (!mounted || index != questionIndex) return;
+      if (!mounted || index != questionIndex || checked) return;
       _wave.stop();
-      setState(() => listening = false);
+      listening = false;
+      if (transcript.trim().isEmpty) {
+        setState(() {});
+        return;
+      }
+      _advance();
     }, onError: (_) {
-      if (!mounted || index != questionIndex) return;
-      _wave.stop();
-      setState(() {
-        listening = false;
-        speakFallback = true;
-      });
+      if (!mounted || index != questionIndex || checked) return;
+      _swapOutSpeak();
     });
-    if (!mounted || index != questionIndex) return;
+    if (!mounted || index != questionIndex || checked) return;
     if (!started) {
-      setState(() => speakFallback = true);
+      _swapOutSpeak();
       return;
     }
     _wave.repeat();
@@ -1516,7 +1587,7 @@ class _LessonPageState extends State<LessonPage>
 
   Future<void> _advance() async {
     if (submitting) return;
-    final q = widget.lesson.questions[index];
+    final q = round[index];
     if (!checked) {
       if (!canCheck) return;
       SerbianSpeech.stop();
@@ -1537,7 +1608,7 @@ class _LessonPageState extends State<LessonPage>
     }
     learningFeedback.tap(sound: false);
     learningFeedback.stopSounds();
-    if (index < widget.lesson.questions.length - 1) {
+    if (index < round.length - 1) {
       setState(() {
         index++;
         checked = false;
@@ -1546,7 +1617,7 @@ class _LessonPageState extends State<LessonPage>
     } else {
       setState(() => submitting = true);
       try {
-        await PracticeMemory.record(widget.lesson.questions, answers);
+        await PracticeMemory.record(round, answers);
       } catch (_) {}
       await widget.onComplete(correct, answers);
       if (mounted)
@@ -1557,8 +1628,8 @@ class _LessonPageState extends State<LessonPage>
       if (mounted)
         learningFeedback.complete(
             passed: correct * 100 >=
-                widget.lesson.minPassPercent * widget.lesson.questions.length,
-            perfect: correct == widget.lesson.questions.length);
+                widget.lesson.minPassPercent * round.length,
+            perfect: correct == round.length);
     }
   }
 
@@ -1588,7 +1659,6 @@ class _LessonPageState extends State<LessonPage>
               : switch (q.type) {
                   'Arrange the words' => 'Translate this sentence',
                   'Complete the sentence' => 'Complete the sentence',
-                  'Type the answer' => 'Write it in Serbian',
                   'Choose the image' => 'Select the correct image',
                   'Translate to Serbian' => 'How do you say this?',
                   _ => 'Choose the correct meaning',
@@ -1599,7 +1669,7 @@ class _LessonPageState extends State<LessonPage>
 
   @override
   Widget build(BuildContext context) {
-    final q = widget.lesson.questions[index];
+    final q = round[index];
     final guide = showTheory && widget.lesson.theoryBody.isNotEmpty;
     return Scaffold(
         backgroundColor: bg,
@@ -1632,10 +1702,7 @@ class _LessonPageState extends State<LessonPage>
                                                       end: finished
                                                           ? 1
                                                           : (index + (checked ? 1 : 0)) /
-                                                              widget
-                                                                  .lesson
-                                                                  .questions
-                                                                  .length),
+                                                              round.length),
                                                   duration: const Duration(
                                                       milliseconds: 350),
                                                   builder: (_, value, __) => ClipRRect(
@@ -1652,7 +1719,7 @@ class _LessonPageState extends State<LessonPage>
                                                                   lime))))),
                                           const SizedBox(width: 12),
                                           Text(
-                                              '${index + 1}/${widget.lesson.questions.length}',
+                                              '${index + 1}/${round.length}',
                                               style: const TextStyle(
                                                   color: muted,
                                                   fontSize: 12,
@@ -1729,12 +1796,9 @@ class _LessonPageState extends State<LessonPage>
                   child: q.type == 'Arrange the words' ||
                           q.type == 'Listen and arrange'
                       ? _arrangeViewport(q)
-                      : q.type == 'Type the answer' ||
-                              q.type == 'Listen and type'
-                          ? _typeViewport(q)
-                          : q.type == 'Speak the phrase'
-                              ? _speakViewport(q)
-                              : _choicesViewport(q)),
+                      : q.type == 'Speak the phrase'
+                          ? _speakViewport()
+                          : _choicesViewport(q)),
             ]);
       });
 
@@ -1822,9 +1886,6 @@ class _LessonPageState extends State<LessonPage>
     if ((q.type == 'Choose the meaning' && prompt.startsWith('What does')) ||
         (q.type == 'Choose the image' && prompt.startsWith('Which one'))) {
       if (q.audioText.isNotEmpty) prompt = q.audioText;
-    } else if (q.type == 'Type the answer') {
-      final quoted = RegExp('[“\"](.+?)[”\"]').firstMatch(prompt);
-      if (quoted != null) prompt = quoted.group(1)!;
     }
     return Wrap(
         spacing: 4,
@@ -2156,156 +2217,60 @@ class _LessonPageState extends State<LessonPage>
                   .toList())),
         ]);
       });
-  Widget _speakViewport(Question q) {
-    final typing = speakFallback || !SerbianSpeech.supported;
-    return LayoutBuilder(builder: (context, _) {
-      if (typing) {
-        final note = !SerbianSpeech.supported;
-        return Column(children: [
-          if (note)
-            const Text(
-                'Type the phrase. The microphone is not available on this device.',
+  Widget _speakViewport() {
+    return Column(children: [
+      if (transcript.isNotEmpty)
+        Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(transcript,
+                textAlign: TextAlign.center,
                 maxLines: 2,
-                style: TextStyle(color: muted, fontSize: 12, height: 1.3)),
-          if (note) const SizedBox(height: 8),
-          Expanded(
-              child: LayoutBuilder(
-                  builder: (context, fieldSpace) => Align(
-                      alignment: Alignment.topCenter,
-                      child: SizedBox(
-                          height: math.min(120, fieldSpace.maxHeight),
-                          child: TextField(
-                              controller: typed,
-                              enabled: !checked,
-                              expands: true,
-                              maxLines: null,
-                              textCapitalization: TextCapitalization.sentences,
-                              onChanged: (_) => setState(() {}),
-                              onSubmitted: (_) {
-                                if (canCheck) _advance();
-                              },
-                              style: const TextStyle(
-                                  fontSize: 18,
-                                  height: 1.4,
-                                  fontWeight: FontWeight.w700),
-                              decoration: InputDecoration(
-                                  hintText: 'Type the Serbian phrase…',
-                                  filled: true,
-                                  fillColor: panel,
-                                  contentPadding: const EdgeInsets.all(14),
-                                  enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                      borderSide: const BorderSide(
-                                          color: panel2, width: 2)),
-                                  focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                      borderSide: const BorderSide(
-                                          color: blue, width: 2)))))))),
-        ]);
-      }
-      return Column(children: [
-        if (transcript.isNotEmpty)
-          Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text(transcript,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w800))),
-        Semantics(
-            button: true,
-            label: listening ? 'Stop microphone' : 'Speak the phrase',
-            child: GestureDetector(
-                onTap: checked ? null : _toggleMic,
-                child: Container(
-                    height: 58,
-                    width: double.infinity,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                        color: blue,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: const [
-                          BoxShadow(
-                              color: Color(0xFF1899D6), offset: Offset(0, 4))
-                        ]),
-                    child: listening
-                        ? AnimatedBuilder(
-                            animation: _wave,
-                            builder: (_, __) => Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: List.generate(5, (bar) {
-                                  final height = 8 +
-                                      16 *
-                                          (.5 +
-                                              .5 *
-                                                  math.sin(_wave.value *
-                                                          math.pi *
-                                                          2 +
-                                                      bar));
-                                  return Container(
-                                      width: 6,
-                                      height: height,
-                                      margin: const EdgeInsets.symmetric(
-                                          horizontal: 3),
-                                      decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius:
-                                              BorderRadius.circular(4)));
-                                })))
-                        : const Icon(Icons.mic_rounded,
-                            color: Colors.white, size: 30)))),
-        TextButton(
-            onPressed: checked
-                ? null
-                : () {
-                    SerbianSpeech.stop();
-                    _wave.stop();
-                    setState(() {
-                      listening = false;
-                      speakFallback = true;
-                    });
-                  },
-            child: const Text("CAN'T SPEAK NOW",
-                style: TextStyle(
-                    color: muted,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: .6,
-                    fontSize: 13))),
-      ]);
-    });
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.w800))),
+      Semantics(
+          button: true,
+          label: listening ? 'Stop microphone' : 'Speak the phrase',
+          child: GestureDetector(
+              onTap: checked ? null : _toggleMic,
+              child: Container(
+                  height: 58,
+                  width: double.infinity,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                      color: blue,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: const [
+                        BoxShadow(color: Color(0xFF1899D6), offset: Offset(0, 4))
+                      ]),
+                  child: listening
+                      ? AnimatedBuilder(
+                          animation: _wave,
+                          builder: (_, __) => Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: List.generate(5, (bar) {
+                                final height = 8 +
+                                    16 *
+                                        (.5 +
+                                            .5 *
+                                                math.sin(_wave.value *
+                                                        math.pi *
+                                                        2 +
+                                                    bar));
+                                return Container(
+                                    width: 6,
+                                    height: height,
+                                    margin: const EdgeInsets.symmetric(
+                                        horizontal: 3),
+                                    decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius:
+                                            BorderRadius.circular(4)));
+                              })))
+                      : const Icon(Icons.mic_rounded,
+                          color: Colors.white, size: 30)))),
+    ]);
   }
-
-  Widget _typeViewport(Question q) => LayoutBuilder(
-      builder: (context, space) => Align(
-          alignment: Alignment.topCenter,
-          child: SizedBox(
-              height: math.min(150, space.maxHeight),
-              child: TextField(
-                  controller: typed,
-                  enabled: !checked,
-                  expands: true,
-                  maxLines: null,
-                  textCapitalization: TextCapitalization.sentences,
-                  onChanged: (_) => setState(() {}),
-                  onSubmitted: (_) {
-                    if (canCheck) _advance();
-                  },
-                  style: const TextStyle(
-                      fontSize: 18, height: 1.4, fontWeight: FontWeight.w700),
-                  decoration: InputDecoration(
-                      hintText: 'Type in Serbian…',
-                      filled: true,
-                      fillColor: panel,
-                      contentPadding: const EdgeInsets.all(14),
-                      enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide:
-                              const BorderSide(color: panel2, width: 2)),
-                      focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide:
-                              const BorderSide(color: blue, width: 2)))))));
 
   Widget _footer(Question q, bool guide, bool compact) => Container(
       width: double.infinity,
@@ -2378,20 +2343,31 @@ class _LessonPageState extends State<LessonPage>
                           color: Color(0xFFCFDCE2)))),
               const SizedBox(height: 8),
             ],
-            KButton(
-                text: guide
-                    ? 'START PRACTICE'
-                    : submitting
-                        ? 'SAVING…'
-                        : checked
-                            ? 'CONTINUE'
-                            : 'CHECK',
-                color: checked && !lastCorrect ? const Color(0xFFFF7279) : lime,
-                onTap: guide
-                    ? () => setState(() => showTheory = false)
-                    : (checked || canCheck) && !submitting
-                        ? _advance
-                        : null),
+            if (!guide && q.type == 'Speak the phrase' && !checked)
+              TextButton(
+                  onPressed: _swapOutSpeak,
+                  child: const Text("CAN'T SPEAK NOW",
+                      style: TextStyle(
+                          color: muted,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: .6,
+                          fontSize: 13)))
+            else
+              KButton(
+                  text: guide
+                      ? 'START PRACTICE'
+                      : submitting
+                          ? 'SAVING…'
+                          : checked
+                              ? 'CONTINUE'
+                              : 'CHECK',
+                  color:
+                      checked && !lastCorrect ? const Color(0xFFFF7279) : lime,
+                  onTap: guide
+                      ? () => setState(() => showTheory = false)
+                      : (checked || canCheck) && !submitting
+                          ? _advance
+                          : null),
           ]));
 
   Widget _guideViewport() =>
@@ -2511,17 +2487,15 @@ class _LessonPageState extends State<LessonPage>
       ]);
 
   Widget _completeViewport() => LayoutBuilder(builder: (context, space) {
-        final passed = correct * 100 >=
-            widget.lesson.minPassPercent * widget.lesson.questions.length;
+        final passed =
+            correct * 100 >= widget.lesson.minPassPercent * round.length;
         return Column(children: [
           Expanded(
               child: AnimatedKristina(
                   width: 220,
                   height: space.maxHeight * .44,
                   mood: passed
-                      ? (correct == widget.lesson.questions.length
-                          ? 'hot'
-                          : 'celebrate')
+                      ? (correct == round.length ? 'hot' : 'celebrate')
                       : 'wrong')),
           Text(
               passed
@@ -2539,7 +2513,7 @@ class _LessonPageState extends State<LessonPage>
               fit: BoxFit.scaleDown,
               child: Text(
                   passed
-                      ? (correct == widget.lesson.questions.length
+                      ? (correct == round.length
                           ? 'Flawless. Look at you!'
                           : bestRun >= 3
                               ? '$bestRun in a row. Keep it up!'
@@ -2563,7 +2537,7 @@ class _LessonPageState extends State<LessonPage>
                 Expanded(
                     child: _metric(
                         Icons.check_circle_rounded,
-                        '$correct/${widget.lesson.questions.length}',
+                        '$correct/${round.length}',
                         'CORRECT',
                         blue))
               ])),

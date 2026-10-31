@@ -8,10 +8,29 @@ part of '../main.dart';
 /// set. A new draw makes the same lesson come out different next time, while
 /// recent misses stay more likely to return. The round keeps one or two
 /// speaking prompts, and an image choice when the lesson has a drawable word.
-/// Translations are word tiles. Typing prompts are left out.
-List<Question> buildPracticeRound(
-        Lesson source, Map<String, List<int>> memory, math.Random random) =>
-    selectPracticeRound(practicePool(source), memory, random);
+/// Translations are word tiles. Typing prompts are left out. [PracticeDeal.bench]
+/// holds spare non-speaking questions for when the microphone is skipped.
+PracticeDeal buildPracticeRound(
+    Lesson source, Map<String, List<int>> memory, math.Random random) {
+  final pool = practicePool(source);
+  final questions = selectPracticeRound(pool, memory, random);
+  final used = {for (final question in questions) question.id};
+  final bench = [
+    for (final question in pool)
+      if (!used.contains(question.id) &&
+          question.type != 'Speak the phrase' &&
+          question.type != 'Type the answer' &&
+          question.type != 'Listen and type')
+        question
+  ]..shuffle(random);
+  return PracticeDeal(questions, bench);
+}
+
+class PracticeDeal {
+  final List<Question> questions;
+  final List<Question> bench;
+  const PracticeDeal(this.questions, this.bench);
+}
 
 List<Question> selectPracticeRound(List<Question> pool,
     Map<String, List<int>> memory, math.Random random,

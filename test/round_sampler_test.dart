@@ -45,7 +45,8 @@ void main() {
           pool.where((question) => question.type == 'Choose the image');
       final signatures = <String>{};
       for (var seed = 1; seed <= 8; seed++) {
-        final round = buildPracticeRound(lesson, const {}, Random(seed));
+        final round =
+            buildPracticeRound(lesson, const {}, Random(seed)).questions;
         expect(round.length, inInclusiveRange(8, 12),
             reason: '${lesson.id} #$seed');
         expect(round.map((question) => question.id).toSet().length, round.length,

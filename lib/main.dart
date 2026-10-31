@@ -1073,12 +1073,10 @@ class _PathPageState extends State<PathPage> {
                     const SizedBox(height: 18),
                     ListTile(
                         contentPadding: EdgeInsets.zero,
-                        leading: const _SerbianFlag(),
-                        title: const Text('Serbian',
+                        leading: const _SerbianFlag(width: 54),
+                        title: const Text('For English speakers',
                             style: TextStyle(
                                 fontWeight: FontWeight.w900, fontSize: 18)),
-                        subtitle: const Text('For English speakers',
-                            style: TextStyle(color: muted)),
                         trailing:
                             const Icon(Icons.check_circle_rounded, color: lime),
                         onTap: () => Navigator.pop(context)),
@@ -1113,23 +1111,19 @@ class _PathPageState extends State<PathPage> {
                     child: LearnerBadge(look: widget.look))),
             const SizedBox(width: 16),
             Expanded(
-                child: InkWell(
-                    onTap: selectCourse,
-                    borderRadius: BorderRadius.circular(12),
-                    child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 6),
-                        child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          const _SerbianFlag(),
-                          const SizedBox(width: 8),
-                          const Flexible(
-                              child: Text('Serbian',
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 16))),
-                          const Icon(Icons.expand_more_rounded,
-                              color: muted, size: 20)
-                        ])))),
+                child: MergeSemantics(
+                    child: InkWell(
+                        onTap: selectCourse,
+                        borderRadius: BorderRadius.circular(12),
+                        child: const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 6),
+                            child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _SerbianFlag(width: 42),
+                                  Icon(Icons.expand_more_rounded,
+                                      color: muted, size: 22)
+                                ]))))),
             const SizedBox(width: 8),
             const Icon(Icons.local_fire_department_rounded,
                 color: Color(0xFFFF9A43), size: 30),
@@ -1394,20 +1388,127 @@ class _SectionHeaderDelegate extends SliverPersistentHeaderDelegate {
 }
 
 class _SerbianFlag extends StatelessWidget {
-  const _SerbianFlag();
+  final double width;
+  const _SerbianFlag({this.width = 33});
   @override
-  Widget build(BuildContext context) => Container(
-      width: 33,
-      height: 24,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: Colors.white.withValues(alpha: .2))),
-      child: Column(children: [
-        Expanded(child: Container(color: const Color(0xFFD8444D))),
-        Expanded(child: Container(color: const Color(0xFF316FB2))),
-        Expanded(child: Container(color: Colors.white))
-      ]));
+  Widget build(BuildContext context) => Semantics(
+      label: 'Flag of Serbia',
+      image: true,
+      child: SizedBox(
+          width: width,
+          height: width * 2 / 3,
+          child: CustomPaint(painter: _SerbianFlagPainter())));
+}
+
+/// State flag: red, blue and white, with the lesser coat of arms toward the hoist.
+class _SerbianFlagPainter extends CustomPainter {
+  static const _red = Color(0xFFC7363D);
+  static const _blue = Color(0xFF0C4077);
+  static const _gold = Color(0xFFEDB92E);
+  static const _shield = Color(0xFFA12D2E);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    final frame = RRect.fromRectAndRadius(
+        Offset.zero & size, Radius.circular(h * .16));
+    canvas.save();
+    canvas.clipRRect(frame);
+    canvas.drawRect(Rect.fromLTWH(0, 0, w, h / 3), Paint()..color = _red);
+    canvas.drawRect(
+        Rect.fromLTWH(0, h / 3, w, h / 3), Paint()..color = _blue);
+    canvas.drawRect(
+        Rect.fromLTWH(0, 2 * h / 3, w, h / 3), Paint()..color = Colors.white);
+    _arms(canvas, w * 5 / 14, h / 2, h * .78);
+    canvas.restore();
+    canvas.drawRRect(
+        frame,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = math.max(1, h * .04)
+          ..color = Colors.white.withValues(alpha: .28));
+  }
+
+  void _arms(Canvas canvas, double cx, double cy, double s) {
+    final gold = Paint()..color = _gold;
+    final wing = Path()
+      ..moveTo(cx, cy - s * .02)
+      ..cubicTo(cx - s * .46, cy - s * .34, cx - s * .5, cy + .02 * s,
+          cx - s * .28, cy + s * .1)
+      ..quadraticBezierTo(cx - s * .16, cy + s * .02, cx, cy + s * .08)
+      ..close();
+    canvas.drawPath(wing, gold);
+    canvas.save();
+    canvas.translate(cx, 0);
+    canvas.scale(-1, 1);
+    canvas.translate(-cx, 0);
+    canvas.drawPath(wing, gold);
+    canvas.restore();
+    canvas.drawCircle(Offset(cx - s * .1, cy - s * .2), s * .07, gold);
+    canvas.drawCircle(Offset(cx + s * .1, cy - s * .2), s * .07, gold);
+    canvas.drawPath(
+        Path()
+          ..moveTo(cx - s * .16, cy - s * .18)
+          ..lineTo(cx - s * .24, cy - s * .14)
+          ..lineTo(cx - s * .14, cy - s * .14)
+          ..close(),
+        gold);
+    canvas.drawPath(
+        Path()
+          ..moveTo(cx + s * .16, cy - s * .18)
+          ..lineTo(cx + s * .24, cy - s * .14)
+          ..lineTo(cx + s * .14, cy - s * .14)
+          ..close(),
+        gold);
+    canvas.drawPath(
+        Path()
+          ..moveTo(cx - s * .14, cy - s * .38)
+          ..lineTo(cx - s * .18, cy - s * .24)
+          ..lineTo(cx + s * .18, cy - s * .24)
+          ..lineTo(cx + s * .14, cy - s * .38)
+          ..close(),
+        gold);
+    canvas.drawCircle(Offset(cx, cy - s * .4), s * .035, gold);
+    final shield = Path()
+      ..moveTo(cx - s * .13, cy - s * .08)
+      ..lineTo(cx + s * .13, cy - s * .08)
+      ..lineTo(cx + s * .13, cy + s * .12)
+      ..quadraticBezierTo(cx, cy + s * .24, cx - s * .13, cy + s * .12)
+      ..close();
+    canvas.drawPath(shield, Paint()..color = _shield);
+    final white = Paint()..color = Colors.white;
+    canvas.save();
+    canvas.clipPath(shield);
+    canvas.drawRect(
+        Rect.fromCenter(
+            center: Offset(cx, cy + s * .04), width: s * .045, height: s * .28),
+        white);
+    canvas.drawRect(
+        Rect.fromCenter(
+            center: Offset(cx, cy + s * .02), width: s * .22, height: s * .04),
+        white);
+    for (final spot in [
+      Offset(cx - s * .065, cy - s * .02),
+      Offset(cx + s * .065, cy - s * .02),
+      Offset(cx - s * .065, cy + s * .09),
+      Offset(cx + s * .065, cy + s * .09),
+    ]) {
+      canvas.drawArc(
+          Rect.fromCenter(center: spot, width: s * .07, height: s * .07),
+          spot.dx < cx ? -math.pi / 2 : math.pi / 2,
+          math.pi,
+          false,
+          Paint()
+            ..color = Colors.white
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = math.max(.6, s * .025)
+            ..strokeCap = StrokeCap.round);
+    }
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _SerbianFlagPainter oldDelegate) => false;
 }
 
 class _TrailLinePainter extends CustomPainter {

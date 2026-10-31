@@ -8,6 +8,7 @@ import 'widgets/word_hints.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle, HapticFeedback;
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart' show CustomSemanticsAction;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -60,10 +61,13 @@ class Lesson {
 
 class Question {
   final String type, prompt, answer, detail;
-  final String audioText, audioAsset;
+  final String audioText, audioAsset, translation, answerLanguage;
   final List<String> options;
   const Question(this.type, this.prompt, this.answer, this.options, this.detail,
-      {this.audioText = '', this.audioAsset = ''});
+      {this.audioText = '',
+      this.audioAsset = '',
+      this.translation = '',
+      this.answerLanguage = ''});
 }
 
 var lessons = <Lesson>[
@@ -277,7 +281,9 @@ void applyCourse(Map<String, dynamic> course) {
             return Question(item['type'], item['prompt'], item['answer'],
                 (item['options'] as List).cast<String>(), item['explanation'],
                 audioText: item['audioText'] ?? '',
-                audioAsset: item['audio'] ?? '');
+                audioAsset: item['audio'] ?? '',
+                translation: item['translation'] ?? '',
+                answerLanguage: item['answerLanguage'] ?? '');
           }).toList(),
           theoryTitle: data['theory']['title'],
           theoryBody: data['theory']['body'],
@@ -545,7 +551,10 @@ class _KristinaAppState extends State<KristinaApp> {
             roundIndex * 31 +
             entry.key));
       return Question(q.type, q.prompt, q.answer, options, q.detail,
-          audioText: q.audioText, audioAsset: q.audioAsset);
+          audioText: q.audioText,
+          audioAsset: q.audioAsset,
+          translation: q.translation,
+          answerLanguage: q.answerLanguage);
     }).toList();
     if (roundIndex > 0) {
       final offset = roundIndex % questions.length;
@@ -1327,7 +1336,7 @@ class LessonPage extends StatefulWidget {
 class _LessonPageState extends State<LessonPage> {
   int index = 0, correct = 0;
   final List<bool> answers = [];
-  final List<String> picked = [];
+  final List<int> picked = [];
   final TextEditingController typed = TextEditingController();
   String? selected;
   bool checked = false,
@@ -1347,7 +1356,7 @@ class _LessonPageState extends State<LessonPage> {
   String get response {
     final q = widget.lesson.questions[index];
     if (q.type == 'Arrange the words' || q.type == 'Listen and arrange')
-      return picked.join(' ');
+      return picked.map((i) => q.options[i]).join(' ');
     if (q.type == 'Type the answer' || q.type == 'Listen and type')
       return typed.text.trim();
     return selected ?? '';
@@ -1401,15 +1410,18 @@ class _LessonPageState extends State<LessonPage> {
     }
   }
 
-  String _heading(Question q) => q.type.startsWith('Listen')
-      ? 'What do you hear?'
-      : switch (q.type) {
-          'Arrange the words' => 'Translate this sentence',
-          'Type the answer' => 'Write it in Serbian',
-          'Choose the image' => 'Select the correct image',
-          'Translate to Serbian' => 'How do you say this?',
-          _ => 'Choose the correct meaning',
-        };
+  String _heading(Question q) => q.type == 'Listen and arrange'
+      ? 'Translate what you hear'
+      : q.type.startsWith('Listen')
+          ? 'What do you hear?'
+          : switch (q.type) {
+              'Arrange the words' => 'Translate this sentence',
+              'Complete the sentence' => 'Complete the sentence',
+              'Type the answer' => 'Write it in Serbian',
+              'Choose the image' => 'Select the correct image',
+              'Translate to Serbian' => 'How do you say this?',
+              _ => 'Choose the correct meaning',
+            };
 
   final PageController guidePages = PageController();
   int guidePage = 0;
@@ -1578,7 +1590,9 @@ class _LessonPageState extends State<LessonPage> {
                   : Row(children: [
                       if (q.audioText.isNotEmpty &&
                           (q.type == 'Choose the meaning' ||
-                              q.type == 'Choose the image')) ...[
+                              q.type == 'Choose the image' ||
+                              (q.type == 'Arrange the words' &&
+                                  q.answerLanguage == 'en'))) ...[
                         SerbianAudioButton(
                             text: q.audioText, asset: q.audioAsset),
                         const SizedBox(width: 8)
@@ -1590,7 +1604,21 @@ class _LessonPageState extends State<LessonPage> {
                                   alignment: Alignment.centerLeft,
                                   child: SizedBox(
                                       width: box.maxWidth,
-                                      child: _hintPrompt(q))))),
+                                      child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            _hintPrompt(q),
+                                            if (q.translation.isNotEmpty) ...[
+                                              const SizedBox(height: 8),
+                                              Text('Meaning: ${q.translation}',
+                                                  style: const TextStyle(
+                                                      color: muted,
+                                                      fontSize: 13,
+                                                      height: 1.3))
+                                            ]
+                                          ]))))),
                     ]))),
     ]);
   }
@@ -1598,6 +1626,9 @@ class _LessonPageState extends State<LessonPage> {
   Widget _hintPrompt(Question q) {
     final vocabulary = [...widget.lesson.vocabulary, ...words];
     var prompt = q.prompt;
+    if (q.type == 'Complete the sentence' && selected != null) {
+      prompt = prompt.replaceFirst('___', selected!);
+    }
     if ((q.type == 'Choose the meaning' && prompt.startsWith('What does')) ||
         (q.type == 'Choose the image' && prompt.startsWith('Which one'))) {
       if (q.audioText.isNotEmpty) prompt = q.audioText;
@@ -1671,7 +1702,10 @@ class _LessonPageState extends State<LessonPage> {
                                   fontSize: 9,
                                   letterSpacing: 1)),
                           const SizedBox(height: 5),
-                          Text(q.audioText,
+                          Text(
+                              q.type == 'Complete the sentence'
+                                  ? q.prompt
+                                  : q.audioText,
                               maxLines: 3,
                               style: const TextStyle(
                                   color: Colors.white,
@@ -1822,17 +1856,61 @@ class _LessonPageState extends State<LessonPage> {
               child: Text(word,
                   style: TextStyle(
                       fontSize: font, fontWeight: FontWeight.w800)))));
-  Widget _tileBank(List<Widget> tiles) => LayoutBuilder(
+  Widget _tileBank(List<Widget> tiles, {bool answer = false}) => LayoutBuilder(
       builder: (context, box) => FittedBox(
           fit: BoxFit.scaleDown,
-          alignment: Alignment.topCenter,
+          alignment: answer ? Alignment.topLeft : Alignment.topCenter,
           child: SizedBox(
               width: box.maxWidth,
               child: Wrap(
-                  alignment: WrapAlignment.center,
+                  alignment:
+                      answer ? WrapAlignment.start : WrapAlignment.center,
                   spacing: 8,
                   runSpacing: 10,
                   children: tiles))));
+  void _moveTile(int from, int to) {
+    if (checked ||
+        from == to ||
+        from < 0 ||
+        to < 0 ||
+        from >= picked.length ||
+        to >= picked.length) return;
+    setState(() {
+      final token = picked.removeAt(from);
+      picked.insert(to, token);
+    });
+  }
+
+  Widget _selectedTile(Question q, int position, double font) {
+    final word = q.options[picked[position]];
+    Widget tile() => _tile(word,
+        checked ? null : () => setState(() => picked.removeAt(position)), font);
+    if (checked) return tile();
+    return DragTarget<int>(
+        onWillAcceptWithDetails: (details) => details.data != position,
+        onAcceptWithDetails: (details) => _moveTile(details.data, position),
+        builder: (context, candidates, _) => AnimatedScale(
+            scale: candidates.isEmpty ? 1 : 1.06,
+            duration: const Duration(milliseconds: 120),
+            child: Semantics(
+                hint: 'Tap to return this word. Hold and drag to reorder.',
+                customSemanticsActions: {
+                  if (position > 0)
+                    const CustomSemanticsAction(label: 'Move word left'): () =>
+                        _moveTile(position, position - 1),
+                  if (position < picked.length - 1)
+                    const CustomSemanticsAction(label: 'Move word right'): () =>
+                        _moveTile(position, position + 1),
+                },
+                child: LongPressDraggable<int>(
+                    data: position,
+                    feedback: Material(
+                        color: Colors.transparent,
+                        child: _tile(word, null, font)),
+                    childWhenDragging: Opacity(opacity: .2, child: tile()),
+                    child: tile()))));
+  }
+
   Widget _arrangeViewport(Question q) =>
       LayoutBuilder(builder: (context, space) {
         final font = space.maxWidth < 340 ? 15.0 : 17.0;
@@ -1846,24 +1924,28 @@ class _LessonPageState extends State<LessonPage> {
                       border: Border(
                           top: BorderSide(color: panel2, width: 2),
                           bottom: BorderSide(color: panel2, width: 2))),
-                  child: _tileBank(picked
-                      .map((word) => _tile(
-                          word,
-                          checked
-                              ? null
-                              : () => setState(() => picked.remove(word)),
-                          font))
-                      .toList()))),
+                  child: _tileBank(
+                      List.generate(
+                          picked.length,
+                          (position) => KeyedSubtree(
+                              key: ValueKey('answer-token-$position'),
+                              child: _selectedTile(q, position, font))),
+                      answer: true))),
           SizedBox(height: space.maxHeight < 180 ? 10 : 20),
           Expanded(
               flex: 5,
               child: _tileBank(q.options
-                  .map((word) => IgnorePointer(
-                      ignoring: checked || picked.contains(word),
+                  .asMap()
+                  .entries
+                  .map((entry) => IgnorePointer(
+                      key: ValueKey('bank-token-${entry.key}'),
+                      ignoring: checked || picked.contains(entry.key),
                       child: Opacity(
-                          opacity: picked.contains(word) ? 0.12 : 1.0,
-                          child: _tile(word,
-                              () => setState(() => picked.add(word)), font))))
+                          opacity: picked.contains(entry.key) ? 0.12 : 1.0,
+                          child: _tile(
+                              entry.value,
+                              () => setState(() => picked.add(entry.key)),
+                              font))))
                   .toList())),
         ]);
       });

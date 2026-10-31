@@ -10,7 +10,7 @@ const lessons = course.units.flatMap(unit => unit.lessons);
 assert.equal(course.sourceLanguage, 'en');
 assert.equal(course.targetLanguage, 'sr');
 assert.equal(course.status, 'published');
-assert.equal(course.version, 3);
+assert.equal(course.version, 4);
 assert.equal(course.units.length, 11);
 assert.equal(lessons.length, 68);
 assert.equal(lessons.reduce((sum, lesson) => sum + lesson.challenges.length, 0), 424);
@@ -19,6 +19,22 @@ assert.equal(lessons.filter(lesson => lesson.type === 'checkpoint').length, 11);
 assert(lessons.every(lesson => lesson.type === 'challenge' || lesson.minPassPercent >= 75));
 assert(lessons.every(lesson => lesson.challenges.some(question => question.type.startsWith('Listen'))));
 assert(lessons.every(lesson => lesson.theory.body && lesson.vocabulary.length));
+assert(lessons.every(lesson => lesson.challenges.every(item => !['Choose the meaning', 'Translate to Serbian', 'Listen and choose'].includes(item.type))));
+for (const lesson of lessons) for (const item of lesson.challenges) {
+  if (['Arrange the words','Listen and arrange'].includes(item.type)) {
+    assert(item.options.length > item.answer.split(' ').length, `Distractors required for ${item.id}`);
+  }
+}
+
+const targetWords = new Set(lessons.flatMap(lesson => [
+  ...lesson.vocabulary.map(word => word.latin),
+  ...lesson.challenges.map(item => item.audioText || ''),
+]).flatMap(text => text.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []));
+for (const lesson of lessons) for (const item of lesson.challenges) {
+  if (item.type === 'Complete the sentence') for (const option of item.options) {
+    assert(targetWords.has(option.toLowerCase()), `Target-language option required for ${item.id}: ${option}`);
+  }
+}
 const clips = new Map();
 for (const lesson of lessons) {
   for (const word of lesson.vocabulary) clips.set(word.audio, word.latin);

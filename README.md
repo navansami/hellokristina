@@ -48,3 +48,9 @@ Exercises size the heading, character/prompt, answer area and feedback to the av
 Run `flutter test test/lesson_viewport_test.dart` for viewport, keyboard, hint, guide and completion coverage. The suite checks the longest current examples of every exercise format at 320×568, 360×640 and 390×700.
 
 Answer feedback is a bottom overlay. Its expansion covers the lower exercise area while preserving the prompt and answer positions; it never resizes or pushes the exercise upward.
+
+## Translation word banks and sentence completion
+
+Course version 4 replaces sentence-sized multiple-choice translations with individual word banks, including wrong-word distractors. Tap tiles to build an answer on the lines, tap a selected tile to return it, or hold and drag selected tiles to change their order. Repeated words have separate tile identities. Listening translation uses the same word-bank interaction.
+
+Numbered choices now complete a Serbian sentence with one blank and three Serbian word options. A short English meaning cue disambiguates the intended sentence for beginners. Source-sentence speakers and tappable word hints remain available; the missing word's audio is available after checking. Lesson, question and practice-round IDs remain compatible with existing progress. `scripts/update-exercise-formats.mjs` documents the one-time v3-to-v4 content migration.

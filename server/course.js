@@ -6,11 +6,13 @@ export const starterCourse = require('../curriculum/serbian-en.v1.json');
 
 const challenge = z.object({
   id: z.string().min(1),
-  type: z.enum(['Choose the meaning', 'Translate to Serbian', 'Arrange the words', 'Type the answer', 'Choose the image', 'Listen and choose', 'Listen and type', 'Listen and arrange']),
+  type: z.enum(['Choose the meaning', 'Translate to Serbian', 'Arrange the words', 'Type the answer', 'Choose the image', 'Listen and choose', 'Listen and type', 'Listen and arrange', 'Complete the sentence']),
   prompt: z.string().min(1),
   answer: z.string().min(1),
   options: z.array(z.string()),
   explanation: z.string().min(1),
+  translation: z.string().min(1).optional(),
+  answerLanguage: z.string().regex(/^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})?$/).optional(),
   audioText: z.string().min(1).optional(),
   audio: z.string().regex(/^audio\/serbian\/[a-f0-9]{12}\.mp3$/).optional(),
 });
@@ -49,6 +51,7 @@ export function validateCourse(value) {
     if (new Set(challengeIds).size !== challengeIds.length) throw new Error(`Duplicate challenge IDs in ${lesson.id}`);
     if (lesson.type !== 'challenge' && !lesson.minPassPercent) throw new Error(`Checkpoint requires a passing score: ${lesson.id}`);
     for (const item of lesson.challenges) {
+      if (item.type === 'Complete the sentence' && (!item.translation || (item.prompt.match(/___/g) || []).length !== 1 || item.options.length !== 3 || new Set(item.options).size !== 3 || item.options.filter(option => option === item.answer).length !== 1 || item.answerLanguage !== course.targetLanguage || item.options.some(option => /\s/.test(option)))) throw new Error(`Invalid sentence completion in ${item.id}`);
       if (item.type.startsWith('Listen') && (!item.audioText || !item.audio)) throw new Error(`Listening audio is required in ${item.id}`);
       if (item.type === 'Arrange the words' || item.type === 'Listen and arrange') {
         const tokens = item.options.slice();

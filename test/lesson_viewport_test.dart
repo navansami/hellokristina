@@ -15,7 +15,10 @@ final questions = (catalog['units'] as List)
     .toList();
 Question parse(Map<String, dynamic> q) => Question(q['type'], q['prompt'],
     q['answer'], (q['options'] as List).cast<String>(), q['explanation'],
-    audioText: q['audioText'] ?? '', audioAsset: q['audio'] ?? '');
+    audioText: q['audioText'] ?? '',
+    audioAsset: q['audio'] ?? '',
+    translation: q['translation'] ?? '',
+    answerLanguage: q['answerLanguage'] ?? '');
 Future<void> screen(WidgetTester tester, Question q, Size size,
     {double keyboard = 0, bool guide = false}) async {
   tester.view.physicalSize = size;
@@ -127,6 +130,64 @@ void main() {
       });
     }
   }
+  testWidgets('sentence completion uses Serbian words and previews the choice',
+      (tester) async {
+    addTearDown(() => clean(tester));
+    const q = Question('Complete the sentence', 'Ovo je ___.', 'kafa',
+        ['kafa', 'voda', 'stanica'], 'Ovo je kafa. — This is coffee.',
+        translation: 'This is coffee.');
+    await screen(tester, q, const Size(360, 640));
+    expect(find.text('Complete the sentence'), findsOneWidget);
+    expect(find.text('Meaning: This is coffee.'), findsOneWidget);
+    await tester.tap(find.text('kafa'));
+    await tester.pump();
+    expect(find.text('kafa.'), findsOneWidget);
+    await tester.tap(find.text('CHECK'));
+    await tester.pump();
+    expect(find.text('Nicely done!'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('word tiles preserve duplicates and can be reordered',
+      (tester) async {
+    addTearDown(() => clean(tester));
+    const q = Question('Arrange the words', 'Kako ste?', 'How do you do',
+        ['do', 'you', 'How', 'do', 'bread'], 'Build the English greeting.');
+    await screen(tester, q, const Size(360, 640));
+    for (final i in [2, 0, 1, 3]) {
+      await tester.tap(find.byKey(ValueKey('bank-token-$i')));
+      await tester.pump();
+    }
+    List<String?> selectedWords() => List.generate(
+        4,
+        (i) => tester
+            .widget<Text>(find
+                .descendant(
+                    of: find.byKey(ValueKey('answer-token-$i')),
+                    matching: find.byType(Text))
+                .first)
+            .data);
+    expect(selectedWords(), ['How', 'do', 'you', 'do']);
+    Future<void> move(int from, int to) async {
+      final gesture = await tester.startGesture(
+          tester.getCenter(find.byKey(ValueKey('answer-token-$from'))));
+      await tester.pump(const Duration(milliseconds: 600));
+      await gesture
+          .moveTo(tester.getCenter(find.byKey(ValueKey('answer-token-$to'))));
+      await tester.pump(const Duration(milliseconds: 100));
+      await gesture.up();
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+
+    await move(3, 0);
+    expect(selectedWords(), ['do', 'How', 'do', 'you']);
+    await move(0, 3);
+    expect(selectedWords(), ['How', 'do', 'you', 'do']);
+    expect(find.text('bread'), findsOneWidget);
+    await tester.tap(find.text('CHECK'));
+    await tester.pump();
+    expect(find.text('Nicely done!'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('typing keeps input and CHECK above the keyboard',
       (tester) async {
     addTearDown(() => clean(tester));

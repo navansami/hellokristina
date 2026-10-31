@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'widgets/animated_kristina.dart';
 import 'widgets/tactile_button.dart';
 import 'widgets/learning_object.dart';
+import 'widgets/word_hints.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle, HapticFeedback;
 import 'package:flutter/material.dart';
@@ -1339,6 +1340,7 @@ class _LessonPageState extends State<LessonPage> {
   void dispose() {
     SerbianAudio.stop();
     typed.dispose();
+    guidePages.dispose();
     super.dispose();
   }
 
@@ -1409,544 +1411,730 @@ class _LessonPageState extends State<LessonPage> {
           _ => 'Choose the correct meaning',
         };
 
+  final PageController guidePages = PageController();
+  int guidePage = 0;
+
   @override
   Widget build(BuildContext context) {
     final q = widget.lesson.questions[index];
     final guide = showTheory && widget.lesson.theoryBody.isNotEmpty;
-    final mood = checked ? (lastCorrect ? 'correct' : 'wrong') : 'idle';
     return Scaffold(
         backgroundColor: bg,
+        resizeToAvoidBottomInset: true,
         body: SafeArea(
             child: Center(
                 child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 600),
-                    child: Column(children: [
-                      Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 12, 20, 8),
-                          child: Row(children: [
-                            IconButton(
-                                onPressed: () => Navigator.pop(context),
-                                icon: const Icon(Icons.close_rounded,
-                                    color: muted),
-                                tooltip: 'Leave lesson'),
-                            const SizedBox(width: 8),
-                            Expanded(
-                                child: TweenAnimationBuilder<double>(
-                                    tween: Tween(
-                                        end: finished
-                                            ? 1
-                                            : (index + (checked ? 1 : 0)) /
-                                                widget.lesson.questions.length),
-                                    duration: const Duration(milliseconds: 450),
-                                    curve: Curves.easeOutCubic,
-                                    builder: (_, value, __) => ClipRRect(
-                                        borderRadius: BorderRadius.circular(20),
-                                        child: LinearProgressIndicator(
-                                            value: value,
-                                            minHeight: 15,
-                                            backgroundColor: panel2,
-                                            valueColor:
-                                                const AlwaysStoppedAnimation(
-                                                    lime))))),
-                            const SizedBox(width: 16),
-                            Text(
-                                '${index + 1}/${widget.lesson.questions.length}',
-                                style: const TextStyle(
-                                    color: muted,
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 12))
-                          ])),
-                      Expanded(
-                          child: finished
-                              ? _complete(lime)
-                              : SingleChildScrollView(
-                                  padding:
-                                      const EdgeInsets.fromLTRB(24, 18, 24, 22),
-                                  child: AnimatedSwitcher(
-                                      duration:
-                                          const Duration(milliseconds: 220),
-                                      child: guide
-                                          ? _lessonGuide()
-                                          : Column(
-                                              key: ValueKey(index),
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.stretch,
-                                              children: [
-                                                  Text(_heading(q),
-                                                      style: const TextStyle(
-                                                          fontSize: 25,
-                                                          height: 1.2,
-                                                          fontWeight:
-                                                              FontWeight.w900)),
-                                                  const SizedBox(height: 18),
-                                                  SizedBox(
-                                                      height: q.type ==
-                                                              'Choose the image'
-                                                          ? 135
-                                                          : 175,
-                                                      child: Row(
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment
-                                                                  .center,
-                                                          children: [
-                                                            AnimatedKristina(
-                                                                width: 112,
-                                                                height: 170,
-                                                                mood: mood,
-                                                                character: (widget
-                                                                            .lesson
-                                                                            .id
-                                                                            .codeUnits
-                                                                            .fold<int>(0,
-                                                                                (sum, c) => sum + c) +
-                                                                        index) %
-                                                                    3),
-                                                            const SizedBox(
-                                                                width: 12),
-                                                            Expanded(
-                                                                child: Container(
-                                                                    padding: const EdgeInsets.all(16),
-                                                                    decoration: BoxDecoration(border: Border.all(color: panel2, width: 2), borderRadius: BorderRadius.circular(18)),
-                                                                    child: q.type.startsWith('Listen')
-                                                                        ? Column(mainAxisSize: MainAxisSize.min, children: [
-                                                                            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                                                                              SerbianAudioButton(text: q.audioText, asset: q.audioAsset),
-                                                                              const SizedBox(width: 8),
-                                                                              SerbianAudioButton(text: q.audioText, asset: q.audioAsset, slow: true),
-                                                                            ]),
-                                                                            const SizedBox(height: 8),
-                                                                            const Text('Listen carefully',
-                                                                                style: TextStyle(color: muted, fontSize: 12, fontWeight: FontWeight.w700))
-                                                                          ])
-                                                                        : Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                                                            if (q.audioText.isNotEmpty &&
-                                                                                (q.type == 'Choose the meaning' || q.type == 'Choose the image'))
-                                                                              Padding(padding: const EdgeInsets.only(bottom: 4), child: SerbianAudioButton(text: q.audioText, asset: q.audioAsset)),
-                                                                            Text(q.prompt,
-                                                                                style: const TextStyle(fontSize: 19, height: 1.4, fontWeight: FontWeight.w700)),
-                                                                          ])))
-                                                          ])),
-                                                  const SizedBox(height: 24),
-                                                  if (q.type == 'Arrange the words' ||
-                                                      q.type ==
-                                                          'Listen and arrange')
-                                                    _arrange(q)
-                                                  else if (q.type ==
-                                                          'Type the answer' ||
-                                                      q.type ==
-                                                          'Listen and type')
-                                                    _typeAnswer(q)
-                                                  else if (q.type ==
-                                                      'Choose the image')
-                                                    _images(q)
-                                                  else
-                                                    _choices(q),
-                                                  const SizedBox(height: 12),
-                                                ])))),
-                      if (!finished)
-                        AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            width: double.infinity,
-                            padding: const EdgeInsets.fromLTRB(24, 18, 24, 22),
-                            decoration: BoxDecoration(
-                                color: checked && !guide
-                                    ? (lastCorrect
-                                        ? const Color(0xFF173D30)
-                                        : const Color(0xFF45262C))
-                                    : bg,
-                                border: Border(
-                                    top: BorderSide(
-                                        color: checked
-                                            ? Colors.transparent
-                                            : panel2,
-                                        width: 2))),
-                            child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (checked && !guide) ...[
-                                    Row(children: [
-                                      Icon(
-                                          lastCorrect
-                                              ? Icons.check_circle_rounded
-                                              : Icons.cancel_rounded,
-                                          color: lastCorrect
-                                              ? lime
-                                              : const Color(0xFFFF777D),
-                                          size: 28),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                          child: Text(
-                                              lastCorrect
-                                                  ? 'Nicely done!'
-                                                  : 'Let’s get this one.',
-                                              style: TextStyle(
-                                                  color: lastCorrect
-                                                      ? lime
-                                                      : const Color(0xFFFF777D),
-                                                  fontSize: 22,
-                                                  fontWeight:
-                                                      FontWeight.w900))),
-                                      if (q.audioText.isNotEmpty)
-                                        SerbianAudioButton(
-                                            text: q.audioText,
-                                            asset: q.audioAsset,
-                                            color: lastCorrect ? lime : pink)
-                                    ]),
-                                    const SizedBox(height: 8),
-                                    if (!lastCorrect)
-                                      Text('Correct answer: ${q.answer}',
-                                          style: const TextStyle(
-                                              fontSize: 17,
-                                              fontWeight: FontWeight.w800)),
-                                    Text(q.detail,
-                                        style: const TextStyle(
-                                            fontSize: 14,
-                                            height: 1.4,
-                                            color: Color(0xFFCFDCE2))),
-                                    const SizedBox(height: 18),
-                                  ],
-                                  KButton(
-                                      text: guide
-                                          ? 'LET’S GO'
-                                          : submitting
-                                              ? 'SAVING…'
-                                              : checked
-                                                  ? 'CONTINUE'
-                                                  : 'CHECK',
-                                      color: checked && !lastCorrect
-                                          ? const Color(0xFFFF7279)
-                                          : lime,
-                                      onTap: guide
-                                          ? () =>
-                                              setState(() => showTheory = false)
-                                          : ((checked || canCheck) &&
-                                                  !submitting
-                                              ? _advance
-                                              : null)),
-                                ])),
-                    ])))));
+                    child: LayoutBuilder(
+                        builder: (context, viewport) => Column(children: [
+                              SizedBox(
+                                  height: 48,
+                                  child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 12),
+                                      child: Row(children: [
+                                        IconButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context),
+                                            icon: const Icon(
+                                                Icons.close_rounded,
+                                                color: muted),
+                                            tooltip: 'Leave lesson'),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                            child: TweenAnimationBuilder<double>(
+                                                tween: Tween(
+                                                    end: finished
+                                                        ? 1
+                                                        : (index +
+                                                                (checked
+                                                                    ? 1
+                                                                    : 0)) /
+                                                            widget
+                                                                .lesson
+                                                                .questions
+                                                                .length),
+                                                duration: const Duration(
+                                                    milliseconds: 350),
+                                                builder: (_, value, __) => ClipRRect(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            20),
+                                                    child: LinearProgressIndicator(
+                                                        value: value,
+                                                        minHeight: 13,
+                                                        backgroundColor: panel2,
+                                                        valueColor:
+                                                            const AlwaysStoppedAnimation(
+                                                                lime))))),
+                                        const SizedBox(width: 12),
+                                        Text(
+                                            '${index + 1}/${widget.lesson.questions.length}',
+                                            style: const TextStyle(
+                                                color: muted,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w900)),
+                                      ]))),
+                              Expanded(
+                                  child: Padding(
+                                      padding: EdgeInsets.fromLTRB(
+                                          20,
+                                          viewport.maxHeight < 600 ? 6 : 12,
+                                          20,
+                                          8),
+                                      child: finished
+                                          ? _completeViewport()
+                                          : guide
+                                              ? _guideViewport()
+                                              : _exerciseViewport(q))),
+                              if (!finished)
+                                _footer(q, guide, viewport.maxHeight < 600),
+                            ]))))));
   }
 
-  Widget _lessonGuide() =>
-      Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text('${widget.lesson.level} • LESSON GUIDE',
-            style: const TextStyle(
-                color: blue,
-                fontSize: 11,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.5)),
-        const SizedBox(height: 10),
-        Text(widget.lesson.theoryTitle,
-            style: const TextStyle(
-                fontWeight: FontWeight.w900, fontSize: 28, height: 1.15)),
-        const SizedBox(height: 18),
-        Row(children: [
-          const AnimatedKristina(width: 90, height: 125),
-          const SizedBox(width: 14),
-          Expanded(
-              child: Text(widget.lesson.theoryBody,
-                  style: const TextStyle(
-                      color: Color(0xFFD0DEE5), fontSize: 16, height: 1.5)))
-        ]),
-        const SizedBox(height: 22),
-        ...widget.lesson.vocabulary.map((word) => Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(
-                border: Border.all(color: panel2, width: 2),
-                borderRadius: BorderRadius.circular(16)),
-            child: Row(children: [
+  Widget _exerciseViewport(Question q) =>
+      LayoutBuilder(builder: (context, space) {
+        final short = space.maxHeight < 380;
+        final headingHeight = short ? 38.0 : 52.0;
+        final sceneHeight =
+            (space.maxHeight * (short ? 0.25 : 0.29)).clamp(48.0, 145.0);
+        return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                  height: headingHeight,
+                  child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: SizedBox(
+                              width: space.maxWidth,
+                              child: Text(_heading(q),
+                                  maxLines: 2,
+                                  style: TextStyle(
+                                      fontSize: short ? 22 : 25,
+                                      height: 1.1,
+                                      fontWeight: FontWeight.w900)))))),
+              SizedBox(height: sceneHeight, child: _scene(q, sceneHeight)),
+              SizedBox(height: short ? 10 : 18),
               Expanded(
+                  child: q.type == 'Arrange the words' ||
+                          q.type == 'Listen and arrange'
+                      ? _arrangeViewport(q)
+                      : q.type == 'Type the answer' ||
+                              q.type == 'Listen and type'
+                          ? _typeViewport(q)
+                          : _choicesViewport(q)),
+            ]);
+      });
+
+  Widget _scene(Question q, double height) {
+    final listen = q.type.startsWith('Listen');
+    final mood = checked ? (lastCorrect ? 'correct' : 'wrong') : 'idle';
+    final character =
+        (widget.lesson.id.codeUnits.fold<int>(0, (sum, c) => sum + c) + index) %
+            3;
+    return Row(children: [
+      if (height >= 72) ...[
+        AnimatedKristina(
+            width: height * .64,
+            height: height,
+            mood: mood,
+            character: character),
+        const SizedBox(width: 10)
+      ],
+      Expanded(
+          child: Container(
+              padding: EdgeInsets.symmetric(
+                  horizontal: 12, vertical: height < 90 ? 6 : 10),
+              decoration: BoxDecoration(
+                  border: Border.all(color: panel2, width: 2),
+                  borderRadius: BorderRadius.circular(16)),
+              child: listen
+                  ? Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      SerbianAudioButton(
+                          text: q.audioText, asset: q.audioAsset),
+                      const SizedBox(width: 12),
+                      SerbianAudioButton(
+                          text: q.audioText, asset: q.audioAsset, slow: true),
+                    ])
+                  : Row(children: [
+                      if (q.audioText.isNotEmpty &&
+                          (q.type == 'Choose the meaning' ||
+                              q.type == 'Choose the image')) ...[
+                        SerbianAudioButton(
+                            text: q.audioText, asset: q.audioAsset),
+                        const SizedBox(width: 8)
+                      ],
+                      Expanded(
+                          child: LayoutBuilder(
+                              builder: (context, box) => FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: SizedBox(
+                                      width: box.maxWidth,
+                                      child: _hintPrompt(q))))),
+                    ]))),
+    ]);
+  }
+
+  Widget _hintPrompt(Question q) {
+    final vocabulary = [...widget.lesson.vocabulary, ...words];
+    var prompt = q.prompt;
+    if ((q.type == 'Choose the meaning' && prompt.startsWith('What does')) ||
+        (q.type == 'Choose the image' && prompt.startsWith('Which one'))) {
+      if (q.audioText.isNotEmpty) prompt = q.audioText;
+    } else if (q.type == 'Type the answer') {
+      final quoted = RegExp('[“\"](.+?)[”\"]').firstMatch(prompt);
+      if (quoted != null) prompt = quoted.group(1)!;
+    }
+    return Wrap(
+        spacing: 4,
+        runSpacing: 3,
+        children: prompt.split(RegExp(r'\s+')).map((token) {
+          final hint = wordHintFor(token, prompt, vocabulary);
+          final label = Text(token,
+              style: TextStyle(
+                  fontSize: 18,
+                  height: 1.35,
+                  fontWeight: FontWeight.w700,
+                  decoration: hint == null ? null : TextDecoration.underline,
+                  decorationStyle: TextDecorationStyle.dashed,
+                  decorationColor: muted,
+                  decorationThickness: 1.5));
+          if (hint == null) return label;
+          return Builder(
+              builder: (wordContext) => Semantics(
+                  button: true,
+                  label: 'Hint for $token',
+                  child: InkWell(
+                      onTap: () => _showHint(wordContext, hint, q),
+                      borderRadius: BorderRadius.circular(4),
+                      child: label)));
+        }).toList());
+  }
+
+  void _showHint(BuildContext wordContext, WordHint hint, Question q) {
+    final box = wordContext.findRenderObject() as RenderBox;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final rect = box.localToGlobal(Offset.zero, ancestor: overlay) & box.size;
+    showMenu<void>(
+        context: context,
+        color: panel,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: panel2, width: 2)),
+        position: RelativeRect.fromRect(rect, Offset.zero & overlay.size),
+        items: [
+          PopupMenuItem<void>(
+              enabled: false,
+              child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 240),
                   child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                    Text(word[0],
-                        style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.w900)),
-                    Text(word[1],
-                        style: const TextStyle(color: muted, fontSize: 13))
-                  ])),
-              Flexible(
-                  child: Text(word[2],
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFFD1E0E8)))),
-              SerbianAudioButton(
-                  text: word[0], asset: word.length > 4 ? word[4] : '')
-            ]))),
-        const SizedBox(height: 8),
-        const Text('AI-generated pronunciation • Tap a speaker to listen',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: muted, fontSize: 11)),
-      ]);
-
-  Widget _choices(Question q) => Column(
-          children: q.options.asMap().entries.map((entry) {
-        final option = entry.value;
-        final isSelected = selected == option;
-        final reveal = checked && option == q.answer;
-        final wrongSelection = checked && isSelected && !reveal;
-        return Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: GestureDetector(
-                onTap: checked ? null : () => setState(() => selected = option),
-                child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 14),
-                    decoration: BoxDecoration(
-                        color: wrongSelection
-                            ? const Color(0xFF45262C)
-                            : reveal
-                                ? const Color(0xFF2D5939)
-                                : isSelected
-                                    ? const Color(0xFF304D5B)
-                                    : panel,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                            color: wrongSelection
-                                ? const Color(0xFFFF7279)
-                                : reveal
-                                    ? lime
-                                    : isSelected
-                                        ? blue
-                                        : panel2,
-                            width: 2),
-                        boxShadow: [
-                          BoxShadow(
-                              color: reveal
-                                  ? lime.withValues(alpha: .4)
-                                  : isSelected
-                                      ? blue.withValues(alpha: .4)
-                                      : panel2,
-                              offset: const Offset(0, 3))
-                        ]),
-                    child: Row(children: [
-                      Container(
-                          width: 28,
-                          height: 28,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                              color: Colors.transparent,
-                              border: Border.all(
-                                  color: isSelected ? blue : panel2, width: 2),
-                              borderRadius: BorderRadius.circular(8)),
-                          child: Text('${entry.key + 1}',
+                        Text(hint.term,
+                            style: const TextStyle(
+                                color: blue,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900)),
+                        const SizedBox(height: 8),
+                        Text(hint.meaning,
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 17,
+                                height: 1.3)),
+                        if (q.audioText.isNotEmpty) ...[
+                          const Divider(color: panel2, height: 22),
+                          const Text('IN THIS EXERCISE',
                               style: TextStyle(
-                                  color: isSelected ? blue : muted,
+                                  color: muted,
                                   fontWeight: FontWeight.w900,
-                                  fontSize: 12))),
-                      const SizedBox(width: 13),
-                      Expanded(
-                          child: Text(option,
+                                  fontSize: 9,
+                                  letterSpacing: 1)),
+                          const SizedBox(height: 5),
+                          Text(q.audioText,
+                              maxLines: 3,
                               style: const TextStyle(
-                                  fontWeight: FontWeight.w800, fontSize: 16))),
-                      if (reveal) const Icon(Icons.check_rounded, color: lime),
-                    ]))));
-      }).toList());
-  Widget _images(Question q) => LayoutBuilder(builder: (context, box) {
-        final width = (box.maxWidth - 12) / 2;
-        return Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: q.options.map((option) {
-              final parts = option.split(' ');
-              final isSelected = selected == option;
-              final reveal = checked && option == q.answer;
-              return GestureDetector(
-                  onTap:
-                      checked ? null : () => setState(() => selected = option),
-                  child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      width: width,
-                      height: 136,
-                      decoration: BoxDecoration(
-                          color: reveal
-                              ? const Color(0xFF234830)
-                              : isSelected
-                                  ? const Color(0xFF163A4C)
-                                  : bg,
-                          borderRadius: BorderRadius.circular(19),
-                          border: Border.all(
-                              color: reveal
-                                  ? lime
-                                  : isSelected
-                                      ? blue
-                                      : panel2,
-                              width: 2),
-                          boxShadow: [
-                            BoxShadow(
-                                color: isSelected ? blue : panel2,
-                                offset: const Offset(0, 4))
-                          ]),
-                      child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            LearningObject(name: option),
-                            const SizedBox(height: 8),
-                            Text(parts.skip(1).join(' '),
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w900, fontSize: 14)),
-                          ])));
-            }).toList());
-      });
-  Widget _wordTile(String word, VoidCallback? onTap) => Semantics(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  height: 1.3))
+                        ],
+                      ])))
+        ]);
+  }
+
+  Widget
+      _choicesViewport(Question q) => LayoutBuilder(builder: (context, space) {
+            final image = q.type == 'Choose the image';
+            final columns =
+                image || (space.maxHeight < 196 && q.options.length > 2)
+                    ? 2
+                    : 1;
+            final rows = (q.options.length / columns).ceil();
+            final height =
+                math.min(space.maxHeight, rows * (image ? 140.0 : 62.0));
+            return Align(
+                alignment: Alignment.topCenter,
+                child: SizedBox(
+                    height: height,
+                    child: Column(
+                        children: List.generate(
+                            rows,
+                            (row) => Expanded(
+                                child: Padding(
+                                    padding: EdgeInsets.only(
+                                        bottom: row == rows - 1 ? 3 : 8),
+                                    child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children:
+                                            List.generate(columns, (column) {
+                                          final i = row * columns + column;
+                                          if (i >= q.options.length)
+                                            return const Expanded(
+                                                child: SizedBox());
+                                          final option = q.options[i],
+                                              chosen = selected == option,
+                                              reveal =
+                                                  checked && option == q.answer,
+                                              wrong =
+                                                  checked && chosen && !reveal;
+                                          final edge = reveal
+                                              ? lime
+                                              : wrong
+                                                  ? const Color(0xFFFF7279)
+                                                  : chosen
+                                                      ? blue
+                                                      : panel2;
+                                          return Expanded(
+                                              child: Padding(
+                                                  padding: EdgeInsets.only(
+                                                      right:
+                                                          column < columns - 1
+                                                              ? 8
+                                                              : 0),
+                                                  child: Semantics(
+                                                      button: true,
+                                                      selected: chosen,
+                                                      label: option,
+                                                      child: GestureDetector(
+                                                          onTap: checked
+                                                              ? null
+                                                              : () => setState(
+                                                                  () => selected =
+                                                                      option),
+                                                          child: Container(
+                                                              padding:
+                                                                  const EdgeInsets
+                                                                      .symmetric(
+                                                                      horizontal:
+                                                                          12,
+                                                                      vertical:
+                                                                          5),
+                                                              decoration:
+                                                                  BoxDecoration(
+                                                                      color: reveal
+                                                                          ? const Color(0xFF234830)
+                                                                          : wrong
+                                                                              ? const Color(0xFF45262C)
+                                                                              : chosen
+                                                                                  ? const Color(0xFF163A4C)
+                                                                                  : panel,
+                                                                      border: Border.all(color: edge, width: 2),
+                                                                      borderRadius: BorderRadius.circular(14),
+                                                                      boxShadow: [
+                                                                    BoxShadow(
+                                                                        color:
+                                                                            edge,
+                                                                        offset: const Offset(
+                                                                            0,
+                                                                            3))
+                                                                  ]),
+                                                              child: image
+                                                                  ? Column(
+                                                                      children: [
+                                                                          Expanded(
+                                                                              child: FittedBox(child: LearningObject(name: option))),
+                                                                          Text(
+                                                                              option.split(' ').skip(1).join(' '),
+                                                                              maxLines: 1,
+                                                                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14))
+                                                                        ])
+                                                                  : Row(
+                                                                      children: [
+                                                                        if (columns ==
+                                                                            1) ...[
+                                                                          Text(
+                                                                              '${i + 1}',
+                                                                              style: TextStyle(color: chosen ? blue : muted, fontSize: 12, fontWeight: FontWeight.w900)),
+                                                                          const SizedBox(
+                                                                              width: 12)
+                                                                        ],
+                                                                        Expanded(
+                                                                            child:
+                                                                                LayoutBuilder(builder: (context, box) => FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: SizedBox(width: box.maxWidth, child: Text(option, maxLines: 4, style: const TextStyle(fontSize: 16, height: 1.2, fontWeight: FontWeight.w800)))))),
+                                                                        if (reveal) ...[
+                                                                          const SizedBox(
+                                                                              width: 4),
+                                                                          const Icon(
+                                                                              Icons.check_rounded,
+                                                                              color: lime,
+                                                                              size: 20)
+                                                                        ]
+                                                                      ],
+                                                                    ))))));
+                                        }))))))));
+          });
+
+  Widget _tile(String word, VoidCallback? onTap, double font) => Semantics(
       button: true,
       label: word,
       child: GestureDetector(
           onTap: onTap,
           child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
               decoration: BoxDecoration(
                   color: bg,
-                  borderRadius: BorderRadius.circular(11),
                   border: Border.all(color: const Color(0xFF435761), width: 2),
+                  borderRadius: BorderRadius.circular(10),
                   boxShadow: const [
                     BoxShadow(color: Color(0xFF435761), offset: Offset(0, 3))
                   ]),
               child: Text(word,
+                  style: TextStyle(
+                      fontSize: font, fontWeight: FontWeight.w800)))));
+  Widget _tileBank(List<Widget> tiles) => LayoutBuilder(
+      builder: (context, box) => FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.topCenter,
+          child: SizedBox(
+              width: box.maxWidth,
+              child: Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 8,
+                  runSpacing: 10,
+                  children: tiles))));
+  Widget _arrangeViewport(Question q) =>
+      LayoutBuilder(builder: (context, space) {
+        final font = space.maxWidth < 340 ? 15.0 : 17.0;
+        return Column(children: [
+          Expanded(
+              flex: 4,
+              child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 9),
+                  decoration: const BoxDecoration(
+                      border: Border(
+                          top: BorderSide(color: panel2, width: 2),
+                          bottom: BorderSide(color: panel2, width: 2))),
+                  child: _tileBank(picked
+                      .map((word) => _tile(
+                          word,
+                          checked
+                              ? null
+                              : () => setState(() => picked.remove(word)),
+                          font))
+                      .toList()))),
+          SizedBox(height: space.maxHeight < 180 ? 10 : 20),
+          Expanded(
+              flex: 5,
+              child: _tileBank(q.options
+                  .map((word) => IgnorePointer(
+                      ignoring: checked || picked.contains(word),
+                      child: Opacity(
+                          opacity: picked.contains(word) ? 0.12 : 1.0,
+                          child: _tile(word,
+                              () => setState(() => picked.add(word)), font))))
+                  .toList())),
+        ]);
+      });
+  Widget _typeViewport(Question q) => LayoutBuilder(
+      builder: (context, space) => Align(
+          alignment: Alignment.topCenter,
+          child: SizedBox(
+              height: math.min(150, space.maxHeight),
+              child: TextField(
+                  controller: typed,
+                  enabled: !checked,
+                  expands: true,
+                  maxLines: null,
+                  textCapitalization: TextCapitalization.sentences,
+                  onChanged: (_) => setState(() {}),
+                  onSubmitted: (_) {
+                    if (canCheck) _advance();
+                  },
                   style: const TextStyle(
-                      fontWeight: FontWeight.w800, fontSize: 17)))));
+                      fontSize: 18, height: 1.4, fontWeight: FontWeight.w700),
+                  decoration: InputDecoration(
+                      hintText: 'Type in Serbian…',
+                      filled: true,
+                      fillColor: panel,
+                      contentPadding: const EdgeInsets.all(14),
+                      enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide:
+                              const BorderSide(color: panel2, width: 2)),
+                      focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide:
+                              const BorderSide(color: blue, width: 2)))))));
 
-  Widget _arrange(Question q) =>
+  Widget _footer(Question q, bool guide, bool compact) => Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(20, compact ? 9 : 14, 20, compact ? 12 : 18),
+      decoration: BoxDecoration(
+          color: checked && !guide
+              ? (lastCorrect
+                  ? const Color(0xFF173D30)
+                  : const Color(0xFF45262C))
+              : bg,
+          border: const Border(top: BorderSide(color: panel2))),
+      child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (checked && !guide) ...[
+              Row(children: [
+                Icon(
+                    lastCorrect
+                        ? Icons.check_circle_rounded
+                        : Icons.cancel_rounded,
+                    color: lastCorrect ? lime : pink,
+                    size: 23),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: Text(
+                        lastCorrect ? 'Nicely done!' : 'Let’s get this one.',
+                        style: TextStyle(
+                            color: lastCorrect ? lime : pink,
+                            fontSize: compact ? 18 : 20,
+                            fontWeight: FontWeight.w900))),
+                if (q.audioText.isNotEmpty)
+                  SizedBox(
+                      height: 34,
+                      child: SerbianAudioButton(
+                          text: q.audioText,
+                          asset: q.audioAsset,
+                          color: lastCorrect ? lime : pink))
+              ]),
+              if (!lastCorrect)
+                Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    child: Text('Answer: ${q.answer}',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w800))),
+              GestureDetector(
+                  onTap: () => showDialog<void>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                              backgroundColor: panel,
+                              title: const Text('Why this answer?'),
+                              content: Text(q.detail),
+                              actions: [
+                                TextButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    child: const Text('GOT IT'))
+                              ])),
+                  child: Text(q.detail,
+                      maxLines: compact ? 1 : 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 12,
+                          height: 1.3,
+                          color: Color(0xFFCFDCE2)))),
+              const SizedBox(height: 8),
+            ],
+            KButton(
+                text: guide
+                    ? 'START PRACTICE'
+                    : submitting
+                        ? 'SAVING…'
+                        : checked
+                            ? 'CONTINUE'
+                            : 'CHECK',
+                color: checked && !lastCorrect ? const Color(0xFFFF7279) : lime,
+                onTap: guide
+                    ? () => setState(() => showTheory = false)
+                    : (checked || canCheck) && !submitting
+                        ? _advance
+                        : null),
+          ]));
+
+  Widget _guideViewport() =>
       Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Container(
-            constraints: const BoxConstraints(minHeight: 105),
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            decoration: const BoxDecoration(
-                border: Border(
-                    top: BorderSide(color: panel2, width: 2),
-                    bottom: BorderSide(color: panel2, width: 2))),
-            child: Wrap(
-                spacing: 8,
-                runSpacing: 10,
-                children: picked
-                    .map((word) => _wordTile(
-                        word,
-                        checked
-                            ? null
-                            : () => setState(() => picked.remove(word))))
-                    .toList())),
-        const SizedBox(height: 32),
-        Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 9,
-            runSpacing: 13,
-            children: q.options
-                .map((word) => IgnorePointer(
-                    ignoring: checked || picked.contains(word),
-                    child: AnimatedOpacity(
-                        duration: const Duration(milliseconds: 150),
-                        opacity: picked.contains(word) ? 0.12 : 1.0,
-                        child: _wordTile(
-                            word, () => setState(() => picked.add(word))))))
-                .toList()),
-      ]);
-  Widget _typeAnswer(Question q) =>
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('WRITE IT IN SERBIAN',
-            style: TextStyle(
-                color: muted,
+        Text('${widget.lesson.level} • LESSON GUIDE',
+            style: const TextStyle(
+                color: blue,
                 fontSize: 10,
-                letterSpacing: 1.3,
-                fontWeight: FontWeight.w900)),
-        const SizedBox(height: 10),
-        TextField(
-            controller: typed,
-            enabled: !checked,
-            autofocus: true,
-            textCapitalization: TextCapitalization.sentences,
-            onChanged: (_) => setState(() {}),
-            onSubmitted: (_) => _advance(),
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
-            decoration: InputDecoration(
-                hintText: 'Type your answer here',
-                filled: true,
-                fillColor: panel,
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: panel2, width: 2)),
-                focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: blue, width: 2)))),
-        const SizedBox(height: 12),
-        const Text(
-            'Tip: accents matter in Serbian, but case and punctuation do not.',
-            style: TextStyle(color: muted, fontSize: 12)),
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1)),
+        const SizedBox(height: 6),
+        SizedBox(
+            height: 52,
+            child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: SizedBox(
+                    width: math.min(560, MediaQuery.sizeOf(context).width - 40),
+                    child: Text(widget.lesson.theoryTitle,
+                        maxLines: 2,
+                        style: const TextStyle(
+                            fontSize: 25,
+                            height: 1.15,
+                            fontWeight: FontWeight.w900))))),
+        Expanded(
+            child: PageView(
+                controller: guidePages,
+                onPageChanged: (page) => setState(() => guidePage = page),
+                children: [
+              LayoutBuilder(
+                  builder: (context, box) => Column(children: [
+                        SizedBox(
+                            height: box.maxHeight * .36,
+                            child: const AnimatedKristina()),
+                        const SizedBox(height: 10),
+                        Expanded(
+                            child: LayoutBuilder(
+                                builder: (context, textBox) => FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.topLeft,
+                                    child: SizedBox(
+                                        width: textBox.maxWidth,
+                                        child: Text(widget.lesson.theoryBody,
+                                            style: const TextStyle(
+                                                fontSize: 18, height: 1.5))))))
+                      ])),
+              ...List.generate(
+                  (widget.lesson.vocabulary.length / 3).ceil(),
+                  (page) => Column(
+                      children: widget.lesson.vocabulary
+                          .skip(page * 3)
+                          .take(3)
+                          .map((word) => Expanded(
+                              child: Container(
+                                  margin:
+                                      const EdgeInsets.symmetric(vertical: 5),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                      border:
+                                          Border.all(color: panel2, width: 2),
+                                      borderRadius: BorderRadius.circular(14)),
+                                  child: Row(children: [
+                                    Expanded(
+                                        child: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            alignment: Alignment.centerLeft,
+                                            child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(word[0],
+                                                      style: const TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.w900,
+                                                          fontSize: 19)),
+                                                  Text(word[1],
+                                                      style: const TextStyle(
+                                                          color: muted,
+                                                          fontSize: 13)),
+                                                  Text(word[2],
+                                                      style: const TextStyle(
+                                                          color: blue,
+                                                          fontSize: 15))
+                                                ]))),
+                                    SerbianAudioButton(
+                                        text: word[0],
+                                        asset: word.length > 4 ? word[4] : '')
+                                  ]))))
+                          .toList())),
+            ])),
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          IconButton(
+              tooltip: 'Previous guide page',
+              onPressed: guidePage > 0
+                  ? () => guidePages.previousPage(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeOut)
+                  : null,
+              icon: const Icon(Icons.chevron_left_rounded)),
+          Text(
+              '${guidePage + 1} / ${1 + (widget.lesson.vocabulary.length / 3).ceil()}',
+              style: const TextStyle(color: muted, fontSize: 12)),
+          IconButton(
+              tooltip: 'Next guide page',
+              onPressed:
+                  guidePage < (widget.lesson.vocabulary.length / 3).ceil()
+                      ? () => guidePages.nextPage(
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeOut)
+                      : null,
+              icon: const Icon(Icons.chevron_right_rounded))
+        ]),
+        const Text('AI-generated pronunciation',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: muted, fontSize: 10)),
       ]);
-  Widget _complete(Color accent) {
-    final passed = correct * 100 >=
-        widget.lesson.minPassPercent * widget.lesson.questions.length;
-    return SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(children: [
-          const SizedBox(height: 12),
-          Container(
-              width: 220,
-              height: 250,
-              decoration: BoxDecoration(
-                  shape: BoxShape.circle, color: accent.withValues(alpha: .12)),
-              child: const SassyKristina(
-                  width: 220, height: 250, mood: 'celebrate')),
-          const SizedBox(height: 17),
-          Text(
-              !passed
-                  ? 'KEEP PRACTICING'
-                  : correct == widget.lesson.questions.length
-                      ? 'PERFECT PRACTICE!'
-                      : widget.lesson.kind == 'assessment'
-                          ? 'A1 KNOWLEDGE CHECK PASSED!'
-                          : widget.practiceRound == 4
-                              ? 'CIRCLE COMPLETE!'
-                              : 'PRACTICE ${widget.practiceRound + 1} COMPLETE!',
-              style: TextStyle(
-                  color: accent,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 2)),
-          const SizedBox(height: 7),
-          Text(
-              !passed
-                  ? 'Not quite yet. Try again.'
-                  : correct == widget.lesson.questions.length
-                      ? 'Okay, show-off.'
-                      : 'You did it, superstar!',
-              textAlign: TextAlign.center,
-              style:
-                  const TextStyle(fontSize: 29, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 8),
+
+  Widget _completeViewport() => LayoutBuilder(builder: (context, space) {
+        final passed = correct * 100 >=
+            widget.lesson.minPassPercent * widget.lesson.questions.length;
+        return Column(children: [
+          Expanded(
+              child: AnimatedKristina(
+                  width: 220,
+                  height: space.maxHeight * .44,
+                  mood: passed ? 'celebrate' : 'wrong')),
           Text(
               passed
-                  ? 'Kristina approves. She will deny saying that later.'
-                  : 'You need ${widget.lesson.minPassPercent}% to unlock the next lesson. Kristina believes in a rematch.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: muted, fontSize: 13)),
-          const SizedBox(height: 25),
-          Row(children: [
-            Expanded(
-                child: _resultCard(
-                    '⚡',
-                    passed && !widget.alreadyCompleted
-                        ? '+${(10 + correct * 5).clamp(0, 30)}'
-                        : '+0',
-                    'XP EARNED',
-                    lime)),
-            const SizedBox(width: 10),
-            Expanded(
-                child: _resultCard(
-                    '🎯',
-                    '$correct/${widget.lesson.questions.length}',
-                    'CORRECT',
-                    blue)),
-          ]),
-          const SizedBox(height: 28),
+                  ? (widget.practiceRound == 4
+                      ? 'CIRCLE COMPLETE!'
+                      : 'PRACTICE ${widget.practiceRound + 1} COMPLETE!')
+                  : 'KEEP PRACTICING',
+              style: const TextStyle(
+                  color: lime,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.2)),
+          const SizedBox(height: 8),
+          FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                  passed ? 'You did it, superstar!' : 'Let’s try that again.',
+                  style: const TextStyle(
+                      fontSize: 27, fontWeight: FontWeight.w900))),
+          const SizedBox(height: 12),
+          SizedBox(
+              height: 80,
+              child: Row(children: [
+                Expanded(
+                    child: _metric(
+                        Icons.bolt_rounded,
+                        passed && !widget.alreadyCompleted
+                            ? '+${(10 + correct * 5).clamp(0, 30)}'
+                            : '+0',
+                        'XP',
+                        lime)),
+                const SizedBox(width: 10),
+                Expanded(
+                    child: _metric(
+                        Icons.check_circle_rounded,
+                        '$correct/${widget.lesson.questions.length}',
+                        'CORRECT',
+                        blue))
+              ])),
+          const SizedBox(height: 18),
           KButton(
               text: passed ? 'BACK TO THE TRAIL' : 'TRY AGAIN',
               onTap: () {
-                if (passed)
+                if (passed) {
                   Navigator.pop(context);
-                else
+                } else {
                   setState(() {
                     index = 0;
                     correct = 0;
@@ -1958,29 +2146,29 @@ class _LessonPageState extends State<LessonPage> {
                     finished = false;
                     showTheory = false;
                   });
+                }
               }),
-        ]));
-  }
-
-  Widget _resultCard(String icon, String number, String label, Color color) =>
+          const SizedBox(height: 12),
+        ]);
+      });
+  Widget _metric(IconData icon, String value, String label, Color color) =>
       Container(
-          padding: const EdgeInsets.symmetric(vertical: 15),
+          width: double.infinity,
+          padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-              color: color.withValues(alpha: .14),
-              borderRadius: BorderRadius.circular(17)),
-          child: Column(children: [
-            Icon(icon == '⚡' ? Icons.bolt_rounded : Icons.check_circle_rounded,
-                color: color, size: 29),
-            const SizedBox(height: 5),
-            Text(number,
-                style: TextStyle(
-                    color: color, fontSize: 24, fontWeight: FontWeight.w900)),
-            Text(label,
-                style: TextStyle(
-                    color: color,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1)),
+              color: color.withValues(alpha: .12),
+              borderRadius: BorderRadius.circular(14)),
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(icon, color: color),
+            const SizedBox(width: 8),
+            Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Text(value,
+                  style: TextStyle(
+                      color: color, fontSize: 22, fontWeight: FontWeight.w900)),
+              Text(label,
+                  style: TextStyle(
+                      color: color, fontSize: 10, fontWeight: FontWeight.w900))
+            ])
           ]));
 }
 

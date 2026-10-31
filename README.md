@@ -40,3 +40,9 @@ The exercise layout follows the supplied mobile references: a compact progress b
 The learner header (profile avatar, Serbian course selector, streak and XP) and icon-only bottom tabs stay fixed while the complete trail scrolls through all sections. Each circle contains five practice sessions. Sessions revisit the same lesson goal with shuffled question and answer order. Completing a session fills one of five ring segments; the next circle unlocks after all five. Previous completed lessons remain fully complete. Round progress is stored locally and in MongoDB; repeats do not award the same session XP again. Vocabulary is available after the first successful session.
 
 Kristina is joined by Miloš (short dark hair and amber shirt) and Zara (glasses and teal shirt). The animated cast rotates through exercises and accompanies the trail. Run `node scripts/check-practice-rounds.mjs` to check progression, failure/retry behavior and compatibility with older completions.
+
+## Exercise viewport and hints
+
+Exercises size the heading, character/prompt, answer area and feedback to the available viewport; the exercise page has no vertical scroll. Choice tiles, image tiles and sentence banks adapt to smaller screens, and typed answers keep CHECK above the keyboard. Lesson guides use horizontal pages; completion fits the same screen. Underlined prompt words open vocabulary-backed translation and usage hints. Unrecognized words stay plain, and listening transcripts remain hidden before checking.
+
+Run `flutter test test/lesson_viewport_test.dart` for viewport, keyboard, hint, guide and completion coverage. The suite checks the longest current examples of every exercise format at 320×568, 360×640 and 390×700.

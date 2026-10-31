@@ -1,4 +1,4 @@
-import { practiceResult } from '../../server/practice-rounds.js';
+import { practiceResult, validPracticeLength } from '../../server/practice-rounds.js';
 import { updateMastery, recommendation } from '../../server/mastery.js';
 import { safe, method, send, requireUser, db } from '../../server/core.js';
 import { starterCourse, lessonPassed } from '../../server/course.js';
@@ -24,7 +24,7 @@ export default safe(async (req, res) => {
   if (roundIndex !== undefined && (!Number.isInteger(roundIndex) || roundIndex < 0 || roundIndex > 4)) return send(res, 400, { error: 'Invalid practice round' });
   const lesson = lessons.find(item => item.id === lessonId);
   if (!lesson) return send(res, 400, { error: 'Lesson is not published' });
-  if ((roundIndex !== undefined || lesson.type !== 'challenge') && answers.length !== lesson.challenges.length) return send(res, 400, { error: 'Complete every practice question' });
+  if (!validPracticeLength(lesson, roundIndex, answers.length)) return send(res, 400, { error: 'Practice round needs 8 to 12 answers' });
   const passed = lessonPassed(lesson, answers);
   const prior = await collection.findOne(filter);
   const today = new Date().toISOString().slice(0, 10);

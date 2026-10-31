@@ -1,3 +1,9 @@
+export function validPracticeLength(lesson, roundIndex, answerCount) {
+  const gradedRound = roundIndex !== undefined || lesson?.type !== 'challenge';
+  if (!gradedRound) return answerCount > 0 && answerCount <= 30;
+  return answerCount >= 8 && answerCount <= 12;
+}
+
 export function practiceResult(prior, lessonId, roundIndex, passed) {
   const alreadyComplete = (prior?.completedLessons || []).includes(lessonId);
   const key = `${lessonId}:${roundIndex ?? 'legacy'}`;

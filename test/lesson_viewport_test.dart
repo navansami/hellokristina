@@ -2,8 +2,10 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hello_kristina/main.dart';
 import 'package:hello_kristina/feedback/learning_feedback.dart';
+import 'package:hello_kristina/widgets/learning_object.dart';
 import 'package:hello_kristina/widgets/word_hints.dart';
 
 final catalog =
@@ -50,6 +52,7 @@ void clean(WidgetTester tester) {
 
 void main() {
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     learningFeedback.sounds = false;
     learningFeedback.vibration = false;
     learningFeedback.spokenWords = false;
@@ -302,6 +305,63 @@ void main() {
         const Size(360, 640));
     expect(find.text('Zdravo'), findsNothing);
     expect(find.bySemanticsLabel('Hint for Zdravo'), findsNothing);
+  });
+  testWidgets('image choices use drawings and a spoken word', (tester) async {
+    addTearDown(() => clean(tester));
+    const q = Question(
+        'Choose the image',
+        'Which one is “kafa”?',
+        'coffee|Coffee',
+        [
+          'coffee|Coffee',
+          'water|Water',
+          'bread|Bread',
+          'milk|Milk'
+        ],
+        'Kafa means coffee.',
+        audioText: 'kafa');
+    await screen(tester, q, const Size(320, 568));
+    expect(find.text('Select the correct image'), findsOneWidget);
+    expect(find.text('Coffee'), findsOneWidget);
+    expect(find.text('coffee|Coffee'), findsNothing);
+    expect(find.byType(LearningObject), findsWidgets);
+    await tester.tap(find.text('Coffee'));
+    await tester.pump();
+    await tester.tap(find.text('CHECK'));
+    await tester.pump();
+    expect(find.text('Nicely done!'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('speaking prompt can be typed when there is no microphone',
+      (tester) async {
+    addTearDown(() => clean(tester));
+    const q = Question(
+        'Speak the phrase', 'Zdravo', 'Zdravo', [], 'Say hello.',
+        audioText: 'Zdravo', translation: 'Hello', answerLanguage: 'sr');
+    await screen(tester, q, const Size(320, 568));
+    expect(find.textContaining('Repeat after'), findsOneWidget);
+    expect(find.text('Meaning: Hello'), findsOneWidget);
+    expect(find.byType(TextField), findsOneWidget);
+    expect(find.byType(SingleChildScrollView), findsNothing);
+    await tester.enterText(find.byType(TextField), 'Здраво');
+    await tester.pump();
+    await tester.tap(find.text('CHECK'));
+    await tester.pump();
+    expect(find.text('Nicely done!'), findsOneWidget);
+    expect(tester.getRect(find.text('CONTINUE')).bottom, lessThan(568));
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('speaking fallback stays above the keyboard', (tester) async {
+    addTearDown(() => clean(tester));
+    await screen(
+        tester,
+        const Question('Speak the phrase', 'Hvala', 'Hvala', [], 'Say thanks.',
+            audioText: 'Hvala', translation: 'Thank you'),
+        const Size(390, 640),
+        keyboard: 260);
+    expect(tester.takeException(), isNull);
+    expect(tester.getRect(find.byType(TextField)).height, greaterThan(40));
+    expect(tester.getRect(find.text('CHECK')).bottom, lessThan(380));
   });
   test('word hints respect phrases and unknown words', () {
     const vocab = [

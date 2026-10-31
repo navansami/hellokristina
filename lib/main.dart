@@ -7,6 +7,9 @@ import 'widgets/learning_object.dart';
 import 'widgets/word_hints.dart';
 import 'feedback/learning_feedback.dart';
 import 'feedback/feedback_settings.dart';
+import 'practice/object_bank.dart';
+import 'speech/serbian_speech.dart';
+import 'speech/speech_match.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter/material.dart';
@@ -16,6 +19,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+
+part 'practice/round_sampler.dart';
+part 'practice/practice_memory.dart';
 
 const bg = Color(0xFF131F24),
     panel = Color(0xFF192A32),
@@ -63,13 +69,22 @@ class Lesson {
 
 class Question {
   final String type, prompt, answer, detail;
-  final String audioText, audioAsset, translation, answerLanguage;
+  final String id, audioText, audioAsset, translation, answerLanguage;
   final List<String> options;
   const Question(this.type, this.prompt, this.answer, this.options, this.detail,
-      {this.audioText = '',
+      {this.id = '',
+      this.audioText = '',
       this.audioAsset = '',
       this.translation = '',
       this.answerLanguage = ''});
+
+  Question copy({String? id, List<String>? options}) => Question(
+      type, prompt, answer, options ?? this.options, detail,
+      id: id ?? this.id,
+      audioText: audioText,
+      audioAsset: audioAsset,
+      translation: translation,
+      answerLanguage: answerLanguage);
 }
 
 var lessons = <Lesson>[
@@ -282,6 +297,7 @@ void applyCourse(Map<String, dynamic> course) {
             final item = raw as Map<String, dynamic>;
             return Question(item['type'], item['prompt'], item['answer'],
                 (item['options'] as List).cast<String>(), item['explanation'],
+                id: item['id'] ?? '',
                 audioText: item['audioText'] ?? '',
                 audioAsset: item['audio'] ?? '',
                 translation: item['translation'] ?? '',
@@ -338,6 +354,7 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
       learningFeedback.stopSounds();
       learningFeedback.cancelHaptics();
       SerbianAudio.stop();
+      SerbianSpeech.stop();
     }
   }
 
@@ -556,35 +573,22 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
     }
   }
 
-  void lesson(Lesson l, [int? requestedRound]) {
+  Future<void> lesson(Lesson l, [int? requestedRound]) async {
     final roundIndex = requestedRound ??
         List.generate(5, (i) => i).firstWhere(
             (i) => !completedRounds.contains('${l.id}:$i'),
             orElse: () => 4);
     final completedBefore =
         done.contains(l.id) || completedRounds.contains('${l.id}:$roundIndex');
-    // Revisit the same learning goal with a different order on each practice round.
-    final questions = l.questions.asMap().entries.map((entry) {
-      final q = entry.value;
-      final options = List<String>.from(q.options)
-        ..shuffle(math.Random(l.id.codeUnits.fold<int>(0, (sum, c) => sum + c) +
-            roundIndex * 31 +
-            entry.key));
-      return Question(q.type, q.prompt, q.answer, options, q.detail,
-          audioText: q.audioText,
-          audioAsset: q.audioAsset,
-          translation: q.translation,
-          answerLanguage: q.answerLanguage);
-    }).toList();
-    if (roundIndex > 0) {
-      final offset = roundIndex % questions.length;
-      final rotated = [...questions.skip(offset), ...questions.take(offset)];
-      questions
-        ..clear()
-        ..addAll(roundIndex.isEven ? rotated.reversed : rotated);
-    }
-    final practice = Lesson(l.id, '${l.title} · ${roundIndex + 1}/5',
-        l.subtitle, l.icon, l.color, questions,
+    final memory = await PracticeMemory.load();
+    final questions = buildPracticeRound(l, memory, math.Random());
+    final practice = Lesson(
+        l.id,
+        '${l.title} · ${roundIndex + 1}/5',
+        l.subtitle,
+        l.icon,
+        l.color,
+        questions.isEmpty ? l.questions : questions,
         theoryTitle: l.theoryTitle,
         theoryBody: roundIndex == 0 ? l.theoryBody : '',
         unitTitle: l.unitTitle,
@@ -597,6 +601,7 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
             lesson: practice,
             alreadyCompleted: completedBefore,
             practiceRound: roundIndex,
+            onRetry: () => lesson(l, roundIndex),
             onComplete: (n, a) => finish(l, n, a, roundIndex))));
   }
 
@@ -1389,33 +1394,49 @@ class LessonPage extends StatefulWidget {
   final bool alreadyCompleted;
   final int practiceRound;
   final Future<void> Function(int, List<bool>) onComplete;
+  final VoidCallback? onRetry;
   const LessonPage(
       {super.key,
       required this.lesson,
       required this.onComplete,
       this.alreadyCompleted = false,
-      this.practiceRound = 0});
+      this.practiceRound = 0,
+      this.onRetry});
   @override
   State<LessonPage> createState() => _LessonPageState();
 }
 
-class _LessonPageState extends State<LessonPage> {
+class _LessonPageState extends State<LessonPage>
+    with SingleTickerProviderStateMixin {
   int index = 0, correct = 0, answerRun = 0, bestRun = 0;
   final List<bool> answers = [];
   final List<int> picked = [];
   final TextEditingController typed = TextEditingController();
+  late final AnimationController _wave;
   String? selected;
+  String transcript = '';
   bool checked = false,
       showTheory = true,
       finished = false,
       submitting = false,
-      lastCorrect = false;
+      lastCorrect = false,
+      listening = false,
+      speakFallback = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _wave = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 700));
+  }
 
   @override
   void dispose() {
+    SerbianSpeech.stop();
     SerbianAudio.stop();
     learningFeedback.stopSounds();
     learningFeedback.cancelHaptics();
+    _wave.dispose();
     typed.dispose();
     guidePages.dispose();
     super.dispose();
@@ -1427,11 +1448,19 @@ class _LessonPageState extends State<LessonPage> {
       return picked.map((i) => q.options[i]).join(' ');
     if (q.type == 'Type the answer' || q.type == 'Listen and type')
       return typed.text.trim();
+    if (q.type == 'Speak the phrase') {
+      return speakFallback || !SerbianSpeech.supported
+          ? typed.text.trim()
+          : transcript.trim();
+    }
     return selected ?? '';
   }
 
   bool get canCheck => response.trim().isNotEmpty;
   bool _matches(String value, String target) {
+    if (widget.lesson.questions[index].type == 'Speak the phrase') {
+      return speechMatches(value, target);
+    }
     String clean(String x) => x
         .toLowerCase()
         .replaceAll(RegExp(r'[.,!?;:]'), '')
@@ -1440,11 +1469,63 @@ class _LessonPageState extends State<LessonPage> {
     return clean(value) == clean(target);
   }
 
+  void _clearAnswer() {
+    SerbianSpeech.stop();
+    _wave.stop();
+    listening = false;
+    speakFallback = false;
+    transcript = '';
+    selected = null;
+    picked.clear();
+    typed.clear();
+  }
+
+  Future<void> _toggleMic() async {
+    if (checked) return;
+    if (listening) {
+      SerbianSpeech.stop();
+      _wave.stop();
+      setState(() => listening = false);
+      return;
+    }
+    await SerbianAudio.stop();
+    await learningFeedback.stopSounds();
+    final questionIndex = index;
+    final started = await SerbianSpeech.start(onResult: (text) {
+      if (!mounted || index != questionIndex) return;
+      setState(() => transcript = text);
+    }, onEnd: () {
+      if (!mounted || index != questionIndex) return;
+      _wave.stop();
+      setState(() => listening = false);
+    }, onError: (_) {
+      if (!mounted || index != questionIndex) return;
+      _wave.stop();
+      setState(() {
+        listening = false;
+        speakFallback = true;
+      });
+    });
+    if (!mounted || index != questionIndex) return;
+    if (!started) {
+      setState(() => speakFallback = true);
+      return;
+    }
+    _wave.repeat();
+    setState(() {
+      listening = true;
+      transcript = '';
+    });
+  }
+
   Future<void> _advance() async {
     if (submitting) return;
     final q = widget.lesson.questions[index];
     if (!checked) {
       if (!canCheck) return;
+      SerbianSpeech.stop();
+      _wave.stop();
+      listening = false;
       FocusScope.of(context).unfocus();
       final right = _matches(response, q.answer);
       answerRun = right ? answerRun + 1 : 0;
@@ -1464,12 +1545,13 @@ class _LessonPageState extends State<LessonPage> {
       setState(() {
         index++;
         checked = false;
-        selected = null;
-        picked.clear();
-        typed.clear();
+        _clearAnswer();
       });
     } else {
       setState(() => submitting = true);
+      try {
+        await PracticeMemory.record(widget.lesson.questions, answers);
+      } catch (_) {}
       await widget.onComplete(correct, answers);
       if (mounted)
         setState(() {
@@ -1496,18 +1578,25 @@ class _LessonPageState extends State<LessonPage> {
     if (spoken) unawaited(SerbianAudio.speakWord(word));
   }
 
-  String _heading(Question q) => q.type == 'Listen and arrange'
-      ? 'Translate what you hear'
-      : q.type.startsWith('Listen')
-          ? 'What do you hear?'
-          : switch (q.type) {
-              'Arrange the words' => 'Translate this sentence',
-              'Complete the sentence' => 'Complete the sentence',
-              'Type the answer' => 'Write it in Serbian',
-              'Choose the image' => 'Select the correct image',
-              'Translate to Serbian' => 'How do you say this?',
-              _ => 'Choose the correct meaning',
-            };
+  int _castIndex() =>
+      (widget.lesson.id.codeUnits.fold<int>(0, (sum, unit) => sum + unit) +
+          index) %
+      3;
+
+  String _heading(Question q) => q.type == 'Speak the phrase'
+      ? 'Repeat after ${const ['Kristina', 'Miloš', 'Zara'][_castIndex()]}'
+      : q.type == 'Listen and arrange'
+          ? 'Translate what you hear'
+          : q.type.startsWith('Listen')
+              ? 'What do you hear?'
+              : switch (q.type) {
+                  'Arrange the words' => 'Translate this sentence',
+                  'Complete the sentence' => 'Complete the sentence',
+                  'Type the answer' => 'Write it in Serbian',
+                  'Choose the image' => 'Select the correct image',
+                  'Translate to Serbian' => 'How do you say this?',
+                  _ => 'Choose the correct meaning',
+                };
 
   final PageController guidePages = PageController();
   int guidePage = 0;
@@ -1647,7 +1736,9 @@ class _LessonPageState extends State<LessonPage> {
                       : q.type == 'Type the answer' ||
                               q.type == 'Listen and type'
                           ? _typeViewport(q)
-                          : _choicesViewport(q)),
+                          : q.type == 'Speak the phrase'
+                              ? _speakViewport(q)
+                              : _choicesViewport(q)),
             ]);
       });
 
@@ -1662,9 +1753,7 @@ class _LessonPageState extends State<LessonPage> {
                     : 'correct')
             : 'wrong')
         : 'idle';
-    final character =
-        (widget.lesson.id.codeUnits.fold<int>(0, (sum, c) => sum + c) + index) %
-            3;
+    final character = _castIndex();
     return Row(children: [
       if (height >= 72) ...[
         ValueListenableBuilder<bool>(
@@ -1695,6 +1784,7 @@ class _LessonPageState extends State<LessonPage> {
                       if (q.audioText.isNotEmpty &&
                           (q.type == 'Choose the meaning' ||
                               q.type == 'Choose the image' ||
+                              q.type == 'Speak the phrase' ||
                               (q.type == 'Arrange the words' &&
                                   q.answerLanguage == 'en'))) ...[
                         SerbianAudioButton(
@@ -1851,6 +1941,9 @@ class _LessonPageState extends State<LessonPage> {
                                             return const Expanded(
                                                 child: SizedBox());
                                           final option = q.options[i],
+                                              picture = image
+                                                  ? PictureOption.parse(option)
+                                                  : null,
                                               chosen = selected == option,
                                               reveal =
                                                   checked && option == q.answer,
@@ -1873,7 +1966,8 @@ class _LessonPageState extends State<LessonPage> {
                                                   child: Semantics(
                                                       button: true,
                                                       selected: chosen,
-                                                      label: option,
+                                                      label: picture?.label ??
+                                                          option,
                                                       child: GestureDetector(
                                                           onTap: checked
                                                               ? null
@@ -1912,14 +2006,16 @@ class _LessonPageState extends State<LessonPage> {
                                                                             0,
                                                                             3))
                                                                   ]),
-                                                              child: image
+                                                              child: picture !=
+                                                                      null
                                                                   ? Column(
                                                                       children: [
                                                                           Expanded(
-                                                                              child: FittedBox(child: LearningObject(name: option))),
+                                                                              child: FittedBox(child: LearningObject(name: picture.key))),
                                                                           Text(
-                                                                              option.split(' ').skip(1).join(' '),
+                                                                              picture.label,
                                                                               maxLines: 1,
+                                                                              overflow: TextOverflow.ellipsis,
                                                                               style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14))
                                                                         ])
                                                                   : Row(
@@ -2064,6 +2160,126 @@ class _LessonPageState extends State<LessonPage> {
                   .toList())),
         ]);
       });
+  Widget _speakViewport(Question q) {
+    final typing = speakFallback || !SerbianSpeech.supported;
+    return LayoutBuilder(builder: (context, _) {
+      if (typing) {
+        final note = !SerbianSpeech.supported;
+        return Column(children: [
+          if (note)
+            const Text(
+                'Type the phrase. The microphone is not available on this device.',
+                maxLines: 2,
+                style: TextStyle(color: muted, fontSize: 12, height: 1.3)),
+          if (note) const SizedBox(height: 8),
+          Expanded(
+              child: LayoutBuilder(
+                  builder: (context, fieldSpace) => Align(
+                      alignment: Alignment.topCenter,
+                      child: SizedBox(
+                          height: math.min(120, fieldSpace.maxHeight),
+                          child: TextField(
+                              controller: typed,
+                              enabled: !checked,
+                              expands: true,
+                              maxLines: null,
+                              textCapitalization: TextCapitalization.sentences,
+                              onChanged: (_) => setState(() {}),
+                              onSubmitted: (_) {
+                                if (canCheck) _advance();
+                              },
+                              style: const TextStyle(
+                                  fontSize: 18,
+                                  height: 1.4,
+                                  fontWeight: FontWeight.w700),
+                              decoration: InputDecoration(
+                                  hintText: 'Type the Serbian phrase…',
+                                  filled: true,
+                                  fillColor: panel,
+                                  contentPadding: const EdgeInsets.all(14),
+                                  enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                      borderSide: const BorderSide(
+                                          color: panel2, width: 2)),
+                                  focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                      borderSide: const BorderSide(
+                                          color: blue, width: 2)))))))),
+        ]);
+      }
+      return Column(children: [
+        if (transcript.isNotEmpty)
+          Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(transcript,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w800))),
+        Semantics(
+            button: true,
+            label: listening ? 'Stop microphone' : 'Speak the phrase',
+            child: GestureDetector(
+                onTap: checked ? null : _toggleMic,
+                child: Container(
+                    height: 58,
+                    width: double.infinity,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                        color: blue,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: const [
+                          BoxShadow(
+                              color: Color(0xFF1899D6), offset: Offset(0, 4))
+                        ]),
+                    child: listening
+                        ? AnimatedBuilder(
+                            animation: _wave,
+                            builder: (_, __) => Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: List.generate(5, (bar) {
+                                  final height = 8 +
+                                      16 *
+                                          (.5 +
+                                              .5 *
+                                                  math.sin(_wave.value *
+                                                          math.pi *
+                                                          2 +
+                                                      bar));
+                                  return Container(
+                                      width: 6,
+                                      height: height,
+                                      margin: const EdgeInsets.symmetric(
+                                          horizontal: 3),
+                                      decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius:
+                                              BorderRadius.circular(4)));
+                                })))
+                        : const Icon(Icons.mic_rounded,
+                            color: Colors.white, size: 30)))),
+        TextButton(
+            onPressed: checked
+                ? null
+                : () {
+                    SerbianSpeech.stop();
+                    _wave.stop();
+                    setState(() {
+                      listening = false;
+                      speakFallback = true;
+                    });
+                  },
+            child: const Text("CAN'T SPEAK NOW",
+                style: TextStyle(
+                    color: muted,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: .6,
+                    fontSize: 13))),
+      ]);
+    });
+  }
+
   Widget _typeViewport(Question q) => LayoutBuilder(
       builder: (context, space) => Align(
           alignment: Alignment.topCenter,
@@ -2361,6 +2577,10 @@ class _LessonPageState extends State<LessonPage> {
               onTap: () {
                 if (passed) {
                   Navigator.pop(context);
+                } else if (widget.onRetry != null) {
+                  final retry = widget.onRetry!;
+                  Navigator.pop(context);
+                  retry();
                 } else {
                   setState(() {
                     index = 0;
@@ -2369,11 +2589,10 @@ class _LessonPageState extends State<LessonPage> {
                     bestRun = 0;
                     answers.clear();
                     picked.clear();
-                    typed.clear();
-                    selected = null;
                     checked = false;
                     finished = false;
                     showTheory = false;
+                    _clearAnswer();
                   });
                 }
               }),

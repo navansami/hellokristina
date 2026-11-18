@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'learning_feedback.dart';
+import '../widgets/course_palette.dart';
 
 Future<void> showFeedbackSettings(BuildContext context) =>
     showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
-        backgroundColor: const Color(0xFF192A32),
+        backgroundColor: panel,
         shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
         builder: (context) => SafeArea(
@@ -21,7 +22,7 @@ Future<void> showFeedbackSettings(BuildContext context) =>
                                   fontWeight: FontWeight.w900, fontSize: 24)),
                           const SizedBox(height: 6),
                           const Text('Make your lessons feel right for you.',
-                              style: TextStyle(color: Color(0xFF93A7B2))),
+                              style: TextStyle(color: muted)),
                           const SizedBox(height: 14),
                           const FeedbackSettingsPanel(),
                         ])))));
@@ -39,7 +40,7 @@ class FeedbackSettingsPanel extends StatelessWidget {
                     style:
                         TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
                 subtitle: const Text('Hear Serbian tiles as you select them',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF93A7B2))),
+                    style: TextStyle(fontSize: 12, color: muted)),
                 value: learningFeedback.spokenWords,
                 onChanged: learningFeedback.setSpokenWords),
             SwitchListTile(
@@ -49,7 +50,7 @@ class FeedbackSettingsPanel extends StatelessWidget {
                         TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
                 subtitle: const Text(
                     'Soft taps, correct answers and celebrations',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF93A7B2))),
+                    style: TextStyle(fontSize: 12, color: muted)),
                 value: learningFeedback.sounds,
                 onChanged: learningFeedback.setSounds),
             SwitchListTile(
@@ -58,7 +59,7 @@ class FeedbackSettingsPanel extends StatelessWidget {
                     style:
                         TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
                 subtitle: const Text('Gentle feedback on supported devices',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF93A7B2))),
+                    style: TextStyle(fontSize: 12, color: muted)),
                 value: learningFeedback.vibration,
                 onChanged: learningFeedback.setVibration),
           ]));

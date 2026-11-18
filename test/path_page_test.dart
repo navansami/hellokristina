@@ -10,7 +10,7 @@ Future<void> pumpTrail(WidgetTester tester, Set<String> done, Size size) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   await tester.pumpWidget(MaterialApp(
-      theme: ThemeData.dark(),
+      theme: ThemeData.light(),
       builder: (context, child) => MediaQuery(
           data: MediaQuery.of(context).copyWith(disableAnimations: true),
           child: child!),
@@ -52,7 +52,11 @@ void main() {
     position.jumpTo(160);
     await tester.pump();
     expect(tester.getTopLeft(title).dy, pinned);
-    position.jumpTo(112 + 4 * 148.0 + 30 + 40);
+    await tester.scrollUntilVisible(find.text('b0'), 100);
+    final nextHeaderOffset = position.pixels +
+        tester.getTopLeft(find.text('Everyday essentials')).dy -
+        pinned;
+    position.jumpTo(nextHeaderOffset + 20);
     await tester.pump();
     expect(tester.getTopLeft(find.text('Everyday essentials')).dy, pinned);
     expect(find.text('First conversations'), findsNothing);

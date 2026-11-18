@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hello_kristina/main.dart';
+import 'package:hello_kristina/widgets/animated_kristina.dart';
 import 'package:hello_kristina/feedback/learning_feedback.dart';
 import 'package:hello_kristina/speech/serbian_speech.dart';
 import 'package:hello_kristina/widgets/learning_object.dart';
@@ -31,7 +32,7 @@ Future<void> screen(WidgetTester tester, Question q, Size size,
   tester.view.devicePixelRatio = 1;
   tester.view.viewInsets = FakeViewPadding(bottom: keyboard);
   await tester.pumpWidget(MaterialApp(
-      theme: ThemeData.dark(),
+      theme: ThemeData.light(),
       home: LessonPage(
           lesson: Lesson('test', 'Viewport lesson', 'Test', '', 'green', [q],
               theoryTitle: 'A lesson guide',
@@ -82,7 +83,7 @@ void main() {
         await screen(tester, q, size);
         expect(tester.takeException(), isNull);
         expect(find.byType(SingleChildScrollView), findsNothing);
-        final check = tester.getRect(find.text('CHECK'));
+        final check = tester.getRect(find.text('Check'));
         expect(check.bottom, lessThan(size.height));
         final last = tester.getRect(find
             .text(q.type == 'Choose the image'
@@ -96,11 +97,11 @@ void main() {
                 : q.options.first)
             .last);
         await tester.pump();
-        await tester.tap(find.text('CHECK'));
+        await tester.tap(find.text('Check'));
         await tester.pump(const Duration(milliseconds: 300));
         expect(tester.takeException(), isNull);
-        expect(find.text('CONTINUE'), findsOneWidget);
-        expect(tester.getRect(find.text('CONTINUE')).bottom,
+        expect(find.text('Continue'), findsOneWidget);
+        expect(tester.getRect(find.text('Continue')).bottom,
             lessThan(size.height));
       });
     }
@@ -131,13 +132,13 @@ void main() {
         await tester.pump();
         final before = tiles.map(tester.getRect).toList();
         final prompt = tester.getRect(find.text('Ja'));
-        await tester.tap(find.text('CHECK'));
+        await tester.tap(find.text('Check'));
         await tester.pump(const Duration(milliseconds: 300));
         expect(find.text(correct ? 'Nicely done!' : 'Let’s get this one.'),
             findsOneWidget);
         expect(tiles.map(tester.getRect).toList(), before);
         expect(tester.getRect(find.text('Ja')), prompt);
-        expect(tester.getRect(find.text('CONTINUE')).bottom,
+        expect(tester.getRect(find.text('Continue')).bottom,
             lessThan(size.height));
         expect(tester.takeException(), isNull);
       });
@@ -155,7 +156,7 @@ void main() {
     await tester.tap(find.text('kafa'));
     await tester.pump();
     expect(find.text('kafa.'), findsOneWidget);
-    await tester.tap(find.text('CHECK'));
+    await tester.tap(find.text('Check'));
     await tester.pump();
     expect(find.text('Nicely done!'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -196,7 +197,7 @@ void main() {
     await move(0, 3);
     expect(selectedWords(), ['How', 'do', 'you', 'do']);
     expect(find.text('bread'), findsOneWidget);
-    await tester.tap(find.text('CHECK'));
+    await tester.tap(find.text('Check'));
     await tester.pump();
     expect(find.text('Nicely done!'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -210,7 +211,7 @@ void main() {
         ['kafa', 'voda', 'hleb'], 'This is coffee.',
         translation: 'This is coffee.', answerLanguage: 'sr');
     await tester.pumpWidget(MaterialApp(
-        theme: ThemeData.dark(),
+        theme: ThemeData.light(),
         home: LessonPage(
             lesson: Lesson('run', 'Run', '', '', 'green', List.filled(5, q)),
             onComplete: (_, __) async {})));
@@ -218,8 +219,17 @@ void main() {
     for (var run = 1; run <= 5; run++) {
       await tester.tap(find.text(run == 4 ? 'voda' : 'kafa').last);
       await tester.pump();
-      await tester.tap(find.text('CHECK'));
+      await tester.tap(find.text('Check'));
       await tester.pump(const Duration(milliseconds: 300));
+      final tutor =
+          tester.widget<AnimatedKristina>(find.byType(AnimatedKristina));
+      expect(
+          tutor.mood,
+          run == 4
+              ? 'wrong'
+              : run == 3
+                  ? 'celebrate'
+                  : 'correct');
       if (run == 3) expect(find.text('3 in a row!'), findsOneWidget);
       if (run == 4) expect(find.text('Let’s get this one.'), findsOneWidget);
       if (run == 5) {
@@ -227,7 +237,7 @@ void main() {
         expect(find.text('5 in a row!'), findsNothing);
       }
       if (run < 5) {
-        await tester.tap(find.text('CONTINUE'));
+        await tester.tap(find.text('Continue'));
         await tester.pump(const Duration(milliseconds: 300));
       }
     }
@@ -262,16 +272,20 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
     expect(find.text('Hvala'), findsOneWidget);
+    await tester.tap(find.text('Continue'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(find.text('Zdravo'), findsOneWidget);
+    await tester.tap(find.text('Start practice'));
+    await tester.pump();
+    expect(find.byType(PageView), findsNothing);
+    expect(find.text('Check'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
   testWidgets('the progress bar replaces the question count', (tester) async {
     addTearDown(() => clean(tester));
-    const q = Question(
-        'Choose the meaning',
-        'Zdravo',
-        'Hello',
-        ['Hello', 'Thanks', 'Please', 'Goodbye'],
-        'Zdravo means hello.',
+    const q = Question('Choose the meaning', 'Zdravo', 'Hello',
+        ['Hello', 'Thanks', 'Please', 'Goodbye'], 'Zdravo means hello.',
         audioText: 'Zdravo');
     await screen(tester, q, const Size(390, 640));
     expect(find.text('1/1'), findsNothing);
@@ -284,7 +298,7 @@ void main() {
         0);
     await tester.tap(find.text('Hello'));
     await tester.pump();
-    await tester.tap(find.text('CHECK'));
+    await tester.tap(find.text('Check'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('Nicely done!'), findsOneWidget);
@@ -310,11 +324,11 @@ void main() {
         const Size(320, 568));
     await tester.tap(find.text('Thank you'));
     await tester.pump();
-    await tester.tap(find.text('CHECK'));
+    await tester.tap(find.text('Check'));
     await tester.pump();
-    await tester.tap(find.text('CONTINUE'));
+    await tester.tap(find.text('Continue'));
     await tester.pump(const Duration(milliseconds: 200));
-    expect(find.text('BACK TO THE TRAIL'), findsOneWidget);
+    expect(find.text('Back to course'), findsOneWidget);
     expect(find.byType(SingleChildScrollView), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -324,12 +338,7 @@ void main() {
         'Choose the image',
         'Which one is “kafa”?',
         'coffee|Coffee',
-        [
-          'coffee|Coffee',
-          'water|Water',
-          'bread|Bread',
-          'milk|Milk'
-        ],
+        ['coffee|Coffee', 'water|Water', 'bread|Bread', 'milk|Milk'],
         'Kafa means coffee.',
         audioText: 'kafa');
     await screen(tester, q, const Size(320, 568));
@@ -339,7 +348,7 @@ void main() {
     expect(find.byType(LearningObject), findsWidgets);
     await tester.tap(find.text('Coffee'));
     await tester.pump();
-    await tester.tap(find.text('CHECK'));
+    await tester.tap(find.text('Check'));
     await tester.pump();
     expect(find.text('Nicely done!'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -347,10 +356,11 @@ void main() {
   testWidgets('speaking without a microphone is replaced, not typed',
       (tester) async {
     addTearDown(() => clean(tester));
-    const q = Question(
-        'Speak the phrase', 'Zdravo', 'Zdravo', [], 'Say hello.',
+    const q = Question('Speak the phrase', 'Zdravo', 'Zdravo', [], 'Say hello.',
         id: 'speak:zdravo',
-        audioText: 'Zdravo', translation: 'Hello', answerLanguage: 'sr');
+        audioText: 'Zdravo',
+        translation: 'Hello',
+        answerLanguage: 'sr');
     await screen(tester, q, const Size(320, 568), replacements: const [
       Question('Arrange the words', 'Good day', 'Dobar dan',
           ['Dobar', 'dan', 'Hvala'], 'A greeting.',
@@ -367,19 +377,20 @@ void main() {
     addTearDown(() => clean(tester));
     SerbianSpeech.debugSupported = true;
     SerbianSpeech.debugTranscript = 'Здраво';
-    const q = Question(
-        'Speak the phrase', 'Zdravo', 'Zdravo', [], 'Say hello.',
+    const q = Question('Speak the phrase', 'Zdravo', 'Zdravo', [], 'Say hello.',
         id: 'speak:zdravo',
-        audioText: 'Zdravo', translation: 'Hello', answerLanguage: 'sr');
+        audioText: 'Zdravo',
+        translation: 'Hello',
+        answerLanguage: 'sr');
     await screen(tester, q, const Size(390, 640));
-    expect(find.text('CHECK'), findsNothing);
+    expect(find.text('Check'), findsNothing);
     expect(find.text("CAN'T SPEAK NOW"), findsOneWidget);
     expect(find.byType(TextField), findsNothing);
     await tester.tap(find.bySemanticsLabel('Speak the phrase'));
     await tester.pump();
     expect(find.text('Nicely done!'), findsOneWidget);
-    expect(find.text('CHECK'), findsNothing);
-    expect(find.text('CONTINUE'), findsOneWidget);
+    expect(find.text('Check'), findsNothing);
+    expect(find.text('Continue'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
   testWidgets('a wrong phrase is checked without a CHECK button',
@@ -387,18 +398,19 @@ void main() {
     addTearDown(() => clean(tester));
     SerbianSpeech.debugSupported = true;
     SerbianSpeech.debugTranscript = 'hvala';
-    const q = Question(
-        'Speak the phrase', 'Zdravo', 'Zdravo', [], 'Say hello.',
+    const q = Question('Speak the phrase', 'Zdravo', 'Zdravo', [], 'Say hello.',
         id: 'speak:zdravo',
-        audioText: 'Zdravo', translation: 'Hello', answerLanguage: 'sr');
+        audioText: 'Zdravo',
+        translation: 'Hello',
+        answerLanguage: 'sr');
     await screen(tester, q, const Size(390, 640));
-    expect(find.text('CHECK'), findsNothing);
+    expect(find.text('Check'), findsNothing);
     await tester.tap(find.bySemanticsLabel('Speak the phrase'));
     await tester.pump();
     expect(find.text('Let’s get this one.'), findsOneWidget);
     expect(find.text('Answer: Zdravo'), findsOneWidget);
-    expect(find.text('CHECK'), findsNothing);
-    expect(find.text('CONTINUE'), findsOneWidget);
+    expect(find.text('Check'), findsNothing);
+    expect(find.text('Continue'), findsOneWidget);
     expect(find.byType(TextField), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -411,29 +423,27 @@ void main() {
     expect(find.byType(TextField), findsNothing);
     expect(find.textContaining('Type the'), findsNothing);
     expect(find.text('Zovem'), findsOneWidget);
-    expect(find.text('CHECK'), findsOneWidget);
+    expect(find.text('Check'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
   testWidgets('cannot speak now swaps in another exercise', (tester) async {
     addTearDown(() => clean(tester));
     SerbianSpeech.debugSupported = true;
-    const q = Question(
-        'Speak the phrase', 'Hvala', 'Hvala', [], 'Say thanks.',
-        id: 'speak:hvala',
-        audioText: 'Hvala', translation: 'Thank you');
+    const q = Question('Speak the phrase', 'Hvala', 'Hvala', [], 'Say thanks.',
+        id: 'speak:hvala', audioText: 'Hvala', translation: 'Thank you');
     await screen(tester, q, const Size(390, 640), replacements: const [
       Question('Arrange the words', 'Please', 'Molim', ['Molim', 'Da', 'Ne'],
           'Please.',
           id: 'spare:please', answerLanguage: 'sr')
     ]);
-    expect(find.text('CHECK'), findsNothing);
+    expect(find.text('Check'), findsNothing);
     await tester.tap(find.text("CAN'T SPEAK NOW"));
     await tester.pump();
     expect(find.textContaining('Repeat after'), findsNothing);
     expect(find.byType(TextField), findsNothing);
     expect(find.text('Please'), findsOneWidget);
     expect(find.text('Molim'), findsOneWidget);
-    expect(find.text('CHECK'), findsOneWidget);
+    expect(find.text('Check'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
   test('word hints respect phrases and unknown words', () {

@@ -6,6 +6,8 @@ import 'avatar/learner_look.dart';
 import 'avatar/learner_portrait.dart';
 import 'widgets/animated_kristina.dart';
 import 'widgets/tactile_button.dart';
+import 'widgets/course_palette.dart';
+import 'widgets/belgrade_postcard.dart';
 import 'widgets/learning_object.dart';
 import 'widgets/word_hints.dart';
 import 'feedback/learning_feedback.dart';
@@ -25,19 +27,12 @@ import 'package:flutter_tts/flutter_tts.dart';
 
 part 'practice/round_sampler.dart';
 part 'practice/practice_memory.dart';
+part 'widgets/lesson_vocabulary.dart';
 
-const bg = Color(0xFF131F24),
-    panel = Color(0xFF192A32),
-    panel2 = Color(0xFF2C404B),
-    lime = Color(0xFF78D72D),
-    blue = Color(0xFF49C0F8),
-    pink = Color(0xFFFF72AF),
-    purple = Color(0xFFAB86F7),
-    muted = Color(0xFF93A7B2);
 InputDecoration _input(String label) => InputDecoration(
     hintText: label,
     filled: true,
-    fillColor: panel2,
+    fillColor: const Color(0xFFF5F7F7),
     border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none));
 Uri api(String path) {
@@ -81,13 +76,13 @@ class Question {
       this.translation = '',
       this.answerLanguage = ''});
 
-  Question copy({String? id, List<String>? options}) => Question(
-      type, prompt, answer, options ?? this.options, detail,
-      id: id ?? this.id,
-      audioText: audioText,
-      audioAsset: audioAsset,
-      translation: translation,
-      answerLanguage: answerLanguage);
+  Question copy({String? id, List<String>? options}) =>
+      Question(type, prompt, answer, options ?? this.options, detail,
+          id: id ?? this.id,
+          audioText: audioText,
+          audioAsset: audioAsset,
+          translation: translation,
+          answerLanguage: answerLanguage);
 }
 
 var lessons = <Lesson>[
@@ -119,12 +114,8 @@ var lessons = <Lesson>[
   ]),
   Lesson('introductions', 'Meet & greet', 'Make a first impression', '💬',
       'blue', [
-    Question(
-        'Arrange the words',
-        'Ja sam Kristina',
-        'I am Kristina',
-        ['I', 'am', 'Kristina', 'You', 'are', 'Hello'],
-        'Ja sam means “I am”.',
+    Question('Arrange the words', 'Ja sam Kristina', 'I am Kristina',
+        ['I', 'am', 'Kristina', 'You', 'are', 'Hello'], 'Ja sam means “I am”.',
         answerLanguage: 'en'),
     Question(
         'Arrange the words',
@@ -142,14 +133,24 @@ var lessons = <Lesson>[
         answerLanguage: 'en'),
   ]),
   Lesson('polite', 'Be polite', 'Small words, big charm', '✨', 'pink', [
-    Question('Arrange the words', 'Please', 'Molim',
+    Question(
+        'Arrange the words',
+        'Please',
+        'Molim',
         ['Izvini', 'Molim', 'Hvala', 'Ćao'],
         'Molim can also mean “you’re welcome”.',
         answerLanguage: 'sr'),
-    Question('Arrange the words', 'Izvini', 'Sorry',
-        ['Please', 'Goodbye', 'Sorry', 'Yes'], 'Use izvini with someone you know.',
+    Question(
+        'Arrange the words',
+        'Izvini',
+        'Sorry',
+        ['Please', 'Goodbye', 'Sorry', 'Yes'],
+        'Use izvini with someone you know.',
         answerLanguage: 'en'),
-    Question('Arrange the words', 'Thank you', 'Hvala',
+    Question(
+        'Arrange the words',
+        'Thank you',
+        'Hvala',
         ['Hvala', 'Molim', 'Zdravo', 'Da'],
         'Hvala puno is a common way to thank someone warmly.',
         answerLanguage: 'sr'),
@@ -158,8 +159,8 @@ var lessons = <Lesson>[
     Question('Arrange the words', 'jedan', 'one',
         ['three', 'one', 'five', 'two'], 'Jedan means one.',
         answerLanguage: 'en'),
-    Question('Arrange the words', 'dva', 'two',
-        ['one', 'four', 'two', 'seven'], 'Dva means two.',
+    Question('Arrange the words', 'dva', 'two', ['one', 'four', 'two', 'seven'],
+        'Dva means two.',
         answerLanguage: 'en'),
     Question('Arrange the words', 'Three', 'tri',
         ['pet', 'deset', 'tri', 'šest'], 'Tri means three.',
@@ -186,7 +187,10 @@ var lessons = <Lesson>[
         'A polite order: One coffee, please.'),
   ]),
   Lesson('family', 'My people', 'Talk about family', '🏡', 'green', [
-    Question('Arrange the words', 'majka', 'mother',
+    Question(
+        'Arrange the words',
+        'majka',
+        'mother',
         ['father', 'sister', 'mother', 'brother'],
         'Majka is mother; mama is also common.',
         answerLanguage: 'en'),
@@ -617,9 +621,14 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
             useMaterial3: true,
             scaffoldBackgroundColor: bg,
             colorScheme: ColorScheme.fromSeed(
-                seedColor: lime, brightness: Brightness.dark),
-            textTheme: GoogleFonts.nunitoTextTheme(ThemeData.dark().textTheme)
-                .apply(bodyColor: Colors.white, displayColor: Colors.white)),
+                seedColor: orange,
+                brightness: Brightness.light,
+                primary: amberInk,
+                secondary: blue,
+                surface: panel,
+                onSurface: ink),
+            textTheme: GoogleFonts.nunitoTextTheme(ThemeData.light().textTheme)
+                .apply(bodyColor: ink, displayColor: ink)),
         home: loading
             ? const Scaffold(body: Center(child: CircularProgressIndicator()))
             : Scaffold(
@@ -760,25 +769,26 @@ class SerbianAudio {
 class SerbianAudioButton extends StatelessWidget {
   final String text, asset;
   final Color color;
-  final bool slow;
+  final bool slow, prominent;
   const SerbianAudioButton(
       {super.key,
       required this.text,
       this.asset = '',
       this.color = blue,
-      this.slow = false});
+      this.slow = false,
+      this.prominent = false});
 
   @override
   Widget build(BuildContext context) => IconButton.filledTonal(
       style: IconButton.styleFrom(
-          backgroundColor: panel,
+          backgroundColor: prominent ? blue : panel,
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
-              side: const BorderSide(color: panel2, width: 2))),
+              side: BorderSide(color: prominent ? blue : panel2))),
       tooltip: slow ? 'Play Serbian slowly' : 'Play Serbian pronunciation',
       icon: Icon(
           slow ? Icons.slow_motion_video_rounded : Icons.volume_up_rounded),
-      color: color,
+      color: prominent ? Colors.white : color,
       onPressed: () async {
         try {
           await SerbianAudio.play(text, asset, slow: slow);
@@ -801,10 +811,12 @@ class KCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Material(
       color: color ?? panel,
-      borderRadius: BorderRadius.circular(22),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: panel2)),
       child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(16),
           child: Padding(
               padding: padding ?? const EdgeInsets.all(18), child: child)));
 }
@@ -818,14 +830,14 @@ class KButton extends StatelessWidget {
       {super.key,
       required this.text,
       this.onTap,
-      this.color = lime,
+      this.color = orange,
       this.outline = false});
   @override
   Widget build(BuildContext context) => TactileButton(
       label: text,
       onTap: onTap,
       color: outline ? panel : color,
-      foreground: outline ? Colors.white : bg,
+      foreground: outline || color == orange ? ink : Colors.white,
       outline: outline);
 }
 
@@ -869,7 +881,7 @@ class PageHead extends StatelessWidget {
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(eyebrow.toUpperCase(),
             style: const TextStyle(
-                color: lime,
+                color: amberInk,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 2,
                 fontSize: 11)),
@@ -946,13 +958,13 @@ class _PathPageState extends State<PathPage> {
     var offset = 0.0;
     for (var i = 0; i < unitIndex; i++) {
       final count = lessons.where((l) => l.unitTitle == titles[i]).length;
-      offset += _sectionHeaderExtent + count * 148.0 + 30;
+      offset += _sectionHeaderExtent + count * _lessonExtent;
     }
     final indexInUnit = lessons
         .where((l) => l.unitTitle == lesson.unitTitle)
         .toList()
         .indexWhere((item) => item.id == lesson.id);
-    if (indexInUnit > 0) offset += indexInUnit * 148.0;
+    if (indexInUnit > 0) offset += indexInUnit * _lessonExtent;
     return offset;
   }
 
@@ -973,9 +985,6 @@ class _PathPageState extends State<PathPage> {
     scroll.jumpTo(offset.clamp(0.0, max));
     _alignedLessonId = lesson.id;
   }
-
-  Color _sectionColor(int unitIndex) =>
-      [lime, blue, purple, const Color(0xFFFFAD55), pink][unitIndex % 5];
 
   int count(Lesson lesson) => widget.done.contains(lesson.id)
       ? 5
@@ -1028,15 +1037,14 @@ class _PathPageState extends State<PathPage> {
                                             ? Icons.play_circle_fill_rounded
                                             : Icons.lock_outline_rounded,
                                     color: complete
-                                        ? lime
+                                        ? amberInk
                                         : available
                                             ? blue
                                             : muted),
                                 title: Text('Practice ${i + 1}',
                                     style: TextStyle(
                                         fontWeight: FontWeight.w900,
-                                        color:
-                                            available ? Colors.white : muted)),
+                                        color: available ? ink : muted)),
                                 subtitle: Text(
                                     i == 0
                                         ? 'Learn the words and phrases'
@@ -1077,8 +1085,8 @@ class _PathPageState extends State<PathPage> {
                         title: const Text('For English speakers',
                             style: TextStyle(
                                 fontWeight: FontWeight.w900, fontSize: 18)),
-                        trailing:
-                            const Icon(Icons.check_circle_rounded, color: lime),
+                        trailing: const Icon(Icons.check_circle_rounded,
+                            color: amberInk),
                         onTap: () => Navigator.pop(context)),
                     const SizedBox(height: 16),
                     ListTile(
@@ -1126,205 +1134,196 @@ class _PathPageState extends State<PathPage> {
                                 ]))))),
             const SizedBox(width: 8),
             const Icon(Icons.local_fire_department_rounded,
-                color: Color(0xFFFF9A43), size: 30),
+                color: orange, size: 30),
             Text('${widget.streak}',
                 style: const TextStyle(
-                    color: Color(0xFFFFAB56),
+                    color: amberInk,
                     fontWeight: FontWeight.w900,
                     fontSize: 18)),
             const SizedBox(width: 12),
-            const Icon(Icons.bolt_rounded, color: Color(0xFFFFD454), size: 25),
+            const Icon(Icons.bolt_rounded, color: amberInk, size: 25),
             Text('${widget.xp}',
                 style: const TextStyle(
-                    color: Color(0xFFFFD454),
+                    color: amberInk,
                     fontWeight: FontWeight.w900,
                     fontSize: 15)),
           ])),
       Expanded(
-          child: CustomScrollView(controller: scroll, slivers: [
-        for (var unitIndex = 0; unitIndex < titles.length; unitIndex++)
-          ..._sectionSlivers(unitIndex, titles, next),
-        const SliverToBoxAdapter(child: SizedBox(height: 28)),
-      ])),
+          child: LayoutBuilder(
+              builder: (_, viewport) =>
+                  CustomScrollView(controller: scroll, slivers: [
+                    for (var unitIndex = 0;
+                        unitIndex < titles.length;
+                        unitIndex++)
+                      ..._sectionSlivers(unitIndex, titles, next),
+                    SliverToBoxAdapter(
+                        child: SizedBox(
+                            height: math.max(
+                                0.0,
+                                viewport.maxHeight -
+                                    _sectionHeaderExtent -
+                                    _lessonExtent))),
+                  ]))),
     ]);
   }
 
   List<Widget> _sectionSlivers(int unitIndex, List<String> titles, int next) {
     final unit =
         lessons.where((l) => l.unitTitle == titles[unitIndex]).toList();
-    final color = _sectionColor(unitIndex);
+    final completed =
+        unit.where((lesson) => widget.done.contains(lesson.id)).length;
     return [
       SliverMainAxisGroup(slivers: [
         SliverPersistentHeader(
-            pinned: true,
-            delegate: _SectionHeaderDelegate(
-                title: titles[unitIndex],
-                level: unit.first.level,
-                index: unitIndex,
-                color: color)),
-        SliverToBoxAdapter(
-            child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _unitTrail(unit, unitIndex, next, color))),
+          pinned: true,
+          delegate: _SectionHeaderDelegate(
+            title: titles[unitIndex].isEmpty
+                ? 'Serbian essentials'
+                : titles[unitIndex],
+            level: unit.first.level,
+            index: unitIndex,
+            completed: completed,
+            total: unit.length,
+          ),
+        ),
+        SliverFixedExtentList(
+          itemExtent: _lessonExtent,
+          delegate: SliverChildBuilderDelegate((context, index) {
+            final lesson = unit[index];
+            final global = lessons.indexOf(lesson);
+            final active = global == next;
+            final locked = global > 0 &&
+                !widget.done.contains(lessons[global - 1].id) &&
+                !widget.done.contains(lesson.id);
+            final sessions = count(lesson);
+            final accent = active
+                ? amberInk
+                : sessions == 5
+                    ? green
+                    : muted;
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(18, 4, 18, 5),
+              child: Semantics(
+                button: true,
+                enabled: !locked,
+                label:
+                    '${lesson.title}, $sessions of 5 sessions complete${locked ? ', locked' : ''}',
+                child: Material(
+                  color: active ? const Color(0xFFFFFAF3) : panel,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(
+                          color: active ? const Color(0xFFEBB679) : panel2)),
+                  child: InkWell(
+                    onTap: locked ? null : () => open(lesson),
+                    borderRadius: BorderRadius.circular(16),
+                    child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        child: Row(children: [
+                          Container(
+                              width: 50,
+                              height: 50,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                  color: [peach, sky, mint, blush][index % 4],
+                                  borderRadius: BorderRadius.circular(14)),
+                              child: ExcludeSemantics(
+                                  child: Text(lesson.icon,
+                                      style: const TextStyle(fontSize: 27)))),
+                          const SizedBox(width: 14),
+                          Expanded(
+                              child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                Text(lesson.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        color: ink,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 17)),
+                                const SizedBox(height: 3),
+                                Text(
+                                    active
+                                        ? (sessions == 0
+                                            ? 'Start practice'
+                                            : 'Continue practice · $sessions/5')
+                                        : sessions == 5
+                                            ? '5/5 sessions complete'
+                                            : lesson.subtitle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                        color: accent,
+                                        fontSize: 13,
+                                        fontWeight: active
+                                            ? FontWeight.w700
+                                            : FontWeight.w500)),
+                              ])),
+                          const SizedBox(width: 8),
+                          CustomPaint(
+                              painter: _SessionRing(
+                                  sessions, sessions == 5 ? green : orange),
+                              child: SizedBox.square(
+                                  dimension: 40,
+                                  child: Center(
+                                      child: Icon(
+                                          active
+                                              ? Icons.play_arrow_rounded
+                                              : locked
+                                                  ? Icons.lock_outline_rounded
+                                                  : Icons.check_rounded,
+                                          color: accent,
+                                          size: active ? 24 : 18)))),
+                        ])),
+                  ),
+                ),
+              ),
+            );
+          }, childCount: unit.length),
+        ),
       ])
     ];
   }
-
-  Widget _unitTrail(List<Lesson> unit, int unitIndex, int next, Color color) =>
-      LayoutBuilder(builder: (context, constraints) {
-        final center = constraints.maxWidth / 2;
-        return SizedBox(
-                            height: unit.length * 148.0 + 30,
-                            child: Stack(children: [
-                              Positioned.fill(
-                                  child: CustomPaint(
-                                      painter: _TrailLinePainter(
-                                          unit.length, color))),
-                              ...unit.asMap().entries.map((entry) {
-                                final i = entry.key,
-                                    l = entry.value,
-                                    global = lessons.indexOf(entry.value);
-                                final locked = global > 0 &&
-                                    !widget.done
-                                        .contains(lessons[global - 1].id) &&
-                                    !widget.done.contains(l.id);
-                                final active = global == next;
-                                final shift = [
-                                  0.0,
-                                  62.0,
-                                  82.0,
-                                  24.0,
-                                  -62.0,
-                                  -82.0,
-                                  0.0
-                                ][i % 7];
-                                return Positioned(
-                                    top: i * 148.0 + 10,
-                                    left: center + shift - 72,
-                                    width: 144,
-                                    child: Column(children: [
-                                      if (active)
-                                        Container(
-                                            margin: const EdgeInsets.only(
-                                                bottom: 5),
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 12, vertical: 4),
-                                            decoration: BoxDecoration(
-                                                color: panel,
-                                                borderRadius:
-                                                    BorderRadius.circular(9),
-                                                border: Border.all(
-                                                    color: color, width: 2)),
-                                            child: Text(
-                                                count(l) == 0
-                                                    ? 'START'
-                                                    : 'CONTINUE',
-                                                style: TextStyle(
-                                                    color: color,
-                                                    fontSize: 10,
-                                                    fontWeight:
-                                                        FontWeight.w900))),
-                                      Semantics(
-                                          button: true,
-                                          label:
-                                              '${l.title}, ${count(l)} of 5 sessions complete${locked ? ', locked' : ''}',
-                                          child: GestureDetector(
-                                              onTap:
-                                                  locked ? null : () => open(l),
-                                              child: SizedBox(
-                                                  width: 86,
-                                                  height: 86,
-                                                  child: CustomPaint(
-                                                      painter:
-                                                          _TrailCirclePainter(
-                                                              count(l),
-                                                              locked
-                                                                  ? panel2
-                                                                  : color,
-                                                              locked),
-                                                      child: Center(
-                                                          child: Icon(
-                                                              locked
-                                                                  ? Icons
-                                                                      .lock_rounded
-                                                                  : count(l) ==
-                                                                          5
-                                                                      ? Icons
-                                                                          .check_rounded
-                                                                      : l.kind ==
-                                                                              'assessment'
-                                                                          ? Icons
-                                                                              .emoji_events_rounded
-                                                                          : l.kind ==
-                                                                                  'checkpoint'
-                                                                              ? Icons
-                                                                                  .fitness_center_rounded
-                                                                              : Icons
-                                                                                  .star_rounded,
-                                                              color: locked
-                                                                  ? const Color(
-                                                                      0xFF617780)
-                                                                  : Colors
-                                                                      .white,
-                                                              size: 38)))))),
-                                      const SizedBox(height: 7),
-                                      Text(l.title,
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(
-                                              color:
-                                                  locked ? muted : Colors.white,
-                                              fontWeight: FontWeight.w800,
-                                              fontSize: 12,
-                                              height: 1.15)),
-                                      if (count(l) > 0 && count(l) < 5)
-                                        Text('${count(l)}/5',
-                                            style: TextStyle(
-                                                color: color,
-                                                fontWeight: FontWeight.w900,
-                                                fontSize: 11)),
-                                    ]));
-                              }),
-                              // A different friend joins each section; no duplicated hero cards.
-                              Positioned(
-                                  top: unit.length > 3
-                                      ? (unitIndex.isEven ? 340 : 590)
-                                      : 170,
-                                  left: unitIndex.isEven ? 0 : null,
-                                  right: unitIndex.isEven ? null : 0,
-                                  child: Column(children: [
-                                    AnimatedKristina(
-                                        width: 100,
-                                        height: 150,
-                                        character: unitIndex % 3),
-                                    Text(
-                                        [
-                                          'KRISTINA',
-                                          'MILOŠ',
-                                          'ZARA'
-                                        ][unitIndex % 3],
-                                        style: const TextStyle(
-                                            color: muted,
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.w900,
-                                            letterSpacing: 1.2))
-                                  ])),
-                            ]));
-      });
 }
 
-const _sectionHeaderExtent = 112.0;
+class _SessionRing extends CustomPainter {
+  const _SessionRing(this.completed, this.color);
+  final int completed;
+  final Color color;
+  @override
+  void paint(Canvas canvas, Size size) {
+    final track = (Offset.zero & size).deflate(2);
+    final brush = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
+    const segment = 2 * math.pi / 5;
+    for (var i = 0; i < 5; i++) {
+      brush.color = i < completed ? color : panel2;
+      canvas.drawArc(
+          track, -math.pi / 2 + i * segment + .11, segment - .22, false, brush);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_SessionRing old) =>
+      completed != old.completed || color != old.color;
+}
+
+const _sectionHeaderExtent = 154.0;
+const _lessonExtent = 85.0;
 
 class _SectionHeaderDelegate extends SliverPersistentHeaderDelegate {
   final String title, level;
-  final int index;
-  final Color color;
+  final int index, completed, total;
   const _SectionHeaderDelegate(
       {required this.title,
       required this.level,
       required this.index,
-      required this.color});
+      required this.completed,
+      required this.total});
 
   @override
   double get minExtent => _sectionHeaderExtent;
@@ -1332,59 +1331,74 @@ class _SectionHeaderDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => _sectionHeaderExtent;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return ColoredBox(
-        color: bg,
-        child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-            child: DecoratedBox(
-                decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(19),
-                    boxShadow: [
-                      BoxShadow(
-                          color: Color.lerp(color, Colors.black, .25)!,
-                          offset: const Offset(0, 5))
-                    ]),
-                child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 18, vertical: 12),
-                    child: Row(children: [
-                      Expanded(
-                          child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                            Text('SECTION ${index + 1} • $level',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                    color: bg.withValues(alpha: .65),
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 1.1)),
-                            const SizedBox(height: 4),
-                            Text(title,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                    color: bg,
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 22,
-                                    height: 1.1))
-                          ])),
-                      const SizedBox(width: 12),
-                      Icon(Icons.menu_book_rounded,
-                          color: bg.withValues(alpha: .7), size: 30)
-                    ])))));
-  }
+  Widget build(
+          BuildContext context, double shrinkOffset, bool overlapsContent) =>
+      ColoredBox(
+          color: bg,
+          child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 10, 18, 10),
+              child: ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: ColoredBox(
+                      color: peach,
+                      child: LayoutBuilder(
+                          builder: (_, box) => Stack(children: [
+                                Positioned(
+                                    right: 0,
+                                    bottom: 0,
+                                    width: math.min(233, box.maxWidth * .44),
+                                    height: box.maxHeight,
+                                    child: const CustomPaint(
+                                        painter: BelgradePostcard())),
+                                Padding(
+                                    padding: EdgeInsets.fromLTRB(
+                                        16, 9, box.maxWidth * .4, 9),
+                                    child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Text('Unit ${index + 1}  ·  $level',
+                                              style: const TextStyle(
+                                                  color: amberInk,
+                                                  fontWeight: FontWeight.w800,
+                                                  fontSize: 12)),
+                                          const SizedBox(height: 4),
+                                          Flexible(
+                                              child: FittedBox(
+                                                  fit: BoxFit.scaleDown,
+                                                  alignment:
+                                                      Alignment.centerLeft,
+                                                  child: SizedBox(
+                                                      width: box.maxWidth * .6 -
+                                                          16,
+                                                      child: Text(title,
+                                                          maxLines: 2,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                          style: const TextStyle(
+                                                              color: ink,
+                                                              fontSize: 24,
+                                                              height: 1.05,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w900))))),
+                                          const SizedBox(height: 9),
+                                          Text(
+                                              '$completed of $total lessons complete',
+                                              style: const TextStyle(
+                                                  color: muted, fontSize: 12)),
+                                        ])),
+                              ]))))));
 
   @override
-  bool shouldRebuild(covariant _SectionHeaderDelegate old) =>
+  bool shouldRebuild(_SectionHeaderDelegate old) =>
       old.title != title ||
       old.level != level ||
       old.index != index ||
-      old.color != color;
+      old.completed != completed ||
+      old.total != total;
 }
 
 /// Official state flag artwork, bundled for consistent rendering on every device.
@@ -1418,80 +1432,52 @@ class _SerbianFlag extends StatelessWidget {
   }
 }
 
-class _TrailLinePainter extends CustomPainter {
-  final int count;
-  final Color color;
-  _TrailLinePainter(this.count, this.color);
+class _LessonCrowns extends StatelessWidget {
+  final double progress;
+  const _LessonCrowns({required this.progress});
+
+  @override
+  Widget build(BuildContext context) => ExcludeSemantics(
+          child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: List.generate(
+            3,
+            (i) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: CustomPaint(
+                      size: const Size(20, 16),
+                      painter: _CrownPainter(progress >= (i + 1) / 3)),
+                )),
+      ));
+}
+
+class _CrownPainter extends CustomPainter {
+  final bool earned;
+  const _CrownPainter(this.earned);
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = panel2.withValues(alpha: .45)
-      ..strokeWidth = 4
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-    const shifts = [0.0, 62.0, 82.0, 24.0, -62.0, -82.0, 0.0];
-    for (var i = 0; i < count - 1; i++) {
-      final x = size.width / 2 + shifts[i % 7], y = i * 148.0 + 58;
-      final nx = size.width / 2 + shifts[(i + 1) % 7],
-          ny = (i + 1) * 148.0 + 58;
-      canvas.drawPath(
-          Path()
-            ..moveTo(x, y)
-            ..cubicTo(x, y + 65, nx, ny - 65, nx, ny),
-          p);
-    }
+    canvas.scale(size.width / 20, size.height / 16);
+    final brush = Paint()..color = earned ? orange : panel2;
+    canvas.drawPath(
+        Path()
+          ..moveTo(1, 3)
+          ..lineTo(6, 7)
+          ..lineTo(10, 1)
+          ..lineTo(14, 7)
+          ..lineTo(19, 3)
+          ..lineTo(16, 13)
+          ..lineTo(4, 13)
+          ..close(),
+        brush);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            const Rect.fromLTWH(4, 14, 12, 1.5), const Radius.circular(1)),
+        brush);
   }
 
   @override
-  bool shouldRepaint(covariant _TrailLinePainter old) =>
-      old.count != count || old.color != color;
+  bool shouldRepaint(_CrownPainter old) => earned != old.earned;
 }
-
-class _TrailCirclePainter extends CustomPainter {
-  final int completed;
-  final Color color;
-  final bool locked;
-  _TrailCirclePainter(this.completed, this.color, this.locked);
-  @override
-  void paint(Canvas c, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final p = Paint()..isAntiAlias = true;
-    p.color = Color.lerp(color, Colors.black, .28)!;
-    c.drawCircle(center + const Offset(0, 5), 33, p);
-    p.color = color;
-    c.drawCircle(center, 33, p);
-    p.color = Colors.white.withValues(alpha: locked ? 0.025 : 0.12);
-    c.drawOval(
-        Rect.fromCenter(
-            center: center - const Offset(8, 12), width: 36, height: 18),
-        p);
-    p
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 5
-      ..strokeCap = StrokeCap.round;
-    for (var i = 0; i < 5; i++) {
-      p.color = i < completed ? color : panel2;
-      c.drawArc(
-          Rect.fromCircle(center: center, radius: 40),
-          -math.pi / 2 + i * 2 * math.pi / 5 + .07,
-          2 * math.pi / 5 - .14,
-          false,
-          p);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _TrailCirclePainter old) =>
-      old.completed != completed || old.color != color || old.locked != locked;
-}
-
-Color colorFor(String c) => switch (c) {
-      'blue' => blue,
-      'pink' => pink,
-      'purple' => purple,
-      'orange' => const Color(0xFFFFB65D),
-      _ => lime
-    };
 
 class LessonPage extends StatefulWidget {
   final Lesson lesson;
@@ -1514,7 +1500,7 @@ class LessonPage extends StatefulWidget {
 
 class _LessonPageState extends State<LessonPage>
     with SingleTickerProviderStateMixin {
-  int index = 0, correct = 0, answerRun = 0, bestRun = 0;
+  int index = 0, correct = 0, answerRun = 0;
   final List<bool> answers = [];
   final List<int> picked = [];
   late final List<Question> round;
@@ -1577,8 +1563,7 @@ class _LessonPageState extends State<LessonPage>
         .replaceAll(RegExp(r'[.,!?;:“”"]'), '')
         .trim()
         .replaceAll(RegExp(r'\s+'), ' ');
-    final tokens =
-        phrase.split(' ').where((word) => word.isNotEmpty).toList();
+    final tokens = phrase.split(' ').where((word) => word.isNotEmpty).toList();
     final options = [...tokens];
     for (final extra in ['hvala', 'molim', 'da', 'ne', 'zdravo']) {
       if (options.length >= tokens.length + 3) break;
@@ -1703,7 +1688,6 @@ class _LessonPageState extends State<LessonPage>
       FocusScope.of(context).unfocus();
       final right = _matches(response, q.answer);
       answerRun = right ? answerRun + 1 : 0;
-      bestRun = math.max(bestRun, answerRun);
       setState(() {
         checked = true;
         lastCorrect = right;
@@ -1734,8 +1718,8 @@ class _LessonPageState extends State<LessonPage>
         });
       if (mounted)
         learningFeedback.complete(
-            passed: correct * 100 >=
-                widget.lesson.minPassPercent * round.length,
+            passed:
+                correct * 100 >= widget.lesson.minPassPercent * round.length,
             perfect: correct == round.length);
     }
   }
@@ -1790,50 +1774,46 @@ class _LessonPageState extends State<LessonPage>
                             Stack(fit: StackFit.expand, children: [
                               Column(children: [
                                 SizedBox(
-                                    height: 48,
-                                    child: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 12),
-                                        child: Row(children: [
-                                          IconButton(
-                                              onPressed: () =>
-                                                  Navigator.pop(context),
-                                              icon: const Icon(
-                                                  Icons.close_rounded,
-                                                  color: muted),
-                                              tooltip: 'Leave lesson'),
-                                          const SizedBox(width: 6),
-                                          Expanded(
-                                              child: TweenAnimationBuilder<double>(
-                                                  tween: Tween(
-                                                      end: finished
-                                                          ? 1
-                                                          : (index + (checked ? 1 : 0)) /
-                                                              round.length),
-                                                  duration: const Duration(
-                                                      milliseconds: 350),
-                                                  builder: (_, value, __) => ClipRRect(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              20),
-                                                      child: LinearProgressIndicator(
-                                                          value: value,
-                                                          minHeight: 13,
-                                                          backgroundColor:
-                                                              panel2,
-                                                          valueColor:
-                                                              const AlwaysStoppedAnimation(
-                                                                  lime))))),
-                                          const SizedBox(width: 6),
-                                          IconButton(
-                                              tooltip: 'Learning feedback',
-                                              onPressed: () =>
-                                                  showFeedbackSettings(context),
-                                              icon: const Icon(
-                                                  Icons.tune_rounded,
-                                                  color: muted,
-                                                  size: 21)),
-                                        ]))),
+                                    height: 46,
+                                    child: Row(children: [
+                                      IconButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context),
+                                          icon: const Icon(Icons.close_rounded),
+                                          color: muted,
+                                          tooltip: 'Leave lesson'),
+                                      Expanded(
+                                          child: Center(
+                                              child: _LessonCrowns(
+                                                  progress: finished
+                                                      ? 1
+                                                      : (index +
+                                                              (checked
+                                                                  ? 1
+                                                                  : 0)) /
+                                                          round.length))),
+                                      IconButton(
+                                          tooltip: 'Learning feedback',
+                                          onPressed: () =>
+                                              showFeedbackSettings(context),
+                                          icon: const Icon(
+                                              Icons.settings_outlined,
+                                              color: muted,
+                                              size: 22)),
+                                    ])),
+                                TweenAnimationBuilder<double>(
+                                    tween: Tween(
+                                        end: finished
+                                            ? 1
+                                            : (index + (checked ? 1 : 0)) /
+                                                round.length),
+                                    duration: const Duration(milliseconds: 300),
+                                    builder: (_, value, __) =>
+                                        LinearProgressIndicator(
+                                            value: value,
+                                            minHeight: 5,
+                                            backgroundColor: panel2,
+                                            color: const Color(0xFF8FC9EA))),
                                 Expanded(
                                     child: Padding(
                                         padding: EdgeInsets.fromLTRB(
@@ -1871,8 +1851,7 @@ class _LessonPageState extends State<LessonPage>
       LayoutBuilder(builder: (context, space) {
         final short = space.maxHeight < 380;
         final headingHeight = short ? 38.0 : 52.0;
-        final sceneHeight =
-            (space.maxHeight * (short ? 0.25 : 0.29)).clamp(48.0, 145.0);
+        final sceneHeight = (space.maxHeight * .19).clamp(62.0, 96.0);
         return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -1888,7 +1867,7 @@ class _LessonPageState extends State<LessonPage>
                               child: Text(_heading(q),
                                   maxLines: 2,
                                   style: TextStyle(
-                                      fontSize: short ? 22 : 25,
+                                      fontSize: short ? 17 : 19,
                                       height: 1.1,
                                       fontWeight: FontWeight.w900)))))),
               SizedBox(height: sceneHeight, child: _scene(q, sceneHeight)),
@@ -1904,78 +1883,70 @@ class _LessonPageState extends State<LessonPage>
       });
 
   Widget _scene(Question q, double height) {
-    final listen = q.type.startsWith('Listen');
-    final mood = checked
-        ? (lastCorrect
-            ? (answerRun >= 5
-                ? 'hot'
-                : answerRun >= 3
-                    ? 'celebrate'
-                    : 'correct')
-            : 'wrong')
-        : 'idle';
-    final character = _castIndex();
-    return Row(children: [
-      if (height >= 72) ...[
-        ValueListenableBuilder<bool>(
-            valueListenable: SerbianAudio.speaking,
-            builder: (_, speaking, __) => AnimatedKristina(
-                width: height * .64,
-                height: height,
-                mood: !checked && speaking ? 'speaking' : mood,
-                character: character)),
-        const SizedBox(width: 10)
-      ],
-      Expanded(
-          child: Container(
-              padding: EdgeInsets.symmetric(
-                  horizontal: 12, vertical: height < 90 ? 6 : 10),
-              decoration: BoxDecoration(
-                  border: Border.all(color: panel2, width: 2),
-                  borderRadius: BorderRadius.circular(16)),
-              child: listen
-                  ? Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      SerbianAudioButton(
-                          text: q.audioText, asset: q.audioAsset),
-                      const SizedBox(width: 12),
-                      SerbianAudioButton(
-                          text: q.audioText, asset: q.audioAsset, slow: true),
-                    ])
-                  : Row(children: [
-                      if (q.audioText.isNotEmpty &&
-                          (q.type == 'Choose the meaning' ||
-                              q.type == 'Choose the image' ||
-                              q.type == 'Speak the phrase' ||
-                              (q.type == 'Arrange the words' &&
-                                  q.answerLanguage == 'en'))) ...[
-                        SerbianAudioButton(
-                            text: q.audioText, asset: q.audioAsset),
-                        const SizedBox(width: 8)
-                      ],
-                      Expanded(
-                          child: LayoutBuilder(
-                              builder: (context, box) => FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  alignment: Alignment.centerLeft,
-                                  child: SizedBox(
-                                      width: box.maxWidth,
-                                      child: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            _hintPrompt(q),
-                                            if (q.translation.isNotEmpty) ...[
-                                              const SizedBox(height: 8),
-                                              Text('Meaning: ${q.translation}',
-                                                  style: const TextStyle(
-                                                      color: muted,
-                                                      fontSize: 13,
-                                                      height: 1.3))
-                                            ]
-                                          ]))))),
-                    ]))),
-    ]);
+    final reaction = !lastCorrect
+        ? 'wrong'
+        : answerRun >= 5
+            ? 'hot'
+            : answerRun >= 3
+                ? 'celebrate'
+                : 'correct';
+    final tutor = ValueListenableBuilder<bool>(
+      valueListenable: SerbianAudio.speaking,
+      builder: (_, speaking, __) => AnimatedKristina(
+        width: height * .62,
+        height: height,
+        character: _castIndex(),
+        mood: checked
+            ? reaction
+            : speaking
+                ? 'speaking'
+                : 'idle',
+      ),
+    );
+    if (q.type.startsWith('Listen')) {
+      return Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        tutor,
+        const SizedBox(width: 8),
+        SerbianAudioButton(
+            text: q.audioText, asset: q.audioAsset, prominent: true),
+        const SizedBox(width: 8),
+        SerbianAudioButton(text: q.audioText, asset: q.audioAsset, slow: true),
+      ]);
+    }
+    final speaksPrompt = q.audioText.isNotEmpty &&
+        (q.type == 'Choose the meaning' ||
+            q.type == 'Choose the image' ||
+            q.type == 'Speak the phrase' ||
+            (q.type == 'Arrange the words' && q.answerLanguage == 'en'));
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+          border: Border.all(color: panel2),
+          borderRadius: BorderRadius.circular(12)),
+      child: Row(children: [
+        tutor,
+        const SizedBox(width: 8),
+        Expanded(
+            child: LayoutBuilder(
+                builder: (_, box) => FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: SizedBox(
+                        width: box.maxWidth,
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _hintPrompt(q),
+                              if (q.translation.isNotEmpty)
+                                Text('Meaning: ${q.translation}',
+                                    style: const TextStyle(
+                                        color: muted, fontSize: 13)),
+                            ]))))),
+        if (speaksPrompt)
+          SerbianAudioButton(text: q.audioText, asset: q.audioAsset),
+      ]),
+    );
   }
 
   Widget _hintPrompt(Question q) {
@@ -2042,9 +2013,7 @@ class _LessonPageState extends State<LessonPage>
                         const SizedBox(height: 8),
                         Text(hint.meaning,
                             style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 17,
-                                height: 1.3)),
+                                color: ink, fontSize: 17, height: 1.3)),
                         if (q.audioText.isNotEmpty) ...[
                           const Divider(color: panel2, height: 22),
                           const Text('IN THIS EXERCISE',
@@ -2060,174 +2029,170 @@ class _LessonPageState extends State<LessonPage>
                                   : q.audioText,
                               maxLines: 3,
                               style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  height: 1.3))
+                                  color: ink, fontSize: 14, height: 1.3))
                         ],
                       ])))
         ]);
   }
 
-  Widget
-      _choicesViewport(Question q) => LayoutBuilder(builder: (context, space) {
-            final image = q.type == 'Choose the image';
-            final columns =
-                image || (space.maxHeight < 196 && q.options.length > 2)
-                    ? 2
-                    : 1;
-            final rows = (q.options.length / columns).ceil();
-            final height =
-                math.min(space.maxHeight, rows * (image ? 140.0 : 62.0));
-            return Align(
-                alignment: Alignment.topCenter,
-                child: SizedBox(
-                    height: height,
-                    child: Column(
-                        children: List.generate(
-                            rows,
-                            (row) => Expanded(
-                                child: Padding(
-                                    padding: EdgeInsets.only(
-                                        bottom: row == rows - 1 ? 3 : 8),
-                                    child: Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.stretch,
-                                        children:
-                                            List.generate(columns, (column) {
-                                          final i = row * columns + column;
-                                          if (i >= q.options.length)
-                                            return const Expanded(
-                                                child: SizedBox());
-                                          final option = q.options[i],
-                                              picture = image
-                                                  ? PictureOption.parse(option)
-                                                  : null,
-                                              chosen = selected == option,
-                                              reveal =
-                                                  checked && option == q.answer,
-                                              wrong =
-                                                  checked && chosen && !reveal;
-                                          final edge = reveal
-                                              ? lime
-                                              : wrong
-                                                  ? const Color(0xFFFF7279)
-                                                  : chosen
-                                                      ? blue
-                                                      : panel2;
-                                          return Expanded(
-                                              child: Padding(
-                                                  padding: EdgeInsets.only(
-                                                      right:
-                                                          column < columns - 1
-                                                              ? 8
-                                                              : 0),
-                                                  child: Semantics(
-                                                      button: true,
-                                                      selected: chosen,
-                                                      label: picture?.label ??
-                                                          option,
-                                                      child: GestureDetector(
-                                                          onTap: checked
-                                                              ? null
-                                                              : () {
-                                                                  setState(() =>
-                                                                      selected =
-                                                                          option);
-                                                                  _selectionFeedback(
-                                                                      q,
-                                                                      option);
-                                                                },
-                                                          child: Container(
-                                                              padding:
-                                                                  const EdgeInsets
-                                                                      .symmetric(
-                                                                      horizontal:
-                                                                          12,
-                                                                      vertical:
-                                                                          5),
-                                                              decoration:
-                                                                  BoxDecoration(
-                                                                      color: reveal
-                                                                          ? const Color(0xFF234830)
-                                                                          : wrong
-                                                                              ? const Color(0xFF45262C)
-                                                                              : chosen
-                                                                                  ? const Color(0xFF163A4C)
-                                                                                  : panel,
-                                                                      border: Border.all(color: edge, width: 2),
-                                                                      borderRadius: BorderRadius.circular(14),
-                                                                      boxShadow: [
-                                                                    BoxShadow(
-                                                                        color:
-                                                                            edge,
-                                                                        offset: const Offset(
-                                                                            0,
-                                                                            3))
-                                                                  ]),
-                                                              child: picture !=
-                                                                      null
-                                                                  ? Column(
-                                                                      children: [
-                                                                          Expanded(
-                                                                              child: FittedBox(child: LearningObject(name: picture.key))),
-                                                                          Text(
-                                                                              picture.label,
-                                                                              maxLines: 1,
-                                                                              overflow: TextOverflow.ellipsis,
-                                                                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14))
-                                                                        ])
-                                                                  : Row(
-                                                                      children: [
-                                                                        if (columns ==
-                                                                            1) ...[
-                                                                          Text(
-                                                                              '${i + 1}',
-                                                                              style: TextStyle(color: chosen ? blue : muted, fontSize: 12, fontWeight: FontWeight.w900)),
-                                                                          const SizedBox(
-                                                                              width: 12)
-                                                                        ],
-                                                                        Expanded(
-                                                                            child:
-                                                                                LayoutBuilder(builder: (context, box) => FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: SizedBox(width: box.maxWidth, child: Text(option, maxLines: 4, style: const TextStyle(fontSize: 16, height: 1.2, fontWeight: FontWeight.w800)))))),
-                                                                        if (reveal) ...[
-                                                                          const SizedBox(
-                                                                              width: 4),
-                                                                          const Icon(
-                                                                              Icons.check_rounded,
-                                                                              color: lime,
-                                                                              size: 20)
-                                                                        ]
-                                                                      ],
-                                                                    ))))));
-                                        }))))))));
-          });
+  Widget _choicesViewport(Question q) => LayoutBuilder(builder: (_, space) {
+        final images = q.type == 'Choose the image';
+        final shortChoices = q.type == 'Choose the meaning' &&
+            q.options.length == 4 &&
+            q.options.every((option) => option.length <= 18);
+        final columns = images ||
+                shortChoices ||
+                (space.maxHeight < 196 && q.options.length > 2)
+            ? 2
+            : 1;
+        final rows = (q.options.length / columns).ceil();
+        final height = math.min(
+            space.maxHeight,
+            rows *
+                (images
+                    ? 138.0
+                    : columns == 2
+                        ? 92.0
+                        : 56.0));
+        return Align(
+            alignment: Alignment.topCenter,
+            child: SizedBox(
+                height: height,
+                child: Column(children: [
+                  for (var row = 0; row < rows; row++) ...[
+                    if (row > 0) const SizedBox(height: 8),
+                    Expanded(
+                        child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                          for (var col = 0; col < columns; col++) ...[
+                            if (col > 0) const SizedBox(width: 8),
+                            Expanded(
+                                child: row * columns + col < q.options.length
+                                    ? _answerOption(q, row * columns + col,
+                                        images, columns == 2)
+                                    : const SizedBox()),
+                          ],
+                        ])),
+                  ],
+                ])));
+      });
 
-  Widget _tile(String word, VoidCallback? onTap, double font) => Semantics(
+  Widget _answerOption(Question q, int index, bool image, bool centered) {
+    final option = q.options[index];
+    final picture = image ? PictureOption.parse(option) : null;
+    final chosen = selected == option;
+    final reveal = checked && option == q.answer;
+    final wrong = checked && chosen && !reveal;
+    final (fill, edge) = reveal
+        ? (mint, green)
+        : wrong
+            ? (blush, red)
+            : chosen
+                ? (sky, blue)
+                : (panel, panel2);
+    final alignment = centered ? Alignment.center : Alignment.centerLeft;
+    final radius = BorderRadius.circular(12);
+    final label = picture?.label ?? option;
+    final text = Text(label,
+        maxLines: 4,
+        textAlign: centered ? TextAlign.center : TextAlign.left,
+        style: const TextStyle(
+            color: ink,
+            fontSize: 16,
+            height: 1.2,
+            fontWeight: FontWeight.w600));
+    return Semantics(
       button: true,
-      label: word,
-      child: GestureDetector(
-          onTap: onTap,
-          child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-              decoration: BoxDecoration(
-                  color: bg,
-                  border: Border.all(color: const Color(0xFF435761), width: 2),
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: const [
-                    BoxShadow(color: Color(0xFF435761), offset: Offset(0, 3))
-                  ]),
-              child: Text(word,
-                  style: TextStyle(
-                      fontSize: font, fontWeight: FontWeight.w800)))));
+      selected: chosen,
+      label: label,
+      value: reveal
+          ? 'Correct answer'
+          : wrong
+              ? 'Incorrect answer'
+              : null,
+      child: Material(
+        color: fill,
+        shape: RoundedRectangleBorder(
+            borderRadius: radius,
+            side: BorderSide(color: edge, width: chosen || reveal ? 1.6 : 1)),
+        child: InkWell(
+          borderRadius: radius,
+          onTap: checked
+              ? null
+              : () {
+                  setState(() => selected = option);
+                  _selectionFeedback(q, option);
+                },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: picture != null
+                ? Column(children: [
+                    Expanded(
+                        child: FittedBox(
+                            child: LearningObject(name: picture.key))),
+                    Text(label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            color: ink,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14)),
+                  ])
+                : LayoutBuilder(
+                    builder: (_, box) => FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: alignment,
+                        child: SizedBox(
+                            width: box.maxWidth,
+                            child: centered
+                                ? text
+                                : Row(children: [
+                                    ExcludeSemantics(
+                                        child: Text('${index + 1}',
+                                            style: const TextStyle(
+                                                color: muted, fontSize: 12))),
+                                    const SizedBox(width: 12),
+                                    Expanded(child: text),
+                                  ])))),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _tile(String word, VoidCallback? onTap, double font,
+          {bool answer = false}) =>
+      Semantics(
+          button: true,
+          label: word,
+          child: Material(
+              color: answer && checked ? (lastCorrect ? mint : blush) : panel,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(9),
+                  side: BorderSide(
+                      color: answer && checked
+                          ? (lastCorrect ? green : red)
+                          : panel2)),
+              child: InkWell(
+                  onTap: onTap,
+                  borderRadius: BorderRadius.circular(9),
+                  child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 9),
+                      child: Text(word,
+                          style: TextStyle(
+                              color: ink,
+                              fontSize: font,
+                              fontWeight: FontWeight.w600))))));
   Widget _tileBank(List<Widget> tiles, {bool answer = false}) => LayoutBuilder(
       builder: (context, box) => FittedBox(
           fit: BoxFit.scaleDown,
-          alignment: answer ? Alignment.topLeft : Alignment.topCenter,
+          alignment: answer ? Alignment.topLeft : Alignment.bottomLeft,
           child: SizedBox(
               width: box.maxWidth,
               child: Wrap(
-                  alignment:
-                      answer ? WrapAlignment.start : WrapAlignment.center,
+                  alignment: WrapAlignment.start,
                   spacing: 8,
                   runSpacing: 10,
                   children: tiles))));
@@ -2253,7 +2218,8 @@ class _LessonPageState extends State<LessonPage>
   Widget _selectedTile(Question q, int position, double font) {
     final word = q.options[picked[position]];
     Widget tile() =>
-        _tile(word, checked ? null : () => _removeTile(position), font);
+        _tile(word, checked ? null : () => _removeTile(position), font,
+            answer: true);
     if (checked) return tile();
     return DragTarget<int>(
         onWillAcceptWithDetails: (details) => details.data != position,
@@ -2283,6 +2249,7 @@ class _LessonPageState extends State<LessonPage>
   Widget _arrangeViewport(Question q) =>
       LayoutBuilder(builder: (context, space) {
         final font = space.maxWidth < 340 ? 15.0 : 17.0;
+        final wordCount = q.answer.trim().split(RegExp(r'\s+')).length;
         return Column(children: [
           Expanded(
               flex: 4,
@@ -2290,16 +2257,22 @@ class _LessonPageState extends State<LessonPage>
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 9),
                   decoration: const BoxDecoration(
-                      border: Border(
-                          top: BorderSide(color: panel2, width: 2),
-                          bottom: BorderSide(color: panel2, width: 2))),
-                  child: _tileBank(
-                      List.generate(
-                          picked.length,
-                          (position) => KeyedSubtree(
-                              key: ValueKey('answer-token-$position'),
-                              child: _selectedTile(q, position, font))),
-                      answer: true))),
+                      border: Border(bottom: BorderSide(color: panel2))),
+                  child: _tileBank([
+                    for (var position = 0; position < picked.length; position++)
+                      KeyedSubtree(
+                          key: ValueKey('answer-token-$position'),
+                          child: _selectedTile(q, position, font)),
+                    if (!checked)
+                      for (var i = picked.length; i < wordCount; i++)
+                        Container(
+                            width: 40,
+                            height: 38,
+                            decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFA),
+                                border: Border.all(color: panel2),
+                                borderRadius: BorderRadius.circular(8))),
+                  ], answer: true))),
           SizedBox(height: space.maxHeight < 180 ? 10 : 20),
           Expanded(
               flex: 5,
@@ -2339,11 +2312,7 @@ class _LessonPageState extends State<LessonPage>
                   width: double.infinity,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                      color: blue,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: const [
-                        BoxShadow(color: Color(0xFF1899D6), offset: Offset(0, 4))
-                      ]),
+                      color: blue, borderRadius: BorderRadius.circular(16)),
                   child: listening
                       ? AnimatedBuilder(
                           animation: _wave,
@@ -2354,10 +2323,9 @@ class _LessonPageState extends State<LessonPage>
                                     16 *
                                         (.5 +
                                             .5 *
-                                                math.sin(_wave.value *
-                                                        math.pi *
-                                                        2 +
-                                                    bar));
+                                                math.sin(
+                                                    _wave.value * math.pi * 2 +
+                                                        bar));
                                 return Container(
                                     width: 6,
                                     height: height,
@@ -2377,11 +2345,7 @@ class _LessonPageState extends State<LessonPage>
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(20, compact ? 9 : 14, 20, compact ? 12 : 18),
       decoration: BoxDecoration(
-          color: checked && !guide
-              ? (lastCorrect
-                  ? const Color(0xFF173D30)
-                  : const Color(0xFF45262C))
-              : bg,
+          color: checked && !guide ? (lastCorrect ? mint : blush) : bg,
           border: const Border(top: BorderSide(color: panel2))),
       child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -2393,7 +2357,7 @@ class _LessonPageState extends State<LessonPage>
                     lastCorrect
                         ? Icons.check_circle_rounded
                         : Icons.cancel_rounded,
-                    color: lastCorrect ? lime : pink,
+                    color: lastCorrect ? green : red,
                     size: 23),
                 const SizedBox(width: 8),
                 Expanded(
@@ -2404,7 +2368,7 @@ class _LessonPageState extends State<LessonPage>
                                 : 'Nicely done!')
                             : 'Let’s get this one.',
                         style: TextStyle(
-                            color: lastCorrect ? lime : pink,
+                            color: lastCorrect ? green : red,
                             fontSize: compact ? 18 : 20,
                             fontWeight: FontWeight.w900))),
                 if (q.audioText.isNotEmpty)
@@ -2413,7 +2377,7 @@ class _LessonPageState extends State<LessonPage>
                       child: SerbianAudioButton(
                           text: q.audioText,
                           asset: q.audioAsset,
-                          color: lastCorrect ? lime : pink))
+                          color: lastCorrect ? green : red))
               ]),
               if (!lastCorrect)
                 Padding(
@@ -2439,9 +2403,7 @@ class _LessonPageState extends State<LessonPage>
                       maxLines: compact ? 1 : 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          fontSize: 12,
-                          height: 1.3,
-                          color: Color(0xFFCFDCE2)))),
+                          fontSize: 12, height: 1.3, color: muted))),
               const SizedBox(height: 8),
             ],
             if (!guide && q.type == 'Speak the phrase' && !checked)
@@ -2456,195 +2418,112 @@ class _LessonPageState extends State<LessonPage>
             else
               KButton(
                   text: guide
-                      ? 'START PRACTICE'
+                      ? (guidePage + 1 < _guideCount
+                          ? 'Continue'
+                          : 'Start practice')
                       : submitting
-                          ? 'SAVING…'
+                          ? 'Saving…'
                           : checked
-                              ? 'CONTINUE'
-                              : 'CHECK',
-                  color:
-                      checked && !lastCorrect ? const Color(0xFFFF7279) : lime,
+                              ? 'Continue'
+                              : 'Check',
+                  color: checked ? (lastCorrect ? green : red) : orange,
                   onTap: guide
-                      ? () => setState(() => showTheory = false)
+                      ? (guidePage + 1 < _guideCount
+                          ? _nextGuide
+                          : () => setState(() => showTheory = false))
                       : (checked || canCheck) && !submitting
                           ? _advance
                           : null),
           ]));
 
-  Widget _guideViewport() =>
-      Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text('${widget.lesson.level} • LESSON GUIDE',
-            style: const TextStyle(
-                color: blue,
-                fontSize: 10,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1)),
-        const SizedBox(height: 6),
-        SizedBox(
-            height: 52,
-            child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: SizedBox(
-                    width: math.min(560, MediaQuery.sizeOf(context).width - 40),
-                    child: Text(widget.lesson.theoryTitle,
-                        maxLines: 2,
-                        style: const TextStyle(
-                            fontSize: 25,
-                            height: 1.15,
-                            fontWeight: FontWeight.w900))))),
+  int get _guideCount => math.max(1, widget.lesson.vocabulary.length);
+
+  Widget _guideViewport() {
+    final lesson = widget.lesson;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Row(children: [
         Expanded(
-            child: PageView(
-                controller: guidePages,
-                onPageChanged: (page) => setState(() => guidePage = page),
-                children: [
-              LayoutBuilder(
-                  builder: (context, box) => Column(children: [
-                        SizedBox(
-                            height: box.maxHeight * .36,
-                            child: const AnimatedKristina()),
-                        const SizedBox(height: 10),
-                        Expanded(
-                            child: LayoutBuilder(
-                                builder: (context, textBox) => FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    alignment: Alignment.topLeft,
-                                    child: SizedBox(
-                                        width: textBox.maxWidth,
-                                        child: Text(widget.lesson.theoryBody,
-                                            style: const TextStyle(
-                                                fontSize: 18, height: 1.5))))))
-                      ])),
-              ...List.generate(
-                  (widget.lesson.vocabulary.length / 3).ceil(),
-                  (page) => Column(
-                      children: widget.lesson.vocabulary
-                          .skip(page * 3)
-                          .take(3)
-                          .map((word) => Expanded(
-                              child: Container(
-                                  margin:
-                                      const EdgeInsets.symmetric(vertical: 5),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 6),
-                                  decoration: BoxDecoration(
-                                      border:
-                                          Border.all(color: panel2, width: 2),
-                                      borderRadius: BorderRadius.circular(14)),
-                                  child: Row(children: [
-                                    Expanded(
-                                        child: FittedBox(
-                                            fit: BoxFit.scaleDown,
-                                            alignment: Alignment.centerLeft,
-                                            child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(word[0],
-                                                      style: const TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.w900,
-                                                          fontSize: 19)),
-                                                  Text(word[1],
-                                                      style: const TextStyle(
-                                                          color: muted,
-                                                          fontSize: 13)),
-                                                  Text(word[2],
-                                                      style: const TextStyle(
-                                                          color: blue,
-                                                          fontSize: 15))
-                                                ]))),
-                                    SerbianAudioButton(
-                                        text: word[0],
-                                        asset: word.length > 4 ? word[4] : '')
-                                  ]))))
-                          .toList())),
-            ])),
-        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          IconButton(
-              tooltip: 'Previous guide page',
-              onPressed: guidePage > 0
-                  ? () => guidePages.previousPage(
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeOut)
-                  : null,
-              icon: const Icon(Icons.chevron_left_rounded)),
-          Text(
-              '${guidePage + 1} / ${1 + (widget.lesson.vocabulary.length / 3).ceil()}',
-              style: const TextStyle(color: muted, fontSize: 12)),
-          IconButton(
-              tooltip: 'Next guide page',
-              onPressed:
-                  guidePage < (widget.lesson.vocabulary.length / 3).ceil()
-                      ? () => guidePages.nextPage(
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.easeOut)
-                      : null,
-              icon: const Icon(Icons.chevron_right_rounded))
-        ]),
-        const Text('AI-generated pronunciation',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: muted, fontSize: 10)),
-      ]);
+            child: Text(lesson.vocabulary.isEmpty ? 'Lesson guide' : 'New word',
+                style: const TextStyle(
+                    fontSize: 19, color: ink, fontWeight: FontWeight.w800))),
+        IconButton(
+            tooltip: 'Previous guide page',
+            onPressed: guidePage == 0
+                ? null
+                : () => guidePages.previousPage(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOut),
+            icon: const Icon(Icons.chevron_left_rounded)),
+        Text('${guidePage + 1} / $_guideCount',
+            style: const TextStyle(color: muted, fontSize: 12)),
+        IconButton(
+            tooltip: 'Next guide page',
+            onPressed: guidePage + 1 >= _guideCount ? null : _nextGuide,
+            icon: const Icon(Icons.chevron_right_rounded)),
+      ]),
+      Expanded(
+          child: PageView.builder(
+        itemCount: _guideCount,
+        controller: guidePages,
+        onPageChanged: (page) => setState(() => guidePage = page),
+        itemBuilder: (_, page) {
+          final word =
+              lesson.vocabulary.isEmpty ? null : lesson.vocabulary[page];
+          return _VocabularyPage(
+              lesson: lesson, word: word, character: _castIndex());
+        },
+      )),
+      const SizedBox(height: 5),
+      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        const Flexible(
+            child: Text('AI-generated pronunciation',
+                style: TextStyle(color: muted, fontSize: 11))),
+        if (guidePage + 1 < _guideCount)
+          TextButton(
+              onPressed: () => setState(() => showTheory = false),
+              child: const Text('Skip guide')),
+      ]),
+    ]);
+  }
+
+  void _nextGuide() => guidePages.nextPage(
+      duration: const Duration(milliseconds: 220), curve: Curves.easeOut);
 
   Widget _completeViewport() => LayoutBuilder(builder: (context, space) {
         final passed =
             correct * 100 >= widget.lesson.minPassPercent * round.length;
         return Column(children: [
-          Expanded(
-              child: AnimatedKristina(
-                  width: 220,
-                  height: space.maxHeight * .44,
-                  mood: passed
-                      ? (correct == round.length ? 'hot' : 'celebrate')
-                      : 'wrong')),
+          const SizedBox(height: 12),
           Text(
               passed
                   ? (widget.practiceRound == 4
-                      ? 'CIRCLE COMPLETE!'
-                      : 'PRACTICE ${widget.practiceRound + 1} COMPLETE!')
-                  : 'KEEP PRACTICING',
+                      ? 'Lesson complete'
+                      : 'Practice complete')
+                  : 'Keep practicing',
               style: const TextStyle(
-                  color: lime,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.2)),
+                  fontSize: 27, fontWeight: FontWeight.w900, color: ink)),
+          Text(widget.lesson.title,
+              style: const TextStyle(fontSize: 16, color: muted)),
+          Expanded(
+              child: AnimatedKristina(
+                  width: 190,
+                  height: space.maxHeight * .42,
+                  mood: passed
+                      ? (correct == round.length ? 'hot' : 'celebrate')
+                      : 'wrong')),
+          _metric(
+              Icons.bolt_rounded,
+              passed && !widget.alreadyCompleted
+                  ? '+${(10 + correct * 5).clamp(0, 30)}'
+                  : '+0',
+              'XP earned',
+              amberInk),
           const SizedBox(height: 8),
-          FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                  passed
-                      ? (correct == round.length
-                          ? 'Flawless. Look at you!'
-                          : bestRun >= 3
-                              ? '$bestRun in a row. Keep it up!'
-                              : 'You did it, superstar!')
-                      : 'Let’s try that again.',
-                  style: const TextStyle(
-                      fontSize: 27, fontWeight: FontWeight.w900))),
-          const SizedBox(height: 12),
-          SizedBox(
-              height: 80,
-              child: Row(children: [
-                Expanded(
-                    child: _metric(
-                        Icons.bolt_rounded,
-                        passed && !widget.alreadyCompleted
-                            ? '+${(10 + correct * 5).clamp(0, 30)}'
-                            : '+0',
-                        'XP',
-                        lime)),
-                const SizedBox(width: 10),
-                Expanded(
-                    child: _metric(
-                        Icons.check_circle_rounded,
-                        '$correct/${round.length}',
-                        'CORRECT',
-                        blue))
-              ])),
-          const SizedBox(height: 18),
+          _metric(Icons.check_circle_outline, '$correct / ${round.length}',
+              'Correct answers', green),
+          const SizedBox(height: 16),
           KButton(
-              text: passed ? 'BACK TO THE TRAIL' : 'TRY AGAIN',
+              text: passed ? 'Back to course' : 'Try again',
               onTap: () {
                 if (passed) {
                   Navigator.pop(context);
@@ -2657,7 +2536,6 @@ class _LessonPageState extends State<LessonPage>
                     index = 0;
                     correct = 0;
                     answerRun = 0;
-                    bestRun = 0;
                     answers.clear();
                     picked.clear();
                     checked = false;
@@ -2671,23 +2549,20 @@ class _LessonPageState extends State<LessonPage>
         ]);
       });
   Widget _metric(IconData icon, String value, String label, Color color) =>
-      Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-              color: color.withValues(alpha: .12),
-              borderRadius: BorderRadius.circular(14)),
-          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(icon, color: color),
-            const SizedBox(width: 8),
-            Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Text(value,
-                  style: TextStyle(
-                      color: color, fontSize: 22, fontWeight: FontWeight.w900)),
-              Text(label,
-                  style: TextStyle(
-                      color: color, fontSize: 10, fontWeight: FontWeight.w900))
-            ])
+      KCard(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          child: Row(children: [
+            CircleAvatar(
+                radius: 17,
+                backgroundColor: color.withValues(alpha: .09),
+                child: Icon(icon, color: color, size: 21)),
+            const SizedBox(width: 12),
+            Expanded(
+                child: Text(label,
+                    style: const TextStyle(fontSize: 15, color: muted))),
+            Text(value,
+                style: const TextStyle(
+                    color: ink, fontWeight: FontWeight.w800, fontSize: 18)),
           ]));
 }
 
@@ -2719,13 +2594,13 @@ class _WordsPageState extends State<WordsPage> {
           const PageHead(
               eyebrow: 'Your word bank',
               title: 'Words you know',
-              subtitle: 'Tiny words. Big main character energy.'),
+              subtitle: 'Review the vocabulary from your lessons.'),
           const SizedBox(height: 7),
           const Text('Audio pronunciations are AI-generated.',
               style: TextStyle(color: muted, fontSize: 12)),
           const SizedBox(height: 22),
           KCard(
-              color: const Color(0xFF263B4B),
+              color: sky,
               child: Row(children: [
                 const Text('📚', style: TextStyle(fontSize: 35)),
                 const SizedBox(width: 16),
@@ -2754,7 +2629,7 @@ class _WordsPageState extends State<WordsPage> {
           const SizedBox(height: 18),
           const Text('THE STARTER COLLECTION',
               style: TextStyle(
-                  color: lime,
+                  color: amberInk,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 1.4,
                   fontSize: 12)),
@@ -2794,7 +2669,7 @@ class _WordsPageState extends State<WordsPage> {
                           ])),
                       Text(e.value[2],
                           style: const TextStyle(
-                              color: lime, fontWeight: FontWeight.w800))
+                              color: amberInk, fontWeight: FontWeight.w800))
                     ]),
                     if (open == e.key) ...[
                       const Divider(height: 22, color: panel2),
@@ -2827,12 +2702,12 @@ class _LettersPageState extends State<LettersPage> {
         padding: const EdgeInsets.fromLTRB(22, 24, 22, 30),
         children: [
           const PageHead(
-              eyebrow: 'Theory lab',
-              title: 'Crack the Cyrillic code',
-              subtitle: 'Thirty letters. You’ve got this.'),
+              eyebrow: 'Alphabet',
+              title: 'Serbian Cyrillic',
+              subtitle: 'Explore the sounds of all 30 letters.'),
           const SizedBox(height: 22),
           KCard(
-              color: const Color(0xFF32284A),
+              color: const Color(0xFFF0EBF8),
               child: Row(children: [
                 Container(
                     width: 90,
@@ -2867,7 +2742,7 @@ class _LettersPageState extends State<LettersPage> {
           const SizedBox(height: 26),
           const Text('SERBIAN CYRILLIC',
               style: TextStyle(
-                  color: lime,
+                  color: amberInk,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 1.5,
                   fontSize: 12)),
@@ -2898,9 +2773,8 @@ class _LettersPageState extends State<LettersPage> {
                                     style: TextStyle(
                                         fontSize: width > 500 ? 29 : 23,
                                         fontWeight: FontWeight.w900,
-                                        color: selected == e.key
-                                            ? bg
-                                            : Colors.white))))))
+                                        color:
+                                            selected == e.key ? bg : ink))))))
                     .toList());
           }),
           const SizedBox(height: 24),
@@ -3025,7 +2899,7 @@ class _FriendsPageState extends State<FriendsPage> {
             subtitle: 'Cheer each other on. Lovingly, of course.'),
         const SizedBox(height: 22),
         KCard(
-            color: const Color(0xFF29415B),
+            color: sky,
             child: Row(children: [
               const Text('👯', style: TextStyle(fontSize: 36)),
               const SizedBox(width: 15),
@@ -3053,7 +2927,7 @@ class _FriendsPageState extends State<FriendsPage> {
           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
             const Text('YOUR CREW',
                 style: TextStyle(
-                    color: lime,
+                    color: amberInk,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 1.4,
                     fontSize: 12)),
@@ -3084,12 +2958,12 @@ class _FriendsPageState extends State<FriendsPage> {
                           style: const TextStyle(fontWeight: FontWeight.w900))),
                   Text('⚡ ${f['xp'] ?? 0}',
                       style: const TextStyle(
-                          color: lime, fontWeight: FontWeight.w900))
+                          color: amberInk, fontWeight: FontWeight.w900))
                 ])))),
           const SizedBox(height: 18),
           const Text('LATEST WINS',
               style: TextStyle(
-                  color: lime,
+                  color: amberInk,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 1.4,
                   fontSize: 12)),
@@ -3111,7 +2985,7 @@ class _FriendsPageState extends State<FriendsPage> {
                           style: const TextStyle(fontWeight: FontWeight.w900)),
                       const SizedBox(height: 8),
                       Text('⚡ +${f['xp'] ?? 0} XP',
-                          style: const TextStyle(color: lime)),
+                          style: const TextStyle(color: amberInk)),
                       const SizedBox(height: 8),
                       TextButton.icon(
                           onPressed: () => like(f['id']),
@@ -3151,7 +3025,7 @@ class ProfilePage extends StatelessWidget {
       required this.onLogout});
   @override
   Widget build(BuildContext context) {
-    final ink = look.backgroundColor.computeLuminance() > .55
+    final portraitInk = look.backgroundColor.computeLuminance() > .55
         ? const Color(0xFF131F24)
         : Colors.white;
     final created = user?['createdAt'];
@@ -3173,7 +3047,7 @@ class ProfilePage extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                  color: ink,
+                                  color: portraitInk,
                                   fontSize: 26,
                                   fontWeight: FontWeight.w900))),
                       Align(
@@ -3181,17 +3055,19 @@ class ProfilePage extends StatelessWidget {
                           child: IconButton(
                               tooltip: 'Close',
                               onPressed: onClose,
-                              icon: Icon(Icons.close_rounded, color: ink))),
+                              icon: Icon(Icons.close_rounded,
+                                  color: portraitInk))),
                       Align(
                           alignment: Alignment.centerRight,
                           child: IconButton(
                               tooltip: 'Settings',
                               onPressed: () => showFeedbackSettings(context),
-                              icon: Icon(Icons.settings_rounded, color: ink)))
+                              icon: Icon(Icons.settings_rounded,
+                                  color: portraitInk)))
                     ])),
                 Text(year == null ? 'Learning Serbian' : 'Learning since $year',
                     style: TextStyle(
-                        color: ink.withValues(alpha: .72),
+                        color: portraitInk.withValues(alpha: .72),
                         fontWeight: FontWeight.w800,
                         fontSize: 15)),
                 GestureDetector(
@@ -3245,11 +3121,11 @@ class ProfilePage extends StatelessWidget {
                         const SizedBox(height: 16),
                         OutlinedButton.icon(
                             onPressed: onFriends,
-                            icon: const Icon(Icons.person_add_alt_1,
-                                color: Colors.white),
+                            icon:
+                                const Icon(Icons.person_add_alt_1, color: blue),
                             label: const Text('ADD FRIENDS',
                                 style: TextStyle(
-                                    color: Colors.white,
+                                    color: blue,
                                     fontWeight: FontWeight.w900,
                                     letterSpacing: .6)),
                             style: OutlinedButton.styleFrom(
@@ -3260,7 +3136,7 @@ class ProfilePage extends StatelessWidget {
                                     const EdgeInsets.symmetric(vertical: 14))),
                         const SizedBox(height: 18),
                         Material(
-                            color: const Color(0xFF3C2F78),
+                            color: const Color(0xFFF0EBF8),
                             borderRadius: BorderRadius.circular(22),
                             child: Padding(
                                 padding:
@@ -3278,8 +3154,7 @@ class ProfilePage extends StatelessWidget {
                                       const Text(
                                           'Mix skin, hair, glasses, and clothes. It stays on your profile.',
                                           style: TextStyle(
-                                              color: Color(0xFFD9D0F2),
-                                              fontSize: 13)),
+                                              color: muted, fontSize: 13)),
                                       const SizedBox(height: 14),
                                       Material(
                                           color: Colors.white,
@@ -3313,7 +3188,7 @@ class ProfilePage extends StatelessWidget {
                         const SizedBox(height: 12),
                         Row(children: [
                           const Icon(Icons.local_fire_department_rounded,
-                              color: Color(0xFFFF9A43), size: 28),
+                              color: orange, size: 28),
                           const SizedBox(width: 6),
                           Text('$streak days',
                               style: const TextStyle(
@@ -3345,7 +3220,7 @@ class ProfilePage extends StatelessWidget {
                           KCard(
                               child: Row(children: [
                             const Icon(Icons.verified_user_outlined,
-                                color: lime),
+                                color: amberInk),
                             const SizedBox(width: 12),
                             Expanded(
                                 child: Text(user!['email'] ?? '',
@@ -3379,7 +3254,7 @@ class ProfilePage extends StatelessWidget {
   }
 
   Widget _stat(Widget value, String label) => Expanded(
-      child: Column(children: [
+          child: Column(children: [
         SizedBox(height: 32, child: Center(child: value)),
         const SizedBox(height: 4),
         Text(label,
@@ -3390,7 +3265,7 @@ class ProfilePage extends StatelessWidget {
   Widget _badge(String icon, String label, bool unlocked) => Container(
       height: 96,
       decoration: BoxDecoration(
-          color: unlocked ? const Color(0xFF3B344B) : panel,
+          color: unlocked ? peach : panel,
           borderRadius: BorderRadius.circular(17)),
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
         Text(unlocked ? icon : '🔒', style: const TextStyle(fontSize: 25)),
@@ -3399,7 +3274,7 @@ class ProfilePage extends StatelessWidget {
             style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w900,
-                color: unlocked ? Colors.white : muted))
+                color: unlocked ? ink : muted))
       ]));
 
   void _editAvatar(BuildContext context) {
@@ -3408,7 +3283,6 @@ class ProfilePage extends StatelessWidget {
         MaterialPageRoute(
             builder: (_) => AvatarEditor(look: look, onDone: onAvatar)));
   }
-
 
   void _authDialog(BuildContext context) {
     final email = TextEditingController(),
@@ -3465,7 +3339,7 @@ class ProfilePage extends StatelessWidget {
                               style: TextStyle(fontSize: 13)),
                           contentPadding: EdgeInsets.zero,
                           controlAffinity: ListTileControlAffinity.leading,
-                          activeColor: lime),
+                          activeColor: amberInk),
                       if (error != null)
                         Padding(
                             padding: const EdgeInsets.only(bottom: 10),
@@ -3513,7 +3387,7 @@ class ProfilePage extends StatelessWidget {
   InputDecoration _input(String label) => InputDecoration(
       hintText: label,
       filled: true,
-      fillColor: panel2,
+      fillColor: const Color(0xFFF5F7F7),
       border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none));
@@ -3528,97 +3402,79 @@ class BottomNav extends StatelessWidget {
   final ValueChanged<int> onTap;
   const BottomNav({super.key, required this.tab, required this.onTap});
   static const icons = [
-    Icons.cottage_rounded,
+    Icons.menu_book_rounded,
     Icons.auto_stories_rounded,
     Icons.translate_rounded,
     Icons.diversity_1_rounded,
-    Icons.face_rounded
+    Icons.person_outline_rounded
   ];
-  static const colors = [
-    Color(0xFFFFB94A),
-    Color(0xFF59C5F5),
-    Color(0xFFAB8AF3),
-    Color(0xFFFF86BE),
-    Color(0xFF63D6B6)
-  ];
-  static const names = [
-    'Course trail',
-    'Words',
-    'Letters',
-    'Friends',
-    'Profile'
-  ];
+  static const names = ['Learn', 'Words', 'Letters', 'Friends', 'Profile'];
+
   @override
-  Widget build(BuildContext context) => Container(
-      height: 72,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+  Widget build(BuildContext context) => DecoratedBox(
       decoration: const BoxDecoration(
-          color: bg, border: Border(top: BorderSide(color: panel2, width: 2))),
-      child: Row(
-          children: List.generate(
-              5,
-              (i) => Expanded(
-                  child: Tooltip(
-                      message: names[i],
-                      child: Semantics(
-                          selected: tab == i,
-                          label: names[i],
-                          button: true,
-                          child: Center(
-                              child: Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                      onTap: () => onTap(i),
-                                      borderRadius: BorderRadius.circular(16),
-                                      child: AnimatedContainer(
-                                          duration:
-                                              const Duration(milliseconds: 180),
-                                          width: 54,
-                                          height: 52,
-                                          decoration: BoxDecoration(
-                                              color: tab == i
-                                                  ? const Color(0xFF1C3542)
-                                                  : Colors.transparent,
-                                              borderRadius:
-                                                  BorderRadius.circular(16),
-                                              border: Border.all(
-                                                  color: tab == i
-                                                      ? const Color(0xFF4387A3)
-                                                      : Colors.transparent,
-                                                  width: 2)),
-                                          child:
-                                              Icon(icons[i], color: colors[i], size: 31)))))))))));
+          color: panel, border: Border(top: BorderSide(color: panel2))),
+      child: SizedBox(
+          height: 62,
+          child: Row(children: [
+            for (var i = 0; i < names.length; i++)
+              Expanded(
+                  child: Semantics(
+                      button: true,
+                      selected: tab == i,
+                      label: names[i],
+                      child: Tooltip(
+                          message: names[i],
+                          excludeFromSemantics: true,
+                          child: InkWell(
+                              onTap: () => onTap(i),
+                              child: Center(
+                                  child: Container(
+                                      width: 48,
+                                      height: 38,
+                                      decoration: BoxDecoration(
+                                          color: tab == i
+                                              ? peach
+                                              : Colors.transparent,
+                                          borderRadius:
+                                              BorderRadius.circular(14)),
+                                      child: Icon(icons[i],
+                                          color: tab == i ? amberInk : muted,
+                                          size: 24))))))),
+          ])));
 }
 
 class SideNav extends StatelessWidget {
   final int tab;
   final ValueChanged<int> onTap;
   const SideNav({super.key, required this.tab, required this.onTap});
+
   @override
   Widget build(BuildContext context) => Container(
-      color: panel,
-      child: Column(children: [
+      decoration:
+          const BoxDecoration(border: Border(right: BorderSide(color: panel2))),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Padding(
-            padding: EdgeInsets.fromLTRB(20, 30, 12, 30),
-            child: Text('HELLO\nKRISTINA',
+            padding: EdgeInsets.fromLTRB(10, 26, 0, 24),
+            child: Text('Hello Kristina',
                 style: TextStyle(
-                    color: lime,
-                    fontSize: 23,
-                    fontWeight: FontWeight.w900,
-                    height: 1))),
-        ...List.generate(
-            5,
-            (i) => ListTile(
-                onTap: () => onTap(i),
-                selected: tab == i,
-                selectedTileColor: panel2,
-                leading: Icon(BottomNav.icons[i], color: BottomNav.colors[i]),
-                title: Text(
-                    ['Path', 'Words', 'Letters', 'Friends', 'Profile'][i],
-                    style: TextStyle(
-                        color: tab == i ? lime : muted,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 13))))
+                    color: ink, fontSize: 22, fontWeight: FontWeight.w900))),
+        for (var i = 0; i < BottomNav.names.length; i++)
+          Padding(
+              padding: const EdgeInsets.only(bottom: 5),
+              child: ListTile(
+                  onTap: () => onTap(i),
+                  selected: tab == i,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  selectedTileColor: peach,
+                  selectedColor: amberInk,
+                  textColor: muted,
+                  iconColor: muted,
+                  leading: Icon(BottomNav.icons[i]),
+                  title: Text(BottomNav.names[i],
+                      style: const TextStyle(fontWeight: FontWeight.w700)))),
       ]));
 }
 
@@ -3794,7 +3650,7 @@ class _AdminPageState extends State<AdminPage> {
                     onTap: courseBusy || !reviewed
                         ? null
                         : () => saveCourse(publish: true),
-                    color: lime),
+                    color: amberInk),
                 if (courseMessage.isNotEmpty)
                   Padding(
                       padding: const EdgeInsets.only(top: 12),
@@ -3886,7 +3742,7 @@ class _ChatPageState extends State<ChatPage> {
                                         Flexible(
                                             child: KCard(
                                                 color: m['role'] == 'user'
-                                                    ? const Color(0xFF315840)
+                                                    ? sky
                                                     : panel,
                                                 child: Text(m['text']!,
                                                     style: const TextStyle(
@@ -3919,7 +3775,8 @@ class _ChatPageState extends State<ChatPage> {
                                 onPressed: busy ? null : send,
                                 icon: const Icon(Icons.send),
                                 style: IconButton.styleFrom(
-                                    backgroundColor: lime, foregroundColor: bg))
+                                    backgroundColor: orange,
+                                    foregroundColor: ink))
                           ]))
                   ])))));
 }

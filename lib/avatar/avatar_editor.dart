@@ -3,10 +3,7 @@ import 'package:flutter/material.dart';
 import 'learner_look.dart';
 import 'learner_portrait.dart';
 
-const _bg = Color(0xFF131F24);
-const _panel2 = Color(0xFF2C404B);
-const _blue = Color(0xFF49C0F8);
-const _muted = Color(0xFF93A7B2);
+import '../widgets/course_palette.dart';
 
 class AvatarEditor extends StatefulWidget {
   final LearnerLook look;
@@ -57,11 +54,11 @@ class _AvatarEditorState extends State<AvatarEditor> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        backgroundColor: _bg,
+        backgroundColor: bg,
         appBar: AppBar(
-            backgroundColor: _bg,
+            backgroundColor: bg,
             elevation: 0,
-            foregroundColor: Colors.white,
+            foregroundColor: ink,
             leading: IconButton(
                 tooltip: 'Close',
                 onPressed: () => Navigator.pop(context),
@@ -73,13 +70,12 @@ class _AvatarEditorState extends State<AvatarEditor> {
                   onPressed: saving ? null : _save,
                   child: Text(saving ? 'SAVING' : 'DONE',
                       style: const TextStyle(
-                          color: _blue,
+                          color: blue,
                           fontWeight: FontWeight.w900,
                           letterSpacing: .6)))
             ]),
         body: LayoutBuilder(builder: (context, constraints) {
-          final preview =
-              (constraints.maxHeight * .34).clamp(168.0, 300.0);
+          final preview = (constraints.maxHeight * .34).clamp(168.0, 300.0);
           return Column(children: [
             SizedBox(
                 height: preview,
@@ -106,24 +102,24 @@ class _AvatarEditorState extends State<AvatarEditor> {
                           child: InkWell(
                               onTap: () => setState(() => category = index),
                               child: Padding(
-                                  padding:
-                                      const EdgeInsets.symmetric(horizontal: 10),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10),
                                   child: Column(
                                       mainAxisAlignment: MainAxisAlignment.end,
                                       children: [
                                         Icon(_icons[index],
-                                            color: selected ? _blue : _muted,
+                                            color: selected ? blue : muted,
                                             size: 28),
                                         const SizedBox(height: 8),
                                         Container(
                                             width: 36,
                                             height: 3,
                                             color: selected
-                                                ? _blue
+                                                ? blue
                                                 : Colors.transparent)
                                       ]))));
                     })),
-            const Divider(height: 1, color: _panel2),
+            const Divider(height: 1, color: panel2),
             Expanded(
                 child: ListView(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
@@ -247,11 +243,11 @@ class _AvatarEditorState extends State<AvatarEditor> {
                         decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(18),
                             border: Border.all(
-                                color: on ? _blue : Colors.transparent,
+                                color: on ? blue : Colors.transparent,
                                 width: 3)),
                         child: DecoratedBox(
                             decoration: BoxDecoration(
-                                color: const Color(0xFF24343C),
+                                color: panel2,
                                 borderRadius: BorderRadius.circular(14)),
                             child: Padding(
                                 padding: const EdgeInsets.all(7),
@@ -295,10 +291,10 @@ class _AvatarEditorState extends State<AvatarEditor> {
                     onTap: () => setState(() => apply(index)),
                     child: DecoratedBox(
                         decoration: BoxDecoration(
-                            color: const Color(0xFF1B2A32),
+                            color: sky,
                             borderRadius: BorderRadius.circular(18),
                             border: Border.all(
-                                color: on ? _blue : _panel2, width: on ? 3 : 2)),
+                                color: on ? blue : panel2, width: on ? 3 : 2)),
                         child: Padding(
                             padding: const EdgeInsets.all(10),
                             child: LearnerPortrait(

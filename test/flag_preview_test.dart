@@ -4,7 +4,7 @@ import 'package:hello_kristina/avatar/learner_look.dart';
 import 'package:hello_kristina/main.dart';
 
 void main() {
-  testWidgets('the course selector shows the flag without the language name',
+  testWidgets('the course selector identifies the current course with its flag',
       (tester) async {
     final previous = List<Lesson>.of(lessons);
     addTearDown(() => lessons = previous);
@@ -31,14 +31,20 @@ void main() {
                     onChat: () {},
                     onProfile: () {})))));
     await tester.pump();
-    expect(find.text('Serbian'), findsNothing);
-    expect(find.bySemanticsLabel('Flag of Serbia'), findsOneWidget);
+    final selector = find
+        .ancestor(
+            of: find.byIcon(Icons.expand_more_rounded),
+            matching: find.byType(InkWell))
+        .first;
+    expect(find.descendant(of: selector, matching: find.byType(Text)),
+        findsNothing);
+    expect(find.bySemanticsLabel(RegExp('Flag of Serbia')), findsOneWidget);
     await tester.tap(find.byIcon(Icons.expand_more_rounded));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('Serbian'), findsNothing);
     expect(find.text('For English speakers'), findsOneWidget);
     expect(find.text('Your courses'), findsOneWidget);
-    expect(find.bySemanticsLabel('Flag of Serbia'), findsWidgets);
+    expect(find.bySemanticsLabel(RegExp('Flag of Serbia')), findsWidgets);
   });
 }

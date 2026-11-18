@@ -40,7 +40,14 @@ class _VocabularyPage extends StatelessWidget {
       if (greeting != null)
         return Text(greeting, style: const TextStyle(fontSize: 82));
     }
-    return AnimatedKristina(width: 104, height: 142, character: character);
+    return ValueListenableBuilder<bool>(
+        valueListenable: SerbianAudio.speaking,
+        builder: (_, speaking, __) => AnimatedKristina(
+            width: 104,
+            height: 142,
+            character: character,
+            gaze: Offset.zero,
+            mood: speaking ? 'speaking' : 'idle'));
   }
 
   @override

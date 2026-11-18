@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'course_palette.dart';
 
-class TactileButton extends StatelessWidget {
+/// A chunky button with a darker ledge underneath. Pressing it sinks the face
+/// onto the ledge, so every action feels physical.
+class TactileButton extends StatefulWidget {
   final String label;
   final VoidCallback? onTap;
   final Color color, foreground;
@@ -16,24 +18,70 @@ class TactileButton extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => SizedBox(
+  State<TactileButton> createState() => _TactileButtonState();
+}
+
+class _TactileButtonState extends State<TactileButton> {
+  static const _ledge = 4.0;
+  bool _down = false;
+
+  void _press(bool down) {
+    if (widget.onTap == null || down == _down) return;
+    setState(() => _down = down);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.onTap != null;
+    final face = enabled ? widget.color : panel2;
+    final ledge = !enabled
+        ? const Color(0xFFC9D0D3)
+        : widget.outline
+            ? panel2
+            : Color.lerp(widget.color, Colors.black, .22)!;
+    final sink = _down ? _ledge : 0.0;
+    return Listener(
+      onPointerDown: (_) => _press(true),
+      onPointerUp: (_) => _press(false),
+      onPointerCancel: (_) => _press(false),
+      child: SizedBox(
         width: double.infinity,
         height: 50,
-        child: FilledButton(
-          onPressed: onTap,
-          style: FilledButton.styleFrom(
-            backgroundColor: color,
-            foregroundColor: foreground,
-            disabledBackgroundColor: panel2,
-            disabledForegroundColor: muted,
-            elevation: 0,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
-            side: outline ? const BorderSide(color: panel2) : null,
-            textStyle:
-                const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+        child: Stack(children: [
+          Positioned.fill(
+              top: _ledge,
+              child: DecoratedBox(
+                  decoration: BoxDecoration(
+                      color: ledge, borderRadius: BorderRadius.circular(13)))),
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 70),
+            curve: Curves.easeOut,
+            left: 0,
+            right: 0,
+            top: sink,
+            height: 50 - _ledge,
+            child: FilledButton(
+              onPressed: widget.onTap,
+              style: FilledButton.styleFrom(
+                backgroundColor: face,
+                foregroundColor: widget.foreground,
+                disabledBackgroundColor: panel2,
+                disabledForegroundColor: muted,
+                elevation: 0,
+                padding: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(13)),
+                side: widget.outline ? const BorderSide(color: panel2) : null,
+                textStyle: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: .4),
+              ),
+              child: Text(widget.label, textAlign: TextAlign.center),
+            ),
           ),
-          child: Text(label, textAlign: TextAlign.center),
-        ),
-      );
+        ]),
+      ),
+    );
+  }
 }

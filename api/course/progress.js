@@ -1,4 +1,5 @@
 import { practiceResult, validPracticeLength } from '../../server/practice-rounds.js';
+import { sessionXp } from '../../server/xp.js';
 import { updateMastery, recommendation } from '../../server/mastery.js';
 import { safe, method, send, requireUser, db } from '../../server/core.js';
 import { starterCourse, lessonPassed } from '../../server/course.js';
@@ -47,7 +48,7 @@ export default safe(async (req, res) => {
     const completion = await collection.updateOne({ ...filter, completedLessons: { $ne: lessonId } }, { $addToSet: { completedLessons: lessonId } });
     newlyCompleted = completion.modifiedCount === 1;
   }
-  const xp = passed && result.newRound ? Math.min(30, 10 + answers.filter(Boolean).length * 5) : 0;
+  const xp = sessionXp(answers, passed, result.newRound);
   await database.collection('users').updateOne({ _id: user._id }, { $inc: { xp }, $set: { streak } });
   if (newlyCompleted) await database.collection('feed').insertOne({ actorId: user._id, actorName: user.name, actorAvatar: user.avatar, type: 'lesson', lessonId, xp, likes: [], createdAt: new Date() });
   send(res, 200, { xp, streak, passed, progress: await collection.findOne(filter, { projection: { _id: 0, userId: 0 } }) });

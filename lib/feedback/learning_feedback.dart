@@ -5,7 +5,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'haptics_native.dart' if (dart.library.js_interop) 'haptics_web.dart'
     as haptics;
 
-enum FeedbackCue { tap, correct, retry, streak, hotStreak, complete, perfect }
+enum FeedbackCue {
+  tap,
+  correct,
+  retry,
+  streak,
+  hotStreak,
+  complete,
+  perfect,
+  xpTick,
+  combo,
+  levelUp
+}
 
 abstract class FeedbackDriver {
   Future<void> play(FeedbackCue cue);
@@ -15,8 +26,8 @@ abstract class FeedbackDriver {
 }
 
 class PlatformFeedbackDriver implements FeedbackDriver {
-  AudioPlayer? _player;
-  int _generation = 0;
+  AudioPlayer? _player, _tickPlayer;
+  int _generation = 0, _tickGeneration = 0;
   static const files = [
     'tap',
     'correct',
@@ -24,7 +35,10 @@ class PlatformFeedbackDriver implements FeedbackDriver {
     'streak',
     'hot_streak',
     'complete',
-    'perfect'
+    'perfect',
+    'xp_tick',
+    'combo',
+    'level_up'
   ];
   static const patterns = [
     [7],
@@ -33,10 +47,15 @@ class PlatformFeedbackDriver implements FeedbackDriver {
     [12, 45, 18],
     [14, 35, 20, 45, 24],
     [12, 50, 20],
-    [18, 50, 25, 70, 35]
+    [18, 50, 25, 70, 35],
+    [4],
+    [10, 30, 14],
+    [30, 60, 30, 60, 45, 80, 60]
   ];
   @override
   Future<void> play(FeedbackCue cue) async {
+    // Counting ticks use their own player so they never cut off a fanfare.
+    if (cue == FeedbackCue.xpTick) return _tick();
     final generation = ++_generation;
     try {
       final player = _player ??= AudioPlayer();
@@ -50,14 +69,31 @@ class PlatformFeedbackDriver implements FeedbackDriver {
     } catch (_) {/* Browser audio policies must never block a lesson. */}
   }
 
+  Future<void> _tick() async {
+    final generation = ++_tickGeneration;
+    try {
+      final player = _tickPlayer ??= AudioPlayer();
+      await player.stop();
+      if (generation != _tickGeneration) return;
+      await player.setSource(AssetSource('audio/effects/xp_tick.wav'));
+      if (generation != _tickGeneration) return;
+      await player.setVolume(0.3);
+      if (generation == _tickGeneration) await player.resume();
+    } catch (_) {}
+  }
+
   @override
   Future<void> pulse(FeedbackCue cue) => haptics.pulse(patterns[cue.index],
-      strong: cue == FeedbackCue.hotStreak || cue == FeedbackCue.perfect);
+      strong: cue == FeedbackCue.hotStreak ||
+          cue == FeedbackCue.perfect ||
+          cue == FeedbackCue.levelUp);
   @override
   Future<void> stopSounds() async {
     _generation++;
+    _tickGeneration++;
     try {
       await _player?.stop();
+      await _tickPlayer?.stop();
     } catch (_) {}
   }
 
@@ -123,6 +159,14 @@ class LearningFeedback extends ChangeNotifier {
       : perfect
           ? FeedbackCue.perfect
           : FeedbackCue.complete);
+
+  /// A soft tick while XP counts up. Vibration stays for bigger moments.
+  void xpTick() {
+    if (sounds) unawaited(driver.play(FeedbackCue.xpTick));
+  }
+
+  void combo() => _emit(FeedbackCue.combo);
+  void levelUp() => _emit(FeedbackCue.levelUp);
   Future<void> stopSounds() => driver.stopSounds();
   void cancelHaptics() => driver.cancelHaptics();
 }

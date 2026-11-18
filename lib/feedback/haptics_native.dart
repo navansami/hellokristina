@@ -10,7 +10,9 @@ Future<void> pulse(List<int> pattern, {bool strong = false}) async {
   try {
     for (var i = 0; i < pattern.length; i += 2) {
       if (generation != _generation) return;
-      if (strong) {
+      if (strong && pattern[i] >= 30) {
+        await HapticFeedback.heavyImpact();
+      } else if (strong) {
         await HapticFeedback.mediumImpact();
       } else if (pattern.first <= 8) {
         await HapticFeedback.selectionClick();

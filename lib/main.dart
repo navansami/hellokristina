@@ -11,6 +11,7 @@ import 'widgets/belgrade_postcard.dart';
 import 'widgets/learning_object.dart';
 import 'widgets/word_hints.dart';
 import 'feedback/learning_feedback.dart';
+import 'game/progression.dart';
 import 'feedback/feedback_settings.dart';
 import 'practice/object_bank.dart';
 import 'speech/serbian_speech.dart';
@@ -28,6 +29,8 @@ import 'package:flutter_tts/flutter_tts.dart';
 part 'practice/round_sampler.dart';
 part 'practice/practice_memory.dart';
 part 'widgets/lesson_vocabulary.dart';
+part 'game/session_results.dart';
+part 'game/lesson_energy.dart';
 
 InputDecoration _input(String label) => InputDecoration(
     hintText: label,
@@ -463,16 +466,19 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
     final roundKey = '${lesson.id}:$roundIndex';
     final first =
         !done.contains(lesson.id) && !completedRounds.contains(roundKey);
+    final p = await SharedPreferences.getInstance();
+    final now = DateTime.now();
+    final lastActive = DateTime.tryParse(p.getString('lastActive') ?? '');
     setState(() {
       if (passed) {
         completedRounds.add(roundKey);
         if (List.generate(5, (i) => '${lesson.id}:$i')
             .every(completedRounds.contains)) done.add(lesson.id);
       }
-      if (passed && first) xp += (10 + correct * 5).clamp(0, 30);
-      streak = streak == 0 ? 1 : streak;
+      xp += sessionReward(answers, passed: passed, firstTime: first).total;
+      streak = nextStreak(streak, lastActive, now);
     });
-    final p = await SharedPreferences.getInstance();
+    await p.setString('lastActive', now.toIso8601String());
     await p.setStringList('done', done.toList());
     await p.setStringList('completedRounds', completedRounds.toList());
     await p.setInt('xp', xp);
@@ -524,6 +530,7 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
     await p.remove('completedRounds');
     await p.remove('xp');
     await p.remove('streak');
+    await p.remove('lastActive');
     setState(() {
       token = data['token'];
       user = data['user'];
@@ -544,6 +551,7 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
     await p.remove('completedRounds');
     await p.remove('xp');
     await p.remove('streak');
+    await p.remove('lastActive');
     setState(() {
       token = null;
       user = null;
@@ -606,6 +614,7 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
             lesson: practice,
             alreadyCompleted: completedBefore,
             practiceRound: roundIndex,
+            startXp: xp,
             replacements: deal.bench,
             onRetry: () => lesson(l, roundIndex),
             onComplete: (n, a) => finish(l, n, a, roundIndex))));
@@ -1141,12 +1150,7 @@ class _PathPageState extends State<PathPage> {
                     fontWeight: FontWeight.w900,
                     fontSize: 18)),
             const SizedBox(width: 12),
-            const Icon(Icons.bolt_rounded, color: amberInk, size: 25),
-            Text('${widget.xp}',
-                style: const TextStyle(
-                    color: amberInk,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 15)),
+            _HeaderLevel(xp: widget.xp),
           ])),
       Expanded(
           child: LayoutBuilder(
@@ -1220,16 +1224,27 @@ class _PathPageState extends State<PathPage> {
                     child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 14),
                         child: Row(children: [
-                          Container(
-                              width: 50,
-                              height: 50,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                  color: [peach, sky, mint, blush][index % 4],
-                                  borderRadius: BorderRadius.circular(14)),
-                              child: ExcludeSemantics(
-                                  child: Text(lesson.icon,
-                                      style: const TextStyle(fontSize: 27)))),
+                          if (active)
+                            // The tutor waits on the next lesson and waves.
+                            IgnorePointer(
+                                child: ExcludeSemantics(
+                                    child: AnimatedKristina(
+                                        width: 50,
+                                        height: 66,
+                                        framing: TutorFraming.bust,
+                                        gaze: Offset.zero,
+                                        character: global % 3)))
+                          else
+                            Container(
+                                width: 50,
+                                height: 50,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                    color: [peach, sky, mint, blush][index % 4],
+                                    borderRadius: BorderRadius.circular(14)),
+                                child: ExcludeSemantics(
+                                    child: Text(lesson.icon,
+                                        style: const TextStyle(fontSize: 27)))),
                           const SizedBox(width: 14),
                           Expanded(
                               child: Column(
@@ -1482,7 +1497,7 @@ class _CrownPainter extends CustomPainter {
 class LessonPage extends StatefulWidget {
   final Lesson lesson;
   final bool alreadyCompleted;
-  final int practiceRound;
+  final int practiceRound, startXp;
   final Future<void> Function(int, List<bool>) onComplete;
   final VoidCallback? onRetry;
   final List<Question> replacements;
@@ -1492,6 +1507,7 @@ class LessonPage extends StatefulWidget {
       required this.onComplete,
       this.alreadyCompleted = false,
       this.practiceRound = 0,
+      this.startXp = 0,
       this.replacements = const [],
       this.onRetry});
   @override
@@ -1500,7 +1516,7 @@ class LessonPage extends StatefulWidget {
 
 class _LessonPageState extends State<LessonPage>
     with SingleTickerProviderStateMixin {
-  int index = 0, correct = 0, answerRun = 0;
+  int index = 0, correct = 0, answerRun = 0, nudges = 0;
   final List<bool> answers = [];
   final List<int> picked = [];
   late final List<Question> round;
@@ -1731,9 +1747,18 @@ class _LessonPageState extends State<LessonPage>
   }
 
   void _selectionFeedback(Question q, String word) {
+    nudges++;
     final spoken = learningFeedback.shouldSpeakSelection(q.answerLanguage);
     learningFeedback.tap(sound: !spoken);
     if (spoken) unawaited(SerbianAudio.speakWord(word));
+  }
+
+  void _pokeTutor() {
+    learningFeedback.tap(sound: !learningFeedback.spokenWords);
+    if (learningFeedback.spokenWords && !SerbianAudio.speaking.value) {
+      unawaited(SerbianAudio.speakWord(
+          const ['zdravo', 'hej', 'dobro', 'hvala'][nudges++ % 4]));
+    }
   }
 
   int _castIndex() =>
@@ -1783,15 +1808,22 @@ class _LessonPageState extends State<LessonPage>
                                           color: muted,
                                           tooltip: 'Leave lesson'),
                                       Expanded(
-                                          child: Center(
-                                              child: _LessonCrowns(
-                                                  progress: finished
-                                                      ? 1
-                                                      : (index +
-                                                              (checked
-                                                                  ? 1
-                                                                  : 0)) /
-                                                          round.length))),
+                                          child: Stack(
+                                              alignment: Alignment.center,
+                                              children: [
+                                            _LessonCrowns(
+                                                progress: finished
+                                                    ? 1
+                                                    : (index +
+                                                            (checked ? 1 : 0)) /
+                                                        round.length),
+                                            if (!finished)
+                                              Align(
+                                                  alignment:
+                                                      Alignment.centerRight,
+                                                  child: _ComboChip(
+                                                      run: answerRun)),
+                                          ])),
                                       IconButton(
                                           tooltip: 'Learning feedback',
                                           onPressed: () =>
@@ -1813,7 +1845,7 @@ class _LessonPageState extends State<LessonPage>
                                             value: value,
                                             minHeight: 5,
                                             backgroundColor: panel2,
-                                            color: const Color(0xFF8FC9EA))),
+                                            color: _runColor(answerRun))),
                                 Expanded(
                                     child: Padding(
                                         padding: EdgeInsets.fromLTRB(
@@ -1844,6 +1876,15 @@ class _LessonPageState extends State<LessonPage>
                                         curve: Curves.easeOutCubic,
                                         child: _footer(q, guide,
                                             viewport.maxHeight < 600))),
+                              if (!finished && checked && lastCorrect)
+                                Positioned(
+                                    right: 24,
+                                    top: viewport.maxHeight * .22,
+                                    child: IgnorePointer(
+                                        child: _FloatingXp(
+                                            key: ValueKey('xp-$index'),
+                                            amount: 2,
+                                            hot: answerRun >= 5))),
                             ]))))));
   }
 
@@ -1851,7 +1892,7 @@ class _LessonPageState extends State<LessonPage>
       LayoutBuilder(builder: (context, space) {
         final short = space.maxHeight < 380;
         final headingHeight = short ? 38.0 : 52.0;
-        final sceneHeight = (space.maxHeight * .19).clamp(62.0, 96.0);
+        final sceneHeight = (space.maxHeight * .23).clamp(66.0, 120.0);
         return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -1893,14 +1934,22 @@ class _LessonPageState extends State<LessonPage>
     final tutor = ValueListenableBuilder<bool>(
       valueListenable: SerbianAudio.speaking,
       builder: (_, speaking, __) => AnimatedKristina(
-        width: height * .62,
+        width: height * .86,
         height: height,
         character: _castIndex(),
+        framing: TutorFraming.bust,
+        nudge: nudges,
+        gaze: speaking || listening ? Offset.zero : const Offset(.7, .6),
+        onPoke: _pokeTutor,
         mood: checked
             ? reaction
             : speaking
                 ? 'speaking'
-                : 'idle',
+                : listening
+                    ? 'listening'
+                    : canCheck
+                        ? 'thinking'
+                        : 'idle',
       ),
     );
     if (q.type.startsWith('Listen')) {
@@ -2489,81 +2538,44 @@ class _LessonPageState extends State<LessonPage>
   void _nextGuide() => guidePages.nextPage(
       duration: const Duration(milliseconds: 220), curve: Curves.easeOut);
 
-  Widget _completeViewport() => LayoutBuilder(builder: (context, space) {
-        final passed =
-            correct * 100 >= widget.lesson.minPassPercent * round.length;
-        return Column(children: [
-          const SizedBox(height: 12),
-          Text(
-              passed
-                  ? (widget.practiceRound == 4
-                      ? 'Lesson complete'
-                      : 'Practice complete')
-                  : 'Keep practicing',
-              style: const TextStyle(
-                  fontSize: 27, fontWeight: FontWeight.w900, color: ink)),
-          Text(widget.lesson.title,
-              style: const TextStyle(fontSize: 16, color: muted)),
-          Expanded(
-              child: AnimatedKristina(
-                  width: 190,
-                  height: space.maxHeight * .42,
-                  mood: passed
-                      ? (correct == round.length ? 'hot' : 'celebrate')
-                      : 'wrong')),
-          _metric(
-              Icons.bolt_rounded,
-              passed && !widget.alreadyCompleted
-                  ? '+${(10 + correct * 5).clamp(0, 30)}'
-                  : '+0',
-              'XP earned',
-              amberInk),
-          const SizedBox(height: 8),
-          _metric(Icons.check_circle_outline, '$correct / ${round.length}',
-              'Correct answers', green),
-          const SizedBox(height: 16),
-          KButton(
-              text: passed ? 'Back to course' : 'Try again',
-              onTap: () {
-                if (passed) {
-                  Navigator.pop(context);
-                } else if (widget.onRetry != null) {
-                  final retry = widget.onRetry!;
-                  Navigator.pop(context);
-                  retry();
-                } else {
-                  setState(() {
-                    index = 0;
-                    correct = 0;
-                    answerRun = 0;
-                    answers.clear();
-                    picked.clear();
-                    checked = false;
-                    finished = false;
-                    showTheory = false;
-                    _clearAnswer();
-                  });
-                }
-              }),
-          const SizedBox(height: 12),
-        ]);
-      });
-  Widget _metric(IconData icon, String value, String label, Color color) =>
-      KCard(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-          child: Row(children: [
-            CircleAvatar(
-                radius: 17,
-                backgroundColor: color.withValues(alpha: .09),
-                child: Icon(icon, color: color, size: 21)),
-            const SizedBox(width: 12),
-            Expanded(
-                child: Text(label,
-                    style: const TextStyle(fontSize: 15, color: muted))),
-            Text(value,
-                style: const TextStyle(
-                    color: ink, fontWeight: FontWeight.w800, fontSize: 18)),
-          ]));
+  Widget _completeViewport() {
+    final passed = correct * 100 >= widget.lesson.minPassPercent * round.length;
+    return _SessionResults(
+        title: passed
+            ? (widget.practiceRound == 4
+                ? 'Lesson complete!'
+                : 'Practice complete!')
+            : 'Keep practicing',
+        subtitle: widget.lesson.title,
+        answers: answers,
+        reward: sessionReward(answers,
+            passed: passed, firstTime: !widget.alreadyCompleted),
+        startXp: widget.startXp,
+        character: _castIndex(),
+        button: KButton(
+            text: passed ? 'Back to course' : 'Try again',
+            onTap: () {
+              if (passed) {
+                Navigator.pop(context);
+              } else if (widget.onRetry != null) {
+                final retry = widget.onRetry!;
+                Navigator.pop(context);
+                retry();
+              } else {
+                setState(() {
+                  index = 0;
+                  correct = 0;
+                  answerRun = 0;
+                  answers.clear();
+                  picked.clear();
+                  checked = false;
+                  finished = false;
+                  showTheory = false;
+                  _clearAnswer();
+                });
+              }
+            }));
+  }
 }
 
 class WordsPage extends StatefulWidget {

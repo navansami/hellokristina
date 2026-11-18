@@ -11,6 +11,9 @@ patterns={
  'hot_streak':[(659.25,0,.22,.26),(783.99,.11,.22,.26),(1046.5,.22,.24,.28),(1318.5,.36,.31,.26)],
  'complete':[(523.25,0,.24,.25),(659.25,.12,.25,.25),(783.99,.24,.31,.27)],
  'perfect':[(523.25,0,.22,.24),(659.25,.10,.22,.24),(783.99,.20,.25,.24),(1046.5,.33,.27,.26),(1318.5,.48,.38,.24)],
+ 'xp_tick':[(1567.98,0,.04,.10)],
+ 'combo':[(783.99,0,.07,.24),(1174.66,.05,.12,.26)],
+ 'level_up':[(392,0,.12,.22),(523.25,.09,.12,.22),(659.25,.18,.12,.22),(783.99,.27,.14,.24),(1046.5,.38,.55,.26),(1318.5,.38,.55,.18),(1567.98,.38,.55,.14),(2093,.62,.3,.08),(2637,.74,.28,.07)],
 }
 for name,notes in patterns.items():
  duration=max(start+length for _,start,length,_ in notes)+.03
@@ -24,4 +27,4 @@ for name,notes in patterns.items():
  with wave.open(str(OUT/(name+'.wav')),'wb') as out:
   out.setparams((1,2,RATE,len(samples),'NONE','not compressed'))
   out.writeframes(b''.join(struct.pack('<h',int(max(-1,min(1,x*gain))*32767)) for x in samples))
-print('Generated seven original feedback sounds.')
+print(f'Generated {len(patterns)} original feedback sounds.')

@@ -16,3 +16,12 @@ assert.equal(sessionXp([true, false, false, true, false, false, false, false], f
 assert.deepEqual([1, 2, 3, 4, 5, 10].map(xpForLevel), [0, 40, 100, 180, 280, 1080]);
 assert.deepEqual([0, 39, 40, 99, 100, 1080].map(levelForXp), [1, 1, 2, 2, 3, 10]);
 console.log('Session XP, repeat, failure and level thresholds pass.');
+import { segmentsEarned, claimRounds } from '../server/xp.js';
+assert.equal(segmentsEarned(all(6), true), 3);
+assert.equal(segmentsEarned([...all(6), false], true), 2); // 6/7 = 86%
+assert.equal(segmentsEarned([...all(4), false, false], true), 1);
+assert.equal(segmentsEarned(all(6), false), 0);
+assert.deepEqual(claimRounds([], 'hi', 0, 3), ['hi:0', 'hi:1', 'hi:2']);
+assert.deepEqual(claimRounds(['hi:0', 'hi:1', 'hi:2'], 'hi', 3, 3), ['hi:3', 'hi:4']);
+assert.deepEqual(claimRounds(['hi:0'], 'hi', 0, 1), ['hi:1']);
+console.log('Ring segments and claims pass.');

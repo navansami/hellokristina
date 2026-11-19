@@ -1,9 +1,15 @@
 part of '../main.dart';
 
 /// Per-challenge Beta counts, kept on this device. Recent answers count more
-/// than a long-ago streak, so the sampler can change its mind.
+/// than a long-ago streak, so the sampler can change its mind. Each entry is
+/// `[correct, wrong, lastSession]`; [sessionKey] counts finished sessions so
+/// the sampler can avoid repeating what was just practised.
 class PracticeMemory {
   static const storageKey = 'practice.itemMemory';
+  static const sessionKey = 'practice.session';
+
+  static Future<int> session() async =>
+      (await SharedPreferences.getInstance()).getInt(sessionKey) ?? 0;
 
   static Future<Map<String, List<int>>> load() async {
     final preferences = await SharedPreferences.getInstance();
@@ -15,10 +21,14 @@ class PracticeMemory {
       final memory = <String, List<int>>{};
       for (final entry in decoded.entries) {
         final value = entry.value;
-        if (value is List && value.length >= 2 && value[0] is num && value[1] is num) {
+        if (value is List &&
+            value.length >= 2 &&
+            value[0] is num &&
+            value[1] is num) {
           memory[entry.key.toString()] = [
             (value[0] as num).toInt().clamp(0, 40),
             (value[1] as num).toInt().clamp(0, 40),
+            if (value.length > 2 && value[2] is num) (value[2] as num).toInt(),
           ];
         }
       }
@@ -30,6 +40,8 @@ class PracticeMemory {
 
   static Future<void> record(
       List<Question> questions, List<bool> answers) async {
+    final preferences = await SharedPreferences.getInstance();
+    final session = (preferences.getInt(sessionKey) ?? 0) + 1;
     final memory = await load();
     for (var i = 0; i < answers.length && i < questions.length; i++) {
       final id = questions[i].id;
@@ -45,9 +57,9 @@ class PracticeMemory {
       } else {
         wrong++;
       }
-      memory[id] = [correct, wrong];
+      memory[id] = [correct, wrong, session];
     }
-    final preferences = await SharedPreferences.getInstance();
+    await preferences.setInt(sessionKey, session);
     await preferences.setString(storageKey, jsonEncode(memory));
   }
 }

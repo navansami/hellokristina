@@ -1,5 +1,5 @@
 import { practiceResult, validPracticeLength } from '../../server/practice-rounds.js';
-import { sessionXp } from '../../server/xp.js';
+import { sessionXp, segmentsEarned, claimRounds } from '../../server/xp.js';
 import { updateMastery, recommendation } from '../../server/mastery.js';
 import { safe, method, send, requireUser, db } from '../../server/core.js';
 import { starterCourse, lessonPassed } from '../../server/course.js';
@@ -20,12 +20,13 @@ export default safe(async (req, res) => {
     const progress = await collection.findOne(filter, { projection: { _id: 0, userId: 0 } });
     return send(res, 200, { progress, recommendation: lessons.length ? recommendation(progress, lessons.map(lesson => lesson.id)) : null });
   }
+  if (req.body?.testOut) return testOut(req, res, { user, database, collection, filter, lessons });
   const { lessonId, roundIndex, answers = [] } = req.body || {};
   if (typeof lessonId !== 'string' || !/^[a-z0-9-]{2,80}$/.test(lessonId) || !Array.isArray(answers) || !answers.length || answers.length > 30 || answers.some(value => typeof value !== 'boolean')) return send(res, 400, { error: 'Invalid lesson result' });
   if (roundIndex !== undefined && (!Number.isInteger(roundIndex) || roundIndex < 0 || roundIndex > 4)) return send(res, 400, { error: 'Invalid practice round' });
   const lesson = lessons.find(item => item.id === lessonId);
   if (!lesson) return send(res, 400, { error: 'Lesson is not published' });
-  if (!validPracticeLength(lesson, roundIndex, answers.length)) return send(res, 400, { error: 'Practice round needs 8 to 12 answers' });
+  if (!validPracticeLength(lesson, roundIndex, answers.length)) return send(res, 400, { error: 'Practice round needs 5 to 12 answers' });
   const passed = lessonPassed(lesson, answers);
   const prior = await collection.findOne(filter);
   const today = new Date().toISOString().slice(0, 10);
@@ -37,7 +38,10 @@ export default safe(async (req, res) => {
     $set: { lastActiveAt: new Date(), [`mastery.${lessonId}`]: updateMastery(prior?.mastery?.[lessonId], answers) },
     $inc: { [`attempts.${lessonId}`]: 1 },
   };
-  if (passed) update.$addToSet = { completedRounds: key, learnedWords: { $each: lesson.vocabulary.map(word => word.latin) } };
+  // Strong sessions fill several ring segments; checkpoints fill all five.
+  const segments = lesson.type === 'challenge' ? segmentsEarned(answers, passed) : (passed ? 5 : 0);
+  const claimed = roundIndex === undefined ? [key] : claimRounds(prior?.completedRounds, lessonId, roundIndex, segments);
+  if (passed) update.$addToSet = { completedRounds: { $each: claimed.length ? claimed : [key] }, learnedWords: { $each: lesson.vocabulary.map(word => word.latin) } };
   // Return the state immediately before the atomic insertion to claim XP once.
   const previous = await collection.findOneAndUpdate(filter, update, { upsert: true, returnDocument: 'before' });
   const result = practiceResult(previous, lessonId, roundIndex, passed);
@@ -51,5 +55,26 @@ export default safe(async (req, res) => {
   const xp = sessionXp(answers, passed, result.newRound);
   await database.collection('users').updateOne({ _id: user._id }, { $inc: { xp }, $set: { streak } });
   if (newlyCompleted) await database.collection('feed').insertOne({ actorId: user._id, actorName: user.name, actorAvatar: user.avatar, type: 'lesson', lessonId, xp, likes: [], createdAt: new Date() });
-  send(res, 200, { xp, streak, passed, progress: await collection.findOne(filter, { projection: { _id: 0, userId: 0 } }) });
+  send(res, 200, { xp, streak, passed, claimed, progress: await collection.findOne(filter, { projection: { _id: 0, userId: 0 } }) });
 });
+
+// Jump ahead: passing a test-out quiz (80%) completes every listed lesson.
+async function testOut(req, res, { user, database, collection, filter, lessons }) {
+  const { lessonIds, answers } = req.body;
+  if (!Array.isArray(lessonIds) || !lessonIds.length || lessonIds.length > 120 || lessonIds.some(id => typeof id !== 'string') || !Array.isArray(answers) || answers.length < 8 || answers.length > 15 || answers.some(value => typeof value !== 'boolean')) return send(res, 400, { error: 'Invalid test-out result' });
+  const published = new Set(lessons.map(lesson => lesson.id));
+  if (lessonIds.some(id => !published.has(id))) return send(res, 400, { error: 'Lesson is not published' });
+  const passed = answers.filter(Boolean).length * 100 >= 80 * answers.length;
+  const xp = sessionXp(answers, passed, true);
+  if (passed) {
+    await collection.updateOne(filter, {
+      $set: { lastActiveAt: new Date() },
+      $addToSet: {
+        completedLessons: { $each: lessonIds },
+        completedRounds: { $each: lessonIds.flatMap(id => [0, 1, 2, 3, 4].map(i => `${id}:${i}`)) },
+      },
+    }, { upsert: true });
+  }
+  await database.collection('users').updateOne({ _id: user._id }, { $inc: { xp } });
+  send(res, 200, { xp, passed, progress: await collection.findOne(filter, { projection: { _id: 0, userId: 0 } }) });
+}

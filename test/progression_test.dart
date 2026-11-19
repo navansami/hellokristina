@@ -29,4 +29,14 @@ void main() {
     expect(nextStreak(4, DateTime(2026, 11, 18, 23), today), 5);
     expect(nextStreak(4, DateTime(2026, 11, 16), today), 1);
   });
+  test('strong sessions fill more of the ring', () {
+    expect(segmentsEarned(all(6), passed: true), 3);
+    expect(segmentsEarned([...all(6), false], passed: true), 2);
+    expect(segmentsEarned([...all(4), false, false], passed: true), 1);
+    expect(segmentsEarned(all(6), passed: false), 0);
+    expect(segmentsEarned(all(8), passed: true, kind: 'checkpoint'), 5);
+    expect(claimRounds({}, 'hi', 0, 3), ['hi:0', 'hi:1', 'hi:2']);
+    expect(claimRounds({'hi:0', 'hi:1', 'hi:2'}, 'hi', 3, 3), ['hi:3', 'hi:4']);
+    expect(claimRounds({'hi:0'}, 'hi', 0, 1), ['hi:1']);
+  });
 }

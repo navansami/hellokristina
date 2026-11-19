@@ -34,8 +34,7 @@ void main() {
     expect(objectKeyFor('Please', 'molim'), isNull);
   });
 
-  test('every lesson can deal a fresh round of 8 to 12 different challenges',
-      () {
+  test('every lesson deals a short, varied session', () {
     for (final lesson in lessons) {
       final pool = practicePool(lesson);
       expect(pool.length, greaterThanOrEqualTo(12), reason: lesson.id);
@@ -47,9 +46,35 @@ void main() {
       for (var seed = 1; seed <= 8; seed++) {
         final round =
             buildPracticeRound(lesson, const {}, Random(seed)).questions;
-        expect(round.length, inInclusiveRange(8, 12),
-            reason: '${lesson.id} #$seed');
-        expect(round.map((question) => question.id).toSet().length, round.length,
+        final expected = lesson.kind == 'assessment'
+            ? 12
+            : lesson.kind == 'checkpoint'
+                ? 10
+                : 7;
+        if (lesson.kind == 'challenge') {
+          expect(round.length, inInclusiveRange(5, 7),
+              reason: '${lesson.id} #$seed');
+        } else {
+          expect(round.length, expected, reason: '${lesson.id} #$seed');
+        }
+        final perWord = <String, int>{};
+        for (final question in round) {
+          if (question.focus.isEmpty) continue;
+          perWord[question.focus] = (perWord[question.focus] ?? 0) + 1;
+        }
+        expect(perWord.values.every((n) => n <= (round.length > 5 ? 2 : 3)),
+            isTrue,
+            reason: '${lesson.id} #$seed $perWord');
+        for (var i = 1; i < round.length; i++) {
+          if (round[i].type == round[i - 1].type &&
+              round.map((q) => q.type).toSet().length > 2) {
+            // Adjacent repeats only when no other format is left.
+            expect(round.skip(i).every((q) => q.type == round[i].type), isTrue,
+                reason: '${lesson.id} #$seed');
+          }
+        }
+        expect(
+            round.map((question) => question.id).toSet().length, round.length,
             reason: lesson.id);
         expect(
             round
@@ -60,17 +85,22 @@ void main() {
             round.length,
             reason: lesson.id);
         expect(
-            round.where((question) => question.type == 'Speak the phrase').length,
-            inInclusiveRange(1, 2),
+            round
+                .where((question) => question.type == 'Speak the phrase')
+                .length,
+            inInclusiveRange(0, round.length >= 8 ? 2 : 1),
             reason: lesson.id);
         if (pictures.isNotEmpty) {
           expect(
               round
                   .where((question) => question.type == 'Choose the image')
                   .length,
-              inInclusiveRange(1, 2),
+              lessThanOrEqualTo(1),
               reason: lesson.id);
         }
+        expect(round.where((q) => q.type == 'Match the pairs').length,
+            lessThanOrEqualTo(1),
+            reason: lesson.id);
         expect(
             round.any((question) =>
                 question.type == 'Type the answer' ||
@@ -87,6 +117,8 @@ void main() {
                 !question.id.startsWith('image:') &&
                 !question.id.startsWith('mean:') &&
                 !question.id.startsWith('tiles:') &&
+                !question.id.startsWith('pick:') &&
+                !question.id.startsWith('pairs:') &&
                 !question.id.startsWith('hear:')),
             isNotEmpty,
             reason: lesson.id);
@@ -99,6 +131,10 @@ void main() {
               expect(at, greaterThanOrEqualTo(0), reason: question.id);
               tokens.removeAt(at);
             }
+          } else if (question.type == 'Match the pairs') {
+            expect(question.options.length, inInclusiveRange(4, 5));
+            expect(
+                question.options.every((pair) => pair.contains('|')), isTrue);
           } else if (question.options.isNotEmpty) {
             expect(question.options, contains(question.answer),
                 reason: question.id);
@@ -107,10 +143,14 @@ void main() {
         signatures.add(round.map((question) => question.id).join('|'));
       }
       expect(signatures.length, greaterThan(1), reason: lesson.id);
-      final before = lesson.questions.map((question) => question.options.join('|')).join('||');
+      final before = lesson.questions
+          .map((question) => question.options.join('|'))
+          .join('||');
       buildPracticeRound(lesson, const {}, Random(4));
       expect(
-          lesson.questions.map((question) => question.options.join('|')).join('||'),
+          lesson.questions
+              .map((question) => question.options.join('|'))
+              .join('||'),
           before,
           reason: lesson.id);
     }
@@ -144,13 +184,55 @@ void main() {
 
   test('answered challenges update the saved Beta counts', () async {
     SharedPreferences.setMockInitialValues({});
-    final question = Question('Speak the phrase', 'Zdravo', 'Zdravo', const [],
-        'Say hello.',
+    final question = Question(
+        'Speak the phrase', 'Zdravo', 'Zdravo', const [], 'Say hello.',
         id: 'speak:hello:zdravo');
     await PracticeMemory.record([question], [false]);
     await PracticeMemory.record([question], [true]);
     final memory = await PracticeMemory.load();
-    expect(memory['speak:hello:zdravo'], [1, 1]);
+    expect(memory['speak:hello:zdravo'], [1, 1, 2]);
+    expect(await PracticeMemory.session(), 2);
+  });
+
+  test('session length adapts to how well the lesson is known', () {
+    final lesson = lessons.firstWhere((l) => l.id == 'coffee');
+    final pool = practicePool(lesson);
+    expect(adaptiveSessionLength(pool, const {}), 7);
+    expect(
+        adaptiveSessionLength(pool, {
+          for (final question in pool) question.id: [9, 0]
+        }),
+        5);
+    expect(
+        adaptiveSessionLength(pool, {
+          for (final question in pool) question.id: [1, 6]
+        }),
+        8);
+  });
+
+  test('the last session is damped and review comes from earlier lessons', () {
+    final lesson = lessons.firstWhere((l) => l.id == 'coffee');
+    final earlier = lessons.firstWhere((l) => l.id == 'hello');
+    final pool = practicePool(lesson);
+    final recent = pool.first.id;
+    var seen = 0;
+    for (var seed = 0; seed < 120; seed++) {
+      final deal = buildPracticeRound(
+          lesson,
+          {
+            recent: [0, 0, 5]
+          },
+          Random(seed),
+          review: [earlier],
+          session: 5);
+      if (deal.questions.any((q) => q.id == recent)) seen++;
+      final reviews = deal.questions.where((q) => q.review).toList();
+      expect(reviews.length, 2, reason: '#$seed');
+      expect(reviews.every((q) => q.id.contains('hello')), isTrue);
+    }
+    // Damped to a fifth of its weight, the item from the last session is
+    // dealt far less than half the time.
+    expect(seen, lessThan(60));
   });
 }
 
@@ -167,12 +249,8 @@ Lesson _lesson(Map<String, dynamic> data) {
   }).toList();
   final questions = (data['challenges'] as List).map((raw) {
     final item = raw as Map<String, dynamic>;
-    return Question(
-        item['type'],
-        item['prompt'],
-        item['answer'],
-        (item['options'] as List).cast<String>(),
-        item['explanation'],
+    return Question(item['type'], item['prompt'], item['answer'],
+        (item['options'] as List).cast<String>(), item['explanation'],
         id: item['id'],
         audioText: item['audioText'] ?? '',
         audioAsset: item['audio'] ?? '',

@@ -34,3 +34,26 @@ export function levelForXp(xp) {
   while (xpForLevel(level + 1) <= xp) level++;
   return level;
 }
+
+// Ring segments a passed session fills: a flawless session (no misses,
+// including retries) fills 3, 85% or better fills 2, any other pass fills 1.
+export function segmentsEarned(answers, passed) {
+  if (!passed || !answers.length) return 0;
+  const correct = answers.filter(Boolean).length;
+  if (correct === answers.length) return 3;
+  return correct * 100 >= 85 * answers.length ? 2 : 1;
+}
+
+// Which of a lesson's five session keys a pass claims: the played session
+// first (if still open), then the lowest open ones, up to `segments` keys.
+export function claimRounds(completed, lessonId, roundIndex, segments) {
+  const done = new Set(completed || []);
+  const order = [roundIndex, 0, 1, 2, 3, 4].filter((value, index, all) => all.indexOf(value) === index);
+  const claimed = [];
+  for (const i of order) {
+    if (claimed.length >= segments) break;
+    const key = `${lessonId}:${i}`;
+    if (!done.has(key)) claimed.push(key);
+  }
+  return claimed;
+}

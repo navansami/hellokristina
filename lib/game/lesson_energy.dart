@@ -87,3 +87,30 @@ class _FloatingXp extends StatelessWidget {
                 ])),
       ])));
 }
+
+/// A small label beside the exercise heading: REVIEW or MISTAKE.
+class _ExerciseTag extends StatelessWidget {
+  const _ExerciseTag(
+      {required this.text, required this.icon, required this.color});
+  final String text;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+      margin: const EdgeInsets.only(left: 8),
+      padding: const EdgeInsets.fromLTRB(6, 3, 8, 3),
+      decoration: BoxDecoration(
+          color: color.withValues(alpha: .1),
+          borderRadius: BorderRadius.circular(20)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 3),
+        Text(text,
+            style: TextStyle(
+                color: color,
+                fontSize: 11,
+                letterSpacing: .6,
+                fontWeight: FontWeight.w900)),
+      ]));
+}

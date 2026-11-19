@@ -74,3 +74,28 @@ int nextStreak(int streak, DateTime? lastActive, DateTime today) {
   if (gap == 1) return streak + 1;
   return 1;
 }
+
+/// Ring segments a passed session fills (mirrors `segmentsEarned` in
+/// server/xp.js). Checkpoints and assessments fill all five on a pass.
+int segmentsEarned(List<bool> answers,
+    {required bool passed, String kind = 'challenge'}) {
+  if (!passed || answers.isEmpty) return 0;
+  if (kind != 'challenge') return 5;
+  final correct = answers.where((right) => right).length;
+  if (correct == answers.length) return 3;
+  return correct * 100 >= 85 * answers.length ? 2 : 1;
+}
+
+/// The session keys a pass claims: the played session first, then the lowest
+/// open ones (mirrors `claimRounds` in server/xp.js).
+List<String> claimRounds(
+    Set<String> completed, String lessonId, int roundIndex, int segments) {
+  final order = <int>{roundIndex, 0, 1, 2, 3, 4};
+  final claimed = <String>[];
+  for (final i in order) {
+    if (claimed.length >= segments) break;
+    final key = '$lessonId:$i';
+    if (!completed.contains(key)) claimed.add(key);
+  }
+  return claimed;
+}

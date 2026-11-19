@@ -10,12 +10,13 @@ class _SessionResults extends StatefulWidget {
       required this.reward,
       required this.startXp,
       required this.character,
-      required this.button});
+      required this.button,
+      this.segments = 0});
 
   final String title, subtitle;
   final List<bool> answers;
   final SessionReward reward;
-  final int startXp, character;
+  final int startXp, character, segments;
   final Widget button;
 
   @override
@@ -164,7 +165,10 @@ class _SessionResultsState extends State<_SessionResults>
                           pop: _pop(.24))),
                 ]),
                 SizedBox(height: compact ? 6 : 10),
-                _BonusLine(reward: reward, show: _show.value),
+                _BonusLine(
+                    reward: reward,
+                    show: _show.value,
+                    segments: widget.segments),
                 SizedBox(height: compact ? 6 : 10),
                 _LevelBar(
                     startXp: widget.startXp,
@@ -231,13 +235,16 @@ class _ResultTile extends StatelessWidget {
 }
 
 class _BonusLine extends StatelessWidget {
-  const _BonusLine({required this.reward, required this.show});
+  const _BonusLine(
+      {required this.reward, required this.show, this.segments = 0});
   final SessionReward reward;
   final double show;
+  final int segments;
 
   @override
   Widget build(BuildContext context) {
     final chips = <(String, Color)>[
+      if (segments > 1) ('Ring +$segments', orange),
       if (reward.completion > 0) ('Finish +${reward.completion}', blue),
       ('Answers +${reward.accuracy}', green),
       if (reward.perfect > 0) ('Perfect +${reward.perfect}', purple),

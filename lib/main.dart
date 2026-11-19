@@ -72,20 +72,32 @@ class Question {
   final String type, prompt, answer, detail;
   final String id, audioText, audioAsset, translation, answerLanguage;
   final List<String> options;
+
+  /// The vocabulary word this exercise practises, so a session can cap how
+  /// often one word appears. Empty for multi-word or unmatched exercises.
+  final String focus;
+
+  /// True when the exercise comes from an earlier lesson as spaced review.
+  final bool review;
   const Question(this.type, this.prompt, this.answer, this.options, this.detail,
       {this.id = '',
       this.audioText = '',
       this.audioAsset = '',
       this.translation = '',
-      this.answerLanguage = ''});
+      this.answerLanguage = '',
+      this.focus = '',
+      this.review = false});
 
-  Question copy({String? id, List<String>? options}) =>
+  Question copy(
+          {String? id, List<String>? options, String? focus, bool? review}) =>
       Question(type, prompt, answer, options ?? this.options, detail,
           id: id ?? this.id,
           audioText: audioText,
           audioAsset: audioAsset,
           translation: translation,
-          answerLanguage: answerLanguage);
+          answerLanguage: answerLanguage,
+          focus: focus ?? this.focus,
+          review: review ?? this.review);
 }
 
 var lessons = <Lesson>[
@@ -471,6 +483,10 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
     final lastActive = DateTime.tryParse(p.getString('lastActive') ?? '');
     setState(() {
       if (passed) {
+        final segments =
+            segmentsEarned(answers, passed: passed, kind: lesson.kind);
+        completedRounds.addAll(
+            claimRounds(completedRounds, lesson.id, roundIndex, segments));
         completedRounds.add(roundKey);
         if (List.generate(5, (i) => '${lesson.id}:$i')
             .every(completedRounds.contains)) done.add(lesson.id);
@@ -594,7 +610,18 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
     final completedBefore =
         done.contains(l.id) || completedRounds.contains('${l.id}:$roundIndex');
     final memory = await PracticeMemory.load();
-    final deal = buildPracticeRound(l, memory, math.Random());
+    final session = await PracticeMemory.session();
+    // Spaced review comes from the most recent lessons with progress.
+    final position = lessons.indexWhere((item) => item.id == l.id);
+    final review = [
+      for (final earlier in lessons.take(position < 0 ? 0 : position))
+        if (earlier.kind == 'challenge' &&
+            (done.contains(earlier.id) ||
+                completedRounds.any((key) => key.startsWith('${earlier.id}:'))))
+          earlier
+    ].reversed.take(8).toList();
+    final deal = buildPracticeRound(l, memory, math.Random(),
+        review: review, session: session);
     final practice = Lesson(
         l.id,
         '${l.title} · ${roundIndex + 1}/5',
@@ -618,6 +645,97 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
             replacements: deal.bench,
             onRetry: () => lesson(l, roundIndex),
             onComplete: (n, a) => finish(l, n, a, roundIndex))));
+  }
+
+  /// Lessons a jump to the end of [unitIndex] would complete: everything from
+  /// the first unfinished lesson to the last lesson of that unit.
+  List<Lesson> _jumpRange(int unitIndex) {
+    final titles = lessons.map((l) => l.unitTitle).toSet().toList();
+    if (unitIndex < 0 || unitIndex >= titles.length) return const [];
+    final last =
+        lessons.lastIndexWhere((l) => l.unitTitle == titles[unitIndex]);
+    final first = lessons.indexWhere((l) => !done.contains(l.id));
+    if (first < 0 || last < first) return const [];
+    return lessons.sublist(first, last + 1);
+  }
+
+  Future<void> testOut(int unitIndex) async {
+    final range = _jumpRange(unitIndex);
+    if (range.isEmpty) return;
+    final titles = lessons.map((l) => l.unitTitle).toSet().toList();
+    final random = math.Random();
+    List<Question> drawFrom(Iterable<Lesson> source) => [
+          for (final lesson in source)
+            for (final question in practicePool(lesson))
+              if (question.type != 'Speak the phrase' &&
+                  question.type != 'Match the pairs' &&
+                  question.type != 'Choose the image')
+                question
+        ]..shuffle(random);
+    // Most questions come from the unit being skipped to; the rest check the
+    // earlier lessons being skipped on the way.
+    final target =
+        drawFrom(range.where((l) => l.unitTitle == titles[unitIndex]));
+    final earlier =
+        drawFrom(range.where((l) => l.unitTitle != titles[unitIndex]));
+    final quiz = <Question>[
+      ...earlier.take(earlier.isEmpty ? 0 : 4),
+    ];
+    quiz.addAll(target.take(12 - quiz.length));
+    if (quiz.length < 12) quiz.addAll(earlier.skip(4).take(12 - quiz.length));
+    if (quiz.length < 8) return;
+    quiz.shuffle(random);
+    final ids = [for (final lesson in range) lesson.id];
+    final jump = Lesson('jump-$unitIndex', 'Jump to unit ${unitIndex + 2}',
+        'Test out', '⏩', 'orange', quiz,
+        kind: 'assessment', minPassPercent: 80, unitTitle: titles[unitIndex]);
+    navigatorKey.currentState?.push(MaterialPageRoute(
+        builder: (_) => LessonPage(
+            lesson: jump,
+            startXp: xp,
+            doneTitle: 'You jumped ahead!',
+            onRetry: () => testOut(unitIndex),
+            onComplete: (n, answers) => finishTestOut(ids, answers))));
+  }
+
+  Future<void> finishTestOut(List<String> ids, List<bool> answers) async {
+    final passed =
+        answers.where((right) => right).length * 100 >= 80 * answers.length;
+    final p = await SharedPreferences.getInstance();
+    setState(() {
+      xp += sessionReward(answers, passed: passed, firstTime: true).total;
+      if (passed) {
+        done.addAll(ids);
+        for (final id in ids) {
+          completedRounds.addAll(List.generate(5, (i) => '$id:$i'));
+        }
+      }
+    });
+    await p.setStringList('done', done.toList());
+    await p.setStringList('completedRounds', completedRounds.toList());
+    await p.setInt('xp', xp);
+    if (token == null) return;
+    try {
+      final response = await http.post(api('/api/course/progress'),
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json'
+          },
+          body: jsonEncode({
+            'testOut': true,
+            'courseId': 'serbian-en',
+            'lessonIds': ids,
+            'answers': answers
+          }));
+      if (response.statusCode == 200) {
+        final me = await http.get(api('/api/auth/me'),
+            headers: {'Authorization': 'Bearer $token'});
+        if (me.statusCode == 200 && mounted) {
+          setState(() => user = jsonDecode(me.body)['user']);
+          await _syncProgress();
+        }
+      }
+    } catch (_) {}
   }
 
   @override
@@ -666,6 +784,7 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
                                       xp: xp,
                                       streak: streak,
                                       onLesson: lesson,
+                                      onJump: testOut,
                                       onChat: () => navigatorKey.currentState
                                           ?.push(MaterialPageRoute(
                                               builder: (_) =>
@@ -911,6 +1030,7 @@ class PathPage extends StatefulWidget {
   final int xp, streak;
   final LearnerLook look;
   final void Function(Lesson, int) onLesson;
+  final void Function(int unitIndex)? onJump;
   final VoidCallback onChat, onProfile;
   const PathPage(
       {super.key,
@@ -920,6 +1040,7 @@ class PathPage extends StatefulWidget {
       required this.xp,
       required this.streak,
       required this.onLesson,
+      this.onJump,
       required this.onChat,
       required this.look,
       required this.onProfile});
@@ -1026,6 +1147,10 @@ class _PathPageState extends State<PathPage> {
                       const SizedBox(height: 5),
                       Text('$total of 5 practice sessions complete',
                           style: const TextStyle(color: muted)),
+                      const SizedBox(height: 4),
+                      const Text(
+                          'Strong sessions fill up to 3 segments at once.',
+                          style: TextStyle(color: muted, fontSize: 12)),
                       const SizedBox(height: 20),
                       ...List.generate(5, (i) {
                         final complete = widget.done.contains(lesson.id) ||
@@ -1057,7 +1182,7 @@ class _PathPageState extends State<PathPage> {
                                 subtitle: Text(
                                     i == 0
                                         ? 'Learn the words and phrases'
-                                        : 'Revisit the words in a mixed order',
+                                        : 'Short mixed practice with review',
                                     style: const TextStyle(
                                         color: muted, fontSize: 12)),
                                 trailing: Text('${i + 1}/5',
@@ -1071,6 +1196,41 @@ class _PathPageState extends State<PathPage> {
                       }),
                     ])))));
   }
+
+  void _confirmJump(int unitIndex) => showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: panel,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+          child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                const Text('⏩', style: TextStyle(fontSize: 44)),
+                const SizedBox(height: 8),
+                Text('Jump to unit ${unitIndex + 1}?',
+                    style: const TextStyle(
+                        fontSize: 22, fontWeight: FontWeight.w900)),
+                const SizedBox(height: 6),
+                const Text(
+                    'Already know this? Answer 12 questions on the lessons you '
+                    'would skip. Get 80% right and they are all marked '
+                    'complete.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: muted, height: 1.4)),
+                const SizedBox(height: 18),
+                KButton(
+                    text: 'Start the test',
+                    onTap: () {
+                      Navigator.pop(context);
+                      // Test the lessons up to the end of the previous unit,
+                      // so passing opens this one.
+                      widget.onJump?.call(unitIndex - 1);
+                    }),
+                const SizedBox(height: 8),
+                TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Not now')),
+              ]))));
 
   void selectCourse() => showModalBottomSheet(
       context: context,
@@ -1188,6 +1348,11 @@ class _PathPageState extends State<PathPage> {
             index: unitIndex,
             completed: completed,
             total: unit.length,
+            onJump: widget.onJump == null ||
+                    next < 0 ||
+                    lessons.indexOf(unit.first) <= next
+                ? null
+                : () => _confirmJump(unitIndex),
           ),
         ),
         SliverFixedExtentList(
@@ -1333,12 +1498,14 @@ const _lessonExtent = 85.0;
 class _SectionHeaderDelegate extends SliverPersistentHeaderDelegate {
   final String title, level;
   final int index, completed, total;
+  final VoidCallback? onJump;
   const _SectionHeaderDelegate(
       {required this.title,
       required this.level,
       required this.index,
       required this.completed,
-      required this.total});
+      required this.total,
+      this.onJump});
 
   @override
   double get minExtent => _sectionHeaderExtent;
@@ -1365,6 +1532,42 @@ class _SectionHeaderDelegate extends SliverPersistentHeaderDelegate {
                                     height: box.maxHeight,
                                     child: const CustomPaint(
                                         painter: BelgradePostcard())),
+                                if (onJump != null)
+                                  Positioned(
+                                      top: 8,
+                                      right: 8,
+                                      child: Material(
+                                          color: Colors.white,
+                                          shape: const StadiumBorder(
+                                              side: BorderSide(
+                                                  color: Color(0xFFEBB679))),
+                                          child: InkWell(
+                                              customBorder:
+                                                  const StadiumBorder(),
+                                              onTap: onJump,
+                                              child: const Padding(
+                                                  padding: EdgeInsets.fromLTRB(
+                                                      8, 4, 10, 4),
+                                                  child: Row(
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
+                                                      children: [
+                                                        Icon(
+                                                            Icons
+                                                                .fast_forward_rounded,
+                                                            size: 16,
+                                                            color: amberInk),
+                                                        SizedBox(width: 3),
+                                                        Text('JUMP HERE',
+                                                            style: TextStyle(
+                                                                color: amberInk,
+                                                                fontSize: 11,
+                                                                letterSpacing:
+                                                                    .5,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w900)),
+                                                      ]))))),
                                 Padding(
                                     padding: EdgeInsets.fromLTRB(
                                         16, 9, box.maxWidth * .4, 9),
@@ -1413,7 +1616,8 @@ class _SectionHeaderDelegate extends SliverPersistentHeaderDelegate {
       old.level != level ||
       old.index != index ||
       old.completed != completed ||
-      old.total != total;
+      old.total != total ||
+      (old.onJump == null) != (onJump == null);
 }
 
 /// Official state flag artwork, bundled for consistent rendering on every device.
@@ -1498,6 +1702,7 @@ class LessonPage extends StatefulWidget {
   final Lesson lesson;
   final bool alreadyCompleted;
   final int practiceRound, startXp;
+  final String? doneTitle;
   final Future<void> Function(int, List<bool>) onComplete;
   final VoidCallback? onRetry;
   final List<Question> replacements;
@@ -1508,6 +1713,7 @@ class LessonPage extends StatefulWidget {
       this.alreadyCompleted = false,
       this.practiceRound = 0,
       this.startXp = 0,
+      this.doneTitle,
       this.replacements = const [],
       this.onRetry});
   @override
@@ -1517,6 +1723,16 @@ class LessonPage extends StatefulWidget {
 class _LessonPageState extends State<LessonPage>
     with SingleTickerProviderStateMixin {
   int index = 0, correct = 0, answerRun = 0, nudges = 0;
+
+  /// Indexes in [round] that are second chances at an earlier miss.
+  final Set<int> retries = {};
+
+  // Pairs game state.
+  final Set<int> pairDone = {};
+  int? pairLeft, pairRight;
+  int pairMistakes = 0;
+  (int, int)? pairMiss;
+  List<int> pairOrder = const [];
   final List<bool> answers = [];
   final List<int> picked = [];
   late final List<Question> round;
@@ -1574,6 +1790,33 @@ class _LessonPageState extends State<LessonPage>
     return _tilesInstead(current);
   }
 
+  /// Bring a missed exercise back at the end of a practice session, once.
+  /// A different exercise on the same word is preferred over a repeat.
+  /// Checkpoints and the assessment never add retries.
+  void _queueRetry(int missed) {
+    if (widget.lesson.kind != 'challenge') return;
+    if (retries.contains(missed) || round.length >= 12) return;
+    final question = round[missed];
+    final at = question.focus.isEmpty
+        ? -1
+        : spares.indexWhere((spare) =>
+            spare.focus == question.focus &&
+            spare.type != question.type &&
+            spare.type != 'Speak the phrase' &&
+            !_isTyping(spare) &&
+            !round.any((item) => item.id == spare.id));
+    final again = at >= 0
+        ? spares.removeAt(at)
+        : question.type == 'Speak the phrase' && !SerbianSpeech.supported
+            ? _tilesInstead(question)
+            : question.copy(
+                options: question.type == 'Match the pairs'
+                    ? question.options
+                    : ([...question.options]..shuffle()));
+    round.add(again);
+    retries.add(round.length - 1);
+  }
+
   Question _tilesInstead(Question current) {
     final phrase = current.answer
         .replaceAll(RegExp(r'[.,!?;:“”"]'), '')
@@ -1621,6 +1864,9 @@ class _LessonPageState extends State<LessonPage>
 
   String get response {
     final q = round[index];
+    if (q.type == 'Match the pairs') {
+      return pairDone.length == q.options.length ? 'done' : '';
+    }
     if (q.type == 'Arrange the words' || q.type == 'Listen and arrange')
       return picked.map((i) => q.options[i]).join(' ');
     if (q.type == 'Speak the phrase') return transcript.trim();
@@ -1647,6 +1893,12 @@ class _LessonPageState extends State<LessonPage>
     transcript = '';
     selected = null;
     picked.clear();
+    pairDone.clear();
+    pairLeft = null;
+    pairRight = null;
+    pairMistakes = 0;
+    pairMiss = null;
+    pairOrder = const [];
   }
 
   Future<void> _toggleMic() async {
@@ -1702,13 +1954,16 @@ class _LessonPageState extends State<LessonPage>
       _wave.stop();
       listening = false;
       FocusScope.of(context).unfocus();
-      final right = _matches(response, q.answer);
+      final right = q.type == 'Match the pairs'
+          ? pairMistakes <= 1
+          : _matches(response, q.answer);
       answerRun = right ? answerRun + 1 : 0;
       setState(() {
         checked = true;
         lastCorrect = right;
         answers.add(right);
         if (right) correct++;
+        if (!right) _queueRetry(index);
       });
       unawaited(_answerFeedback(right, answerRun, index));
       return;
@@ -1776,6 +2031,7 @@ class _LessonPageState extends State<LessonPage>
                   'Arrange the words' => 'Translate this sentence',
                   'Complete the sentence' => 'Complete the sentence',
                   'Choose the image' => 'Select the correct image',
+                  'Match the pairs' => 'Tap the matching pairs',
                   'Translate to Serbian' => 'How do you say this?',
                   _ => 'Choose the correct meaning',
                 };
@@ -1905,21 +2161,39 @@ class _LessonPageState extends State<LessonPage>
                           alignment: Alignment.centerLeft,
                           child: SizedBox(
                               width: space.maxWidth,
-                              child: Text(_heading(q),
-                                  maxLines: 2,
-                                  style: TextStyle(
-                                      fontSize: short ? 17 : 19,
-                                      height: 1.1,
-                                      fontWeight: FontWeight.w900)))))),
-              SizedBox(height: sceneHeight, child: _scene(q, sceneHeight)),
-              SizedBox(height: short ? 10 : 18),
+                              child: Row(children: [
+                                Flexible(
+                                    child: Text(_heading(q),
+                                        maxLines: 2,
+                                        style: TextStyle(
+                                            fontSize: short ? 17 : 19,
+                                            height: 1.1,
+                                            fontWeight: FontWeight.w900))),
+                                if (retries.contains(index))
+                                  const _ExerciseTag(
+                                      text: 'MISTAKE',
+                                      icon: Icons.replay_rounded,
+                                      color: Color(0xFFD9534F))
+                                else if (q.review)
+                                  const _ExerciseTag(
+                                      text: 'REVIEW',
+                                      icon: Icons.history_rounded,
+                                      color: purple),
+                              ]))))),
+              if (q.type != 'Match the pairs') ...[
+                SizedBox(height: sceneHeight, child: _scene(q, sceneHeight)),
+                SizedBox(height: short ? 10 : 18),
+              ] else
+                SizedBox(height: short ? 4 : 10),
               Expanded(
                   child: q.type == 'Arrange the words' ||
                           q.type == 'Listen and arrange'
                       ? _arrangeViewport(q)
                       : q.type == 'Speak the phrase'
                           ? _speakViewport()
-                          : _choicesViewport(q)),
+                          : q.type == 'Match the pairs'
+                              ? _pairsViewport(q)
+                              : _choicesViewport(q)),
             ]);
       });
 
@@ -2126,6 +2400,119 @@ class _LessonPageState extends State<LessonPage>
                   ],
                 ])));
       });
+
+  /// Two columns: Serbian on the left, meanings shuffled on the right.
+  Widget _pairsViewport(Question q) {
+    final count = q.options.length;
+    if (pairOrder.length != count) {
+      pairOrder = List.generate(count, (i) => i)
+        ..shuffle(math.Random(index * 31 + widget.lesson.id.length));
+    }
+    List<String> parts(int i) {
+      final bits = q.options[i].split('|');
+      return [bits.first, bits.length > 1 ? bits[1] : bits.first];
+    }
+
+    Widget tile(int pair, bool left) {
+      final text = parts(pair)[left ? 0 : 1];
+      final done = pairDone.contains(pair);
+      final chosen = left ? pairLeft == pair : pairRight == pair;
+      final miss = pairMiss != null &&
+          (left ? pairMiss!.$1 == pair : pairMiss!.$2 == pair);
+      final (fill, edge) = done
+          ? (mint, mint)
+          : miss
+              ? (blush, red)
+              : chosen
+                  ? (sky, blue)
+                  : (panel, panel2);
+      return AnimatedOpacity(
+          duration: const Duration(milliseconds: 250),
+          opacity: done ? .45 : 1,
+          child: Semantics(
+              button: true,
+              selected: chosen,
+              label: text,
+              child: Material(
+                  color: fill,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(
+                          color: edge, width: chosen || miss ? 1.8 : 1)),
+                  child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: done || checked
+                          ? null
+                          : () => _pickPair(q, pair, left),
+                      child: Center(
+                          child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 8),
+                              child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(text,
+                                      style: TextStyle(
+                                          color: done ? green : ink,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700)))))))));
+    }
+
+    return LayoutBuilder(builder: (_, space) {
+      final rowHeight =
+          math.min(60.0, (space.maxHeight - (count - 1) * 8) / count);
+      return Align(
+          alignment: Alignment.topCenter,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            for (var row = 0; row < count; row++) ...[
+              if (row > 0) const SizedBox(height: 8),
+              SizedBox(
+                  height: rowHeight,
+                  child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(child: tile(row, true)),
+                        const SizedBox(width: 10),
+                        Expanded(child: tile(pairOrder[row], false)),
+                      ])),
+            ],
+          ]));
+    });
+  }
+
+  void _pickPair(Question q, int pair, bool left) {
+    if (left) {
+      pairLeft = pair;
+      final word = q.options[pair].split('|').first;
+      if (learningFeedback.shouldSpeakSelection('sr')) {
+        learningFeedback.tap(sound: false);
+        unawaited(SerbianAudio.speakWord(word));
+      } else {
+        learningFeedback.tap();
+      }
+    } else {
+      pairRight = pair;
+      learningFeedback.tap();
+    }
+    nudges++;
+    final l = pairLeft, r = pairRight;
+    if (l != null && r != null) {
+      if (l == r) {
+        pairDone.add(l);
+      } else {
+        pairMistakes++;
+        pairMiss = (l, r);
+        learningFeedback.answer(false, 0);
+        final at = index;
+        Future<void>.delayed(const Duration(milliseconds: 450), () {
+          if (mounted && index == at) setState(() => pairMiss = null);
+        });
+      }
+      pairLeft = null;
+      pairRight = null;
+    }
+    setState(() {});
+    if (pairDone.length == q.options.length) _advance();
+  }
 
   Widget _answerOption(Question q, int index, bool image, bool centered) {
     final option = q.options[index];
@@ -2428,7 +2815,7 @@ class _LessonPageState extends State<LessonPage>
                           asset: q.audioAsset,
                           color: lastCorrect ? green : red))
               ]),
-              if (!lastCorrect)
+              if (!lastCorrect && q.answer.isNotEmpty)
                 Padding(
                     padding: const EdgeInsets.only(top: 3),
                     child: Text('Answer: ${q.answer}',
@@ -2542,10 +2929,14 @@ class _LessonPageState extends State<LessonPage>
     final passed = correct * 100 >= widget.lesson.minPassPercent * round.length;
     return _SessionResults(
         title: passed
-            ? (widget.practiceRound == 4
-                ? 'Lesson complete!'
-                : 'Practice complete!')
+            ? widget.doneTitle ??
+                (widget.practiceRound == 4
+                    ? 'Lesson complete!'
+                    : 'Practice complete!')
             : 'Keep practicing',
+        segments: widget.lesson.kind == 'challenge'
+            ? segmentsEarned(answers, passed: passed)
+            : 0,
         subtitle: widget.lesson.title,
         answers: answers,
         reward: sessionReward(answers,

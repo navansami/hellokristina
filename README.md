@@ -159,3 +159,12 @@ Avatars are chibi-style busts drawn piece by piece in `lib/avatar/learner_portra
 The editor (`lib/avatar/avatar_editor.dart`) shows a living preview that breathes, blinks and pops with sparkles on every change. It has emoji category tabs, mini previews of each option, a 🎲 "Surprise me" button, undo, and asks before discarding changes. Reduced-motion settings keep the preview still.
 
 Saved first-generation looks convert to the nearest new pieces, and their colours stay identical because the old palettes are kept as the first entries. `server/avatar.js` holds the allowed ranges and the default look for new accounts. `test/avatar_editor_test.dart` checks that the server and the app agree.
+
+## Course drop-down
+
+Tapping the flag in the course header slides a panel down over a dimmed trail (`lib/path/course_switcher.dart`). It holds:
+- **Course tiles:** big 3D tiles for Serbian (the current course, ringed in blue), "Chat with Kristina", and a dashed "More soon" tile.
+- **Level card:** your CEFR level (A1 → A2) on a glowing lime progress bar with a sparkle at its tip, plus lessons done, words learned and total XP. "About your level" explains the scale.
+- **Keep practising:** colourful shortcuts to chat, fix your mistakes (with a count badge) and the daily goal.
+
+Tapping outside the panel, or the flag again, closes it.

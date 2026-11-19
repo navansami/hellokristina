@@ -38,6 +38,7 @@ part 'widgets/lesson_vocabulary.dart';
 part 'game/session_results.dart';
 part 'game/lesson_energy.dart';
 part 'path/trail.dart';
+part 'path/course_switcher.dart';
 part 'practice/mistakes.dart';
 part 'game/daily_goal.dart';
 part 'pages/page_parts.dart';
@@ -1055,6 +1056,8 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
                                                   streak: streak,
                                                   daily: daily,
                                                   onGoal: setDailyGoal,
+                                                  mistakes: mistakeCount,
+                                                  onMistakes: practiseMistakes,
                                                   onLesson: lesson,
                                                   onJump: testOut,
                                                   onChat: () => navigatorKey
@@ -1344,6 +1347,8 @@ class PathPage extends StatefulWidget {
   final int xp, streak;
   final DailyLog daily;
   final Future<void> Function(int)? onGoal;
+  final int mistakes;
+  final VoidCallback? onMistakes;
   final LearnerLook look;
   final void Function(Lesson, int) onLesson;
   final void Function(int unitIndex)? onJump;
@@ -1357,6 +1362,8 @@ class PathPage extends StatefulWidget {
       required this.streak,
       this.daily = const DailyLog(),
       this.onGoal,
+      this.mistakes = 0,
+      this.onMistakes,
       required this.onLesson,
       this.onJump,
       required this.onChat,
@@ -1667,43 +1674,15 @@ class _PathPageState extends State<PathPage> {
                     child: const Text('Not now')),
               ]))));
 
-  void selectCourse() => showModalBottomSheet(
-      context: context,
-      backgroundColor: panel,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
-      builder: (context) => SafeArea(
-          child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Your courses',
-                        style: TextStyle(
-                            fontSize: 25, fontWeight: FontWeight.w900)),
-                    const SizedBox(height: 18),
-                    ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const _SerbianFlag(width: 54),
-                        title: const Text('For English speakers',
-                            style: TextStyle(
-                                fontWeight: FontWeight.w900, fontSize: 18)),
-                        trailing: const Icon(Icons.check_circle_rounded,
-                            color: amberInk),
-                        onTap: () => Navigator.pop(context)),
-                    const SizedBox(height: 16),
-                    ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.forum_rounded, color: blue),
-                        title: const Text('Practice with Kristina'),
-                        onTap: () {
-                          Navigator.pop(context);
-                          widget.onChat();
-                        }),
-                    const Text('More languages are on the way.',
-                        style: TextStyle(color: muted)),
-                  ]))));
+  bool coursesOpen = false;
+
+  void selectCourse() {
+    learningFeedback.touch();
+    setState(() => coursesOpen = !coursesOpen);
+  }
+
+  void _closeCourses() => setState(() => coursesOpen = false);
+
   @override
   Widget build(BuildContext context) {
     final titles = lessons.map((l) => l.unitTitle).toSet().toList();
@@ -1730,10 +1709,14 @@ class _PathPageState extends State<PathPage> {
                 child: _StatChip(
                     color: Colors.white,
                     onTap: selectCourse,
-                    child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                      _SerbianFlag(width: 30),
-                      SizedBox(width: 2),
-                      Icon(Icons.expand_more_rounded, color: muted, size: 20)
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const _SerbianFlag(width: 30),
+                      const SizedBox(width: 2),
+                      AnimatedRotation(
+                          turns: coursesOpen ? .5 : 0,
+                          duration: const Duration(milliseconds: 220),
+                          child: const Icon(Icons.expand_more_rounded,
+                              color: muted, size: 20)),
                     ]))),
             const Spacer(),
             _StreakChip(
@@ -1749,22 +1732,74 @@ class _PathPageState extends State<PathPage> {
             _HeaderLevel(xp: widget.xp),
           ])),
       Expanded(
-          child: LayoutBuilder(
-              builder: (_, viewport) =>
-                  CustomScrollView(controller: scroll, slivers: [
-                    const SliverToBoxAdapter(child: SizedBox(height: 4)),
-                    for (var unitIndex = 0;
-                        unitIndex < titles.length;
-                        unitIndex++)
-                      ..._sectionSlivers(unitIndex, titles, next),
-                    SliverToBoxAdapter(
-                        child: SizedBox(
-                            height: math.max(
-                                0.0,
-                                viewport.maxHeight -
-                                    _sectionHeaderExtent -
-                                    _lessonExtent))),
-                  ]))),
+          child: Stack(children: [
+        Positioned.fill(
+            child: LayoutBuilder(
+                builder: (_, viewport) =>
+                    CustomScrollView(controller: scroll, slivers: [
+                      const SliverToBoxAdapter(child: SizedBox(height: 4)),
+                      for (var unitIndex = 0;
+                          unitIndex < titles.length;
+                          unitIndex++)
+                        ..._sectionSlivers(unitIndex, titles, next),
+                      SliverToBoxAdapter(
+                          child: SizedBox(
+                              height: math.max(
+                                  0.0,
+                                  viewport.maxHeight -
+                                      _sectionHeaderExtent -
+                                      _lessonExtent))),
+                    ]))),
+        // The course drop-down slides over a dimmed trail.
+        Positioned.fill(
+            child: IgnorePointer(
+                ignoring: !coursesOpen,
+                child: GestureDetector(
+                    onTap: _closeCourses,
+                    child: AnimatedOpacity(
+                        opacity: coursesOpen ? 1 : 0,
+                        duration: const Duration(milliseconds: 220),
+                        child:
+                            ColoredBox(color: ink.withValues(alpha: .35)))))),
+        Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            child: ClipRect(
+                child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 280),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    transitionBuilder: (child, animation) => SlideTransition(
+                        position:
+                            Tween(begin: const Offset(0, -1), end: Offset.zero)
+                                .animate(animation),
+                        child: child),
+                    child: coursesOpen
+                        ? _CoursePanel(
+                            key: const ValueKey('courses'),
+                            done: widget.done,
+                            completedRounds: widget.completedRounds,
+                            xp: widget.xp,
+                            mistakes: widget.mistakes,
+                            onClose: _closeCourses,
+                            onChat: () {
+                              _closeCourses();
+                              widget.onChat();
+                            },
+                            onMistakes: widget.onMistakes == null
+                                ? null
+                                : () {
+                                    _closeCourses();
+                                    widget.onMistakes!();
+                                  },
+                            onGoal: () {
+                              _closeCourses();
+                              _showStreak();
+                            })
+                        : const SizedBox(
+                            key: ValueKey('closed'), width: double.infinity)))),
+      ])),
     ]);
   }
 

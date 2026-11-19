@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'course_palette.dart';
+import '../feedback/learning_feedback.dart';
 
 /// A chunky button with a darker ledge underneath. Pressing it sinks the face
 /// onto the ledge, so every action feels physical.
@@ -27,6 +28,8 @@ class _TactileButtonState extends State<TactileButton> {
 
   void _press(bool down) {
     if (!mounted || widget.onTap == null || down == _down) return;
+    // A small buzz as the button bottoms out makes every press feel real.
+    if (down) learningFeedback.touch();
     setState(() => _down = down);
   }
 
@@ -72,7 +75,8 @@ class _TactileButtonState extends State<TactileButton> {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16)),
                 side: widget.outline ? const BorderSide(color: panel2) : null,
-                textStyle: display(17, weight: FontWeight.w600, letterSpacing: .6),
+                textStyle:
+                    display(17, weight: FontWeight.w600, letterSpacing: .6),
               ),
               child: Text(widget.label, textAlign: TextAlign.center),
             ),

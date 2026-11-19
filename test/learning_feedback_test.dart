@@ -90,4 +90,35 @@ void main() {
     expect(feedback.shouldSpeakSelection('sr'), false);
     expect(feedback.sounds, true);
   });
+  test('presses buzz silently, goals cheer and XP ticks buzz sparingly',
+      () async {
+    final driver = FakeDriver();
+    final feedback = LearningFeedback(driver: driver);
+    await feedback.load();
+    feedback.touch();
+    expect(driver.sounds, isEmpty);
+    expect(driver.pulses, [FeedbackCue.touch]);
+    feedback.goal();
+    expect(driver.sounds, [FeedbackCue.goal]);
+    driver.pulses.clear();
+    for (var i = 0; i < 5; i++) {
+      feedback.xpTick();
+    }
+    expect(driver.sounds.where((cue) => cue == FeedbackCue.xpTick).length, 5);
+    expect(driver.pulses, [FeedbackCue.xpTick]);
+    await feedback.setVibration(false);
+    feedback.touch();
+    expect(driver.pulses, [FeedbackCue.xpTick]);
+  });
+
+  test('every cue has a vibration and every sound has a file', () {
+    for (final cue in FeedbackCue.values) {
+      expect(PlatformFeedbackDriver.patterns[cue], isNotEmpty, reason: '$cue');
+      if (cue != FeedbackCue.touch) {
+        expect(PlatformFeedbackDriver.files[cue.index], isNotEmpty,
+            reason: '$cue');
+      }
+    }
+    expect(PlatformFeedbackDriver.files.length, FeedbackCue.values.length);
+  });
 }

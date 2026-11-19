@@ -13,11 +13,12 @@ for(const word of wanted){
   const bytes=readFileSync(`assets/${index[word]}`);assert(bytes.length>1000);
   assert(bytes[0]===0xff||bytes.subarray(0,3).toString()==='ID3');
 }
-for(const name of ['tap','correct','retry','streak','hot_streak','complete','perfect','xp_tick','combo','level_up']) {
+for(const name of ['tap','correct','retry','streak','hot_streak','complete','perfect','xp_tick','combo','level_up','goal']) {
   const bytes=readFileSync(`assets/audio/effects/${name}.wav`);
   assert.equal(bytes.subarray(0,4).toString(),'RIFF');assert.equal(bytes.subarray(8,12).toString(),'WAVE');
-  const duration=(bytes.length-44)/bytes.readUInt32LE(28);assert(duration>.03&&duration<1.5);
+  const duration=(bytes.length-44)/bytes.readUInt32LE(28);assert(duration>.03&&duration<2.5,`Check effect length: ${name}`);
   let peak=0;for(let i=44;i<bytes.length;i+=2)peak=Math.max(peak,Math.abs(bytes.readInt16LE(i))/32767);
-  assert(peak>.01&&peak<.6,`Check effect volume: ${name}`);
+  // Mastered loud (near the tutor voices) but never clipping.
+  assert(peak>.6&&peak<.95,`Check effect volume: ${name}`);
 }
-console.log(`All ${wanted.size} selectable Serbian words have audio; ten short feedback sounds have valid duration and levels.`);
+console.log(`All ${wanted.size} selectable Serbian words have audio; eleven feedback sounds have valid duration and levels.`);

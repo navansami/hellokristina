@@ -33,7 +33,7 @@ class _SessionResultsState extends State<_SessionResults>
   late final AnimationController _show = AnimationController(
       vsync: this, duration: const Duration(milliseconds: 3000));
   int _shownXp = 0;
-  bool _leveled = false;
+  bool _leveled = false, _cheered = false;
   Timer? _ticks;
 
   int get _endXp => widget.startXp + widget.reward.total;
@@ -81,6 +81,10 @@ class _SessionResultsState extends State<_SessionResults>
     if (_levelUp && !_leveled && _show.value >= _barTo) {
       setState(() => _leveled = true);
       learningFeedback.levelUp();
+    } else if (_goalHit && !_cheered && !_levelUp && _show.value >= .84) {
+      // A level-up fanfare already covers the moment; otherwise cheer the goal.
+      _cheered = true;
+      learningFeedback.goal();
     }
   }
 

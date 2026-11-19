@@ -15,7 +15,11 @@ enum FeedbackCue {
   perfect,
   xpTick,
   combo,
-  levelUp
+  levelUp,
+  goal,
+
+  /// A press on a big button: a vibration only, never a sound.
+  touch
 }
 
 abstract class FeedbackDriver {
@@ -26,7 +30,9 @@ abstract class FeedbackDriver {
 }
 
 class PlatformFeedbackDriver implements FeedbackDriver {
-  AudioPlayer? _player, _tickPlayer;
+  /// One preloaded player per sound, so a cue starts instantly.
+  final Map<FeedbackCue, AudioPlayer> _players = {};
+  AudioPlayer? _current;
   int _generation = 0, _tickGeneration = 0;
   static const files = [
     'tap',
@@ -38,62 +44,81 @@ class PlatformFeedbackDriver implements FeedbackDriver {
     'perfect',
     'xp_tick',
     'combo',
-    'level_up'
+    'level_up',
+    'goal',
+    '',
   ];
-  static const patterns = [
-    [7],
-    [12],
-    [8],
-    [12, 45, 18],
-    [14, 35, 20, 45, 24],
-    [12, 50, 20],
-    [18, 50, 25, 70, 35],
-    [4],
-    [10, 30, 14],
-    [30, 60, 30, 60, 45, 80, 60]
-  ];
+
+  /// Playback volume per cue. The files are mastered near the tutor voices'
+  /// loudness; taps and ticks repeat a lot, so they sit a little lower.
+  static double volume(FeedbackCue cue) => switch (cue) {
+        FeedbackCue.tap => .55,
+        FeedbackCue.xpTick => .5,
+        FeedbackCue.retry => .85,
+        _ => .9,
+      };
+
+  /// Vibration patterns in milliseconds: on, off, on, ... Each one follows
+  /// the rhythm of its sound. Android can't feel pulses much under 10 ms.
+  static const patterns = <FeedbackCue, List<int>>{
+    FeedbackCue.tap: [14],
+    FeedbackCue.correct: [22, 70, 38],
+    FeedbackCue.retry: [55, 80, 55],
+    FeedbackCue.streak: [20, 45, 20, 45, 45],
+    FeedbackCue.hotStreak: [18, 35, 18, 35, 18, 35, 90],
+    FeedbackCue.complete: [30, 60, 30, 60, 140],
+    FeedbackCue.perfect: [24, 45, 24, 45, 24, 45, 40, 70, 180],
+    FeedbackCue.xpTick: [9],
+    FeedbackCue.combo: [18, 40, 36],
+    FeedbackCue.levelUp: [35, 55, 35, 55, 35, 55, 60, 80, 120, 90, 240],
+    FeedbackCue.goal: [30, 60, 30, 90, 160],
+    FeedbackCue.touch: [10],
+  };
+
+  Future<AudioPlayer> _playerFor(FeedbackCue cue) async {
+    final existing = _players[cue];
+    if (existing != null) return existing;
+    final player = AudioPlayer();
+    _players[cue] = player;
+    await player.setReleaseMode(ReleaseMode.stop);
+    await player
+        .setSource(AssetSource('audio/effects/${files[cue.index]}.wav'));
+    await player.setVolume(volume(cue));
+    return player;
+  }
+
   @override
   Future<void> play(FeedbackCue cue) async {
-    // Counting ticks use their own player so they never cut off a fanfare.
-    if (cue == FeedbackCue.xpTick) return _tick();
-    final generation = ++_generation;
+    if (cue == FeedbackCue.touch) return;
+    // Counting ticks have their own player so they never cut off a fanfare.
+    final tick = cue == FeedbackCue.xpTick;
+    final generation = tick ? ++_tickGeneration : ++_generation;
+    bool stale() => generation != (tick ? _tickGeneration : _generation);
     try {
-      final player = _player ??= AudioPlayer();
+      if (!tick && _current != null) await _current!.stop();
+      final player = await _playerFor(cue);
+      if (stale()) return;
       await player.stop();
-      if (generation != _generation) return;
-      await player
-          .setSource(AssetSource('audio/effects/${files[cue.index]}.wav'));
-      if (generation != _generation) return;
-      await player.setVolume(cue == FeedbackCue.tap ? 0.20 : 0.5);
-      if (generation == _generation) await player.resume();
+      if (stale()) return;
+      if (!tick) _current = player;
+      await player.resume();
     } catch (_) {/* Browser audio policies must never block a lesson. */}
   }
 
-  Future<void> _tick() async {
-    final generation = ++_tickGeneration;
-    try {
-      final player = _tickPlayer ??= AudioPlayer();
-      await player.stop();
-      if (generation != _tickGeneration) return;
-      await player.setSource(AssetSource('audio/effects/xp_tick.wav'));
-      if (generation != _tickGeneration) return;
-      await player.setVolume(0.3);
-      if (generation == _tickGeneration) await player.resume();
-    } catch (_) {}
-  }
-
   @override
-  Future<void> pulse(FeedbackCue cue) => haptics.pulse(patterns[cue.index],
+  Future<void> pulse(FeedbackCue cue) => haptics.pulse(patterns[cue] ?? [12],
       strong: cue == FeedbackCue.hotStreak ||
           cue == FeedbackCue.perfect ||
-          cue == FeedbackCue.levelUp);
+          cue == FeedbackCue.levelUp ||
+          cue == FeedbackCue.goal);
   @override
   Future<void> stopSounds() async {
     _generation++;
     _tickGeneration++;
     try {
-      await _player?.stop();
-      await _tickPlayer?.stop();
+      for (final player in _players.values) {
+        await player.stop();
+      }
     } catch (_) {}
   }
 
@@ -160,13 +185,27 @@ class LearningFeedback extends ChangeNotifier {
           ? FeedbackCue.perfect
           : FeedbackCue.complete);
 
-  /// A soft tick while XP counts up. Vibration stays for bigger moments.
+  DateTime _lastTickPulse = DateTime(0);
+
+  /// A soft tick while XP counts up, with a light buzz every so often so the
+  /// counter feels like it's rolling in your hand.
   void xpTick() {
     if (sounds) unawaited(driver.play(FeedbackCue.xpTick));
+    final now = DateTime.now();
+    if (vibration && now.difference(_lastTickPulse).inMilliseconds >= 110) {
+      _lastTickPulse = now;
+      unawaited(driver.pulse(FeedbackCue.xpTick));
+    }
+  }
+
+  /// A press on a big button: vibration only.
+  void touch() {
+    if (vibration) unawaited(driver.pulse(FeedbackCue.touch));
   }
 
   void combo() => _emit(FeedbackCue.combo);
   void levelUp() => _emit(FeedbackCue.levelUp);
+  void goal() => _emit(FeedbackCue.goal);
   Future<void> stopSounds() => driver.stopSounds();
   void cancelHaptics() => driver.cancelHaptics();
 }

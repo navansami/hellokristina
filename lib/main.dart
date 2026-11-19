@@ -1240,10 +1240,13 @@ class _PathPageState extends State<PathPage> {
     return next < 0 ? lessons.last : lessons[next];
   }
 
-  void _showStreak() => showStreakSheet(context,
-      streak: widget.streak,
-      log: widget.daily,
-      onGoal: widget.onGoal ?? (_) async {});
+  void _showStreak() {
+    learningFeedback.touch();
+    showStreakSheet(context,
+        streak: widget.streak,
+        log: widget.daily,
+        onGoal: widget.onGoal ?? (_) async {});
+  }
 
   /// Scroll offset where [lesson] sits just under its pinned section title.
   double _offsetForLesson(Lesson lesson) {

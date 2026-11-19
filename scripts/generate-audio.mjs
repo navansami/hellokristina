@@ -27,6 +27,12 @@ export const voices = [
   { folder: 'zara/', name: 'Zara', voice: 'coral', persona: 'Zara, a bright, upbeat young woman from Belgrade with an energetic, playful way of speaking' },
 ];
 
+const letterInstructions = persona => [
+  `Voice: ${persona}.`,
+  'Language: Serbian. This is the name of one letter of the Serbian Cyrillic alphabet, said the way a friendly teacher names it for a beginner.',
+  'Say it once, clearly and warmly, with a native Serbian sound. Never spell it out, never add other words, never use an English accent.',
+].join(' ');
+
 const instructions = (persona, short) => [
   `Voice: ${persona}.`,
   'Language: Serbian, standard ekavian with a native Belgrade accent and natural Serbian stress. Never use an English accent.',
@@ -69,12 +75,24 @@ for (const [asset, text] of lessonClips) for (const voice of voices) {
 }
 for (const [asset, text] of wordClips) jobs.push({ path: asset, text, voice: voices[0], short: true });
 
+// The Letters tab: each letter's name and an example word, in Kristina's voice.
+const alphabet = JSON.parse(readFileSync('curriculum/alphabet.json', 'utf8'));
+const alphabetOut = alphabet.letters.map(letter => {
+  const nameAsset = `audio/serbian/${hash(`letter|${letter.name}`)}.mp3`;
+  const wordAsset = textToAsset.get(wordKey(letter.word.latin)) || `audio/serbian/${hash(letter.word.latin)}.mp3`;
+  jobs.push({ path: nameAsset, text: letter.name, voice: voices[0], short: true, letter: true });
+  if (!lessonClips.has(wordAsset) && !wordClips.has(wordAsset)) {
+    jobs.push({ path: wordAsset, text: letter.word.latin, voice: voices[0], short: true });
+  }
+  return { ...letter, nameAudio: nameAsset, word: { ...letter.word, audio: wordAsset } };
+});
+
 const manifestPath = 'curriculum/audio-manifest.json';
 const manifest = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, 'utf8')) : {};
-const signature = job => `${VERSION}|${MODEL}|${job.voice.voice}|${job.text}`;
+const signature = job => `${VERSION}|${MODEL}|${job.voice.voice}|${job.letter ? 'letter|' : ''}${job.text}`;
 const pending = jobs.filter(job => manifest[job.path] !== signature(job) || !existsSync(join('assets', job.path)));
 const characters = pending.reduce((sum, job) => sum + job.text.length, 0);
-console.log(`${jobs.length} clips (${lessonClips.size} lesson clips × ${voices.length} voices + ${wordClips.size} answer clips); ${pending.length} to generate, ${characters} characters.`);
+console.log(`${jobs.length} clips (${lessonClips.size} lesson clips × ${voices.length} voices + ${wordClips.size} answer clips + alphabet); ${pending.length} to generate, ${characters} characters.`);
 // About 15 characters of Serbian per second of speech, about $0.015 per minute.
 console.log(`Estimated cost: about $${((characters / 15 / 60) * 0.015 + characters / 4 * 0.6e-6).toFixed(2)}.`);
 if (dryRun) process.exit(0);
@@ -117,7 +135,7 @@ async function speak(job) {
   const response = await fetch('https://api.openai.com/v1/audio/speech', {
     method: 'POST',
     headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: MODEL, voice: job.voice.voice, input: job.text, instructions: instructions(job.voice.persona, job.short), response_format: 'wav', speed: 1.0 }),
+    body: JSON.stringify({ model: MODEL, voice: job.voice.voice, input: job.text, instructions: job.letter ? letterInstructions(job.voice.persona) : instructions(job.voice.persona, job.short), response_format: 'wav', speed: 1.0 }),
   });
   if (!response.ok) {
     const error = new Error(`${response.status} ${(await response.text()).slice(0, 200)}`);
@@ -187,5 +205,6 @@ for (const voice of voices) {
   }
 }
 saveManifest();
+writeFileSync('assets/course/alphabet.json', JSON.stringify({ letters: alphabetOut }, null, 1) + '\n');
 writeFileSync('assets/audio/serbian/word-index.json', JSON.stringify(Object.fromEntries(Object.entries(wordIndex).sort()), null, 2) + '\n');
 console.log(`Generated ${done} clips, removed ${removed} unused clips. Audio ready.`);

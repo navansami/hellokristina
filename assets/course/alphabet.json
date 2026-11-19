@@ -1,0 +1,424 @@
+{
+ "letters": [
+  {
+   "cyrillic": "А",
+   "latin": "A",
+   "sound": "a as in father",
+   "name": "а",
+   "word": {
+    "cyrillic": "авион",
+    "latin": "avion",
+    "english": "aeroplane",
+    "emoji": "✈️",
+    "audio": "audio/serbian/3bc734090984.mp3"
+   },
+   "nameAudio": "audio/serbian/dc467d3025db.mp3"
+  },
+  {
+   "cyrillic": "Б",
+   "latin": "B",
+   "sound": "b as in bed",
+   "name": "бе",
+   "word": {
+    "cyrillic": "банана",
+    "latin": "banana",
+    "english": "banana",
+    "emoji": "🍌",
+    "audio": "audio/serbian/b493d48364af.mp3"
+   },
+   "nameAudio": "audio/serbian/c130badc4beb.mp3"
+  },
+  {
+   "cyrillic": "В",
+   "latin": "V",
+   "sound": "v as in van",
+   "name": "ве",
+   "word": {
+    "cyrillic": "вода",
+    "latin": "voda",
+    "english": "water",
+    "emoji": "💧",
+    "audio": "audio/serbian/3d8d544f8792.mp3"
+   },
+   "nameAudio": "audio/serbian/c4d0ae3df163.mp3"
+  },
+  {
+   "cyrillic": "Г",
+   "latin": "G",
+   "sound": "g as in go",
+   "name": "ге",
+   "word": {
+    "cyrillic": "гитара",
+    "latin": "gitara",
+    "english": "guitar",
+    "emoji": "🎸",
+    "audio": "audio/serbian/c30df95cba89.mp3"
+   },
+   "nameAudio": "audio/serbian/4cf36ab871e0.mp3"
+  },
+  {
+   "cyrillic": "Д",
+   "latin": "D",
+   "sound": "d as in dog",
+   "name": "де",
+   "word": {
+    "cyrillic": "дом",
+    "latin": "dom",
+    "english": "home",
+    "emoji": "🏠",
+    "audio": "audio/serbian/7e6e9877fff0.mp3"
+   },
+   "nameAudio": "audio/serbian/760b4fa63a27.mp3"
+  },
+  {
+   "cyrillic": "Ђ",
+   "latin": "Đ",
+   "sound": "a soft j, like the j in jeans",
+   "name": "ђе",
+   "word": {
+    "cyrillic": "ђак",
+    "latin": "đak",
+    "english": "pupil",
+    "emoji": "🎒",
+    "audio": "audio/serbian/8cf6045424b4.mp3"
+   },
+   "nameAudio": "audio/serbian/f79494942ddb.mp3"
+  },
+  {
+   "cyrillic": "Е",
+   "latin": "E",
+   "sound": "e as in bed",
+   "name": "е",
+   "word": {
+    "cyrillic": "ексер",
+    "latin": "ekser",
+    "english": "nail",
+    "emoji": "🔩",
+    "audio": "audio/serbian/43bf2fd02296.mp3"
+   },
+   "nameAudio": "audio/serbian/60f9cd3bdb8f.mp3"
+  },
+  {
+   "cyrillic": "Ж",
+   "latin": "Ž",
+   "sound": "s as in pleasure",
+   "name": "же",
+   "word": {
+    "cyrillic": "жаба",
+    "latin": "žaba",
+    "english": "frog",
+    "emoji": "🐸",
+    "audio": "audio/serbian/a1ac17db7989.mp3"
+   },
+   "nameAudio": "audio/serbian/0b7489e475c8.mp3"
+  },
+  {
+   "cyrillic": "З",
+   "latin": "Z",
+   "sound": "z as in zoo",
+   "name": "зе",
+   "word": {
+    "cyrillic": "зец",
+    "latin": "zec",
+    "english": "rabbit",
+    "emoji": "🐰",
+    "audio": "audio/serbian/4092503716f2.mp3"
+   },
+   "nameAudio": "audio/serbian/09c6ef306934.mp3"
+  },
+  {
+   "cyrillic": "И",
+   "latin": "I",
+   "sound": "ee as in see",
+   "name": "и",
+   "word": {
+    "cyrillic": "игра",
+    "latin": "igra",
+    "english": "game",
+    "emoji": "🎲",
+    "audio": "audio/serbian/fa4483195923.mp3"
+   },
+   "nameAudio": "audio/serbian/4c68a3e364bc.mp3"
+  },
+  {
+   "cyrillic": "Ј",
+   "latin": "J",
+   "sound": "y as in yes",
+   "name": "је",
+   "word": {
+    "cyrillic": "јабука",
+    "latin": "jabuka",
+    "english": "apple",
+    "emoji": "🍎",
+    "audio": "audio/serbian/24c60ae2d372.mp3"
+   },
+   "nameAudio": "audio/serbian/f9aff4f31d00.mp3"
+  },
+  {
+   "cyrillic": "К",
+   "latin": "K",
+   "sound": "k as in kite",
+   "name": "ка",
+   "word": {
+    "cyrillic": "кафа",
+    "latin": "kafa",
+    "english": "coffee",
+    "emoji": "☕",
+    "audio": "audio/serbian/2a7c4eeee646.mp3"
+   },
+   "nameAudio": "audio/serbian/59ec6d560897.mp3"
+  },
+  {
+   "cyrillic": "Л",
+   "latin": "L",
+   "sound": "l as in lamp",
+   "name": "ле",
+   "word": {
+    "cyrillic": "лав",
+    "latin": "lav",
+    "english": "lion",
+    "emoji": "🦁",
+    "audio": "audio/serbian/e9138f38d979.mp3"
+   },
+   "nameAudio": "audio/serbian/53e298d15fee.mp3"
+  },
+  {
+   "cyrillic": "Љ",
+   "latin": "Lj",
+   "sound": "lli as in million",
+   "name": "ље",
+   "word": {
+    "cyrillic": "љубав",
+    "latin": "ljubav",
+    "english": "love",
+    "emoji": "❤️",
+    "audio": "audio/serbian/94dcb3b2ce2c.mp3"
+   },
+   "nameAudio": "audio/serbian/63477de3e436.mp3"
+  },
+  {
+   "cyrillic": "М",
+   "latin": "M",
+   "sound": "m as in moon",
+   "name": "ме",
+   "word": {
+    "cyrillic": "мачка",
+    "latin": "mačka",
+    "english": "cat",
+    "emoji": "🐱",
+    "audio": "audio/serbian/2be68860973e.mp3"
+   },
+   "nameAudio": "audio/serbian/1c676e377c9a.mp3"
+  },
+  {
+   "cyrillic": "Н",
+   "latin": "N",
+   "sound": "n as in no",
+   "name": "не",
+   "word": {
+    "cyrillic": "нос",
+    "latin": "nos",
+    "english": "nose",
+    "emoji": "👃",
+    "audio": "audio/serbian/2c9e378375ea.mp3"
+   },
+   "nameAudio": "audio/serbian/f930f1c5a5eb.mp3"
+  },
+  {
+   "cyrillic": "Њ",
+   "latin": "Nj",
+   "sound": "ny as in canyon",
+   "name": "ње",
+   "word": {
+    "cyrillic": "њива",
+    "latin": "njiva",
+    "english": "field",
+    "emoji": "🌾",
+    "audio": "audio/serbian/59370e818892.mp3"
+   },
+   "nameAudio": "audio/serbian/800cf41e5193.mp3"
+  },
+  {
+   "cyrillic": "О",
+   "latin": "O",
+   "sound": "o as in more",
+   "name": "о",
+   "word": {
+    "cyrillic": "око",
+    "latin": "oko",
+    "english": "eye",
+    "emoji": "👁️",
+    "audio": "audio/serbian/0b4c62acca23.mp3"
+   },
+   "nameAudio": "audio/serbian/07d8c64fd64a.mp3"
+  },
+  {
+   "cyrillic": "П",
+   "latin": "P",
+   "sound": "p as in pen",
+   "name": "пе",
+   "word": {
+    "cyrillic": "пас",
+    "latin": "pas",
+    "english": "dog",
+    "emoji": "🐶",
+    "audio": "audio/serbian/7f1f073d8bb9.mp3"
+   },
+   "nameAudio": "audio/serbian/17c6f003cdda.mp3"
+  },
+  {
+   "cyrillic": "Р",
+   "latin": "R",
+   "sound": "a rolled r",
+   "name": "ре",
+   "word": {
+    "cyrillic": "риба",
+    "latin": "riba",
+    "english": "fish",
+    "emoji": "🐟",
+    "audio": "audio/serbian/60d35c3bec11.mp3"
+   },
+   "nameAudio": "audio/serbian/ba4d0f649eec.mp3"
+  },
+  {
+   "cyrillic": "С",
+   "latin": "S",
+   "sound": "s as in sun",
+   "name": "се",
+   "word": {
+    "cyrillic": "сунце",
+    "latin": "sunce",
+    "english": "sun",
+    "emoji": "☀️",
+    "audio": "audio/serbian/d2b5737e917e.mp3"
+   },
+   "nameAudio": "audio/serbian/d5af39deca34.mp3"
+  },
+  {
+   "cyrillic": "Т",
+   "latin": "T",
+   "sound": "t as in top",
+   "name": "те",
+   "word": {
+    "cyrillic": "торта",
+    "latin": "torta",
+    "english": "cake",
+    "emoji": "🎂",
+    "audio": "audio/serbian/055fbcbe7b43.mp3"
+   },
+   "nameAudio": "audio/serbian/40330848c5a3.mp3"
+  },
+  {
+   "cyrillic": "Ћ",
+   "latin": "Ć",
+   "sound": "a soft ch, like t in nature",
+   "name": "ће",
+   "word": {
+    "cyrillic": "ћуран",
+    "latin": "ćuran",
+    "english": "turkey",
+    "emoji": "🦃",
+    "audio": "audio/serbian/c874a5ee77b5.mp3"
+   },
+   "nameAudio": "audio/serbian/2c55a54ef323.mp3"
+  },
+  {
+   "cyrillic": "У",
+   "latin": "U",
+   "sound": "oo as in moon",
+   "name": "у",
+   "word": {
+    "cyrillic": "уво",
+    "latin": "uvo",
+    "english": "ear",
+    "emoji": "👂",
+    "audio": "audio/serbian/ab7357951f4a.mp3"
+   },
+   "nameAudio": "audio/serbian/78ca7c9db284.mp3"
+  },
+  {
+   "cyrillic": "Ф",
+   "latin": "F",
+   "sound": "f as in fun",
+   "name": "фе",
+   "word": {
+    "cyrillic": "фудбал",
+    "latin": "fudbal",
+    "english": "football",
+    "emoji": "⚽",
+    "audio": "audio/serbian/e42846309ac2.mp3"
+   },
+   "nameAudio": "audio/serbian/5630cb8f1f99.mp3"
+  },
+  {
+   "cyrillic": "Х",
+   "latin": "H",
+   "sound": "a breathy h, like ch in loch",
+   "name": "ха",
+   "word": {
+    "cyrillic": "хлеб",
+    "latin": "hleb",
+    "english": "bread",
+    "emoji": "🍞",
+    "audio": "audio/serbian/d88792896d27.mp3"
+   },
+   "nameAudio": "audio/serbian/710d5a47746b.mp3"
+  },
+  {
+   "cyrillic": "Ц",
+   "latin": "C",
+   "sound": "ts as in cats",
+   "name": "це",
+   "word": {
+    "cyrillic": "цвет",
+    "latin": "cvet",
+    "english": "flower",
+    "emoji": "🌸",
+    "audio": "audio/serbian/68bee48b940c.mp3"
+   },
+   "nameAudio": "audio/serbian/fef3d2380b3c.mp3"
+  },
+  {
+   "cyrillic": "Ч",
+   "latin": "Č",
+   "sound": "a hard ch, like ch in church",
+   "name": "че",
+   "word": {
+    "cyrillic": "чај",
+    "latin": "čaj",
+    "english": "tea",
+    "emoji": "🍵",
+    "audio": "audio/serbian/eb4a73079a23.mp3"
+   },
+   "nameAudio": "audio/serbian/bb865b66981d.mp3"
+  },
+  {
+   "cyrillic": "Џ",
+   "latin": "Dž",
+   "sound": "a hard j, like j in jam",
+   "name": "џе",
+   "word": {
+    "cyrillic": "џем",
+    "latin": "džem",
+    "english": "jam",
+    "emoji": "🍓",
+    "audio": "audio/serbian/d4b5405de994.mp3"
+   },
+   "nameAudio": "audio/serbian/e25a32e1e38c.mp3"
+  },
+  {
+   "cyrillic": "Ш",
+   "latin": "Š",
+   "sound": "sh as in shoe",
+   "name": "ше",
+   "word": {
+    "cyrillic": "шешир",
+    "latin": "šešir",
+    "english": "hat",
+    "emoji": "🎩",
+    "audio": "audio/serbian/2576ede085fd.mp3"
+   },
+   "nameAudio": "audio/serbian/99e9bd8c932a.mp3"
+  }
+ ]
+}

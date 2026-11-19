@@ -309,6 +309,48 @@ const letters = <List<String>>[
   ['Ш', 'Š', 'sh'],
 ];
 
+/// One letter of the Serbian Cyrillic alphabet with its name and an example
+/// word, each with a recorded clip (see curriculum/alphabet.json).
+class AlphabetLetter {
+  final String cyrillic, latin, sound, name, nameAudio;
+  final String wordCyrillic, wordLatin, wordEnglish, emoji, wordAudio;
+  const AlphabetLetter(this.cyrillic, this.latin, this.sound,
+      {this.name = '',
+      this.nameAudio = '',
+      this.wordCyrillic = '',
+      this.wordLatin = '',
+      this.wordEnglish = '',
+      this.emoji = '',
+      this.wordAudio = ''});
+
+  factory AlphabetLetter.fromJson(Map<String, dynamic> json) {
+    final word = (json['word'] as Map?)?.cast<String, dynamic>() ?? const {};
+    return AlphabetLetter(json['cyrillic'] as String, json['latin'] as String,
+        json['sound'] as String,
+        name: json['name'] as String? ?? '',
+        nameAudio: json['nameAudio'] as String? ?? '',
+        wordCyrillic: word['cyrillic'] as String? ?? '',
+        wordLatin: word['latin'] as String? ?? '',
+        wordEnglish: word['english'] as String? ?? '',
+        emoji: word['emoji'] as String? ?? '',
+        wordAudio: word['audio'] as String? ?? '');
+  }
+}
+
+/// The alphabet shown on the Letters tab. Starts from the built-in letters
+/// and gains names, example words and audio once the asset loads.
+var alphabet = [
+  for (final l in letters) AlphabetLetter(l[0], l[1], l[2]),
+];
+
+void applyAlphabet(Map<String, dynamic> data) {
+  final parsed = [
+    for (final raw in (data['letters'] as List? ?? const []))
+      AlphabetLetter.fromJson((raw as Map).cast<String, dynamic>())
+  ];
+  if (parsed.length == letters.length) alphabet = parsed;
+}
+
 void applyCourse(Map<String, dynamic> course) {
   if (course['schemaVersion'] != 1 || course['status'] != 'published') return;
   final units = (course['units'] as List).cast<Map<String, dynamic>>();
@@ -423,6 +465,11 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
       final bundled =
           await rootBundle.loadString('assets/course/serbian-en.v1.json');
       applyCourse(jsonDecode(bundled) as Map<String, dynamic>);
+    } catch (_) {}
+    try {
+      applyAlphabet(
+          jsonDecode(await rootBundle.loadString('assets/course/alphabet.json'))
+              as Map<String, dynamic>);
     } catch (_) {}
     final p = await SharedPreferences.getInstance();
     setState(() {

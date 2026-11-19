@@ -170,3 +170,9 @@ Tapping the flag in the course header slides a panel down over a dimmed trail (`
 - **Keep practising:** colourful shortcuts to chat, fix your mistakes (with a count badge) and the daily goal.
 
 Tapping outside the panel, or the flag again, closes it.
+
+## Letters with pronunciation
+
+The Letters tab speaks. Tapping any of the 30 letters plays its Serbian name (а, бе, ве…) in Kristina's voice, and the big letter tile replays it. Each letter also has an example word that starts with it (Б → банана 🍌, Ж → жаба 🐸, Ш → шешир 🎩), with its own play button, the Latin spelling and the English meaning.
+
+`curriculum/alphabet.json` is the source: letter, Latin twin, sound hint, letter name and example word. `scripts/generate-audio.mjs` records the letter names (with a letter-specific voice instruction) and any example words not already in the course. It writes `assets/course/alphabet.json` with the audio paths, and the app loads that file at start-up. `test/letters_test.dart` checks that every example starts with its letter in both scripts, that every clip exists, and that the bundled file matches the source. The example words are AI-drafted and belong in the native-speaker review.

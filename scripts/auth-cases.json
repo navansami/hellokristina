@@ -1,0 +1,33 @@
+{
+  "name": [
+    ["Ana", null],
+    ["  A ", "Enter your name"],
+    ["", "Enter your name"]
+  ],
+  "username": [
+    ["ana_s", null],
+    ["@Ana.Learns", null],
+    ["ana2026", null],
+    ["an", "Usernames need at least 3 characters"],
+    ["abcdefghijklmnopqrstu", "Usernames can have up to 20 characters"],
+    ["2ana", "Start with a letter and use only letters, numbers, dots and underscores"],
+    ["ana s", "Start with a letter and use only letters, numbers, dots and underscores"],
+    ["ana-s", "Start with a letter and use only letters, numbers, dots and underscores"],
+    ["ana__s", "Dots and underscores can’t be doubled or come last"],
+    ["ana.", "Dots and underscores can’t be doubled or come last"],
+    ["Admin", "That username is taken"],
+    ["kristina", "That username is taken"]
+  ],
+  "email": [
+    ["ana@example.com", null],
+    [" ana@example.com ", null],
+    ["ana@example", "Enter a valid email address"],
+    ["ana example.com", "Enter a valid email address"]
+  ],
+  "password": [
+    ["serbian2026", null],
+    ["short1", "Use at least 8 characters"],
+    ["onlyletters", "Use at least one letter and one number"],
+    ["12345678", "Use at least one letter and one number"]
+  ]
+}

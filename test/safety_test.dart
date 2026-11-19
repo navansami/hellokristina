@@ -150,7 +150,6 @@ void main() {
                 onAvatar: (_) async {},
                 onClose: () {},
                 onFriends: () {},
-                onAuth: (_, __, ___, ____, _____) async {},
                 onLogout: () async => signedOut++))));
     await tester.ensureVisible(find.text('SIGN OUT'));
     await settle(tester);

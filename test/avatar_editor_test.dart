@@ -95,7 +95,6 @@ void main() {
                 onAvatar: (_) async {},
                 onClose: () {},
                 onFriends: () {},
-                onAuth: (_, __, ___, ____, _____) async {},
                 onLogout: () async {}))));
     await tester.pump();
     expect(find.text('Navan Sami'), findsOneWidget);

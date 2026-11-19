@@ -10,7 +10,6 @@ class ProfilePage extends StatelessWidget {
   final Future<void> Function(LearnerLook) onAvatar;
   final VoidCallback onClose;
   final VoidCallback onFriends;
-  final Future<void> Function(String, String, String, bool, bool) onAuth;
   final Future<void> Function() onLogout;
   const ProfilePage(
       {super.key,
@@ -24,7 +23,6 @@ class ProfilePage extends StatelessWidget {
       required this.onAvatar,
       required this.onClose,
       required this.onFriends,
-      required this.onAuth,
       required this.onLogout});
 
   /// Achievements: emoji, name, how to earn it, and whether it's unlocked.
@@ -285,24 +283,20 @@ class ProfilePage extends StatelessWidget {
                           ]);
                         }),
                         const SizedBox(height: 24),
-                        if (user == null)
-                          KButton(
-                              text: 'CREATE ACCOUNT / SIGN IN',
-                              onTap: () => _authDialog(context))
-                        else ...[
+                        ...[
                           _Slab(
                               child: Row(children: [
                             const Icon(Icons.verified_user_rounded,
                                 color: correctGreen),
                             const SizedBox(width: 12),
                             Expanded(
-                                child: Text(user!['email'] ?? '',
+                                child: Text(user?['email'] ?? '',
                                     style: const TextStyle(
                                         color: muted,
                                         fontWeight: FontWeight.w700)))
                           ])),
                           const SizedBox(height: 12),
-                          if (user!['role'] == 'admin') ...[
+                          if (user?['role'] == 'admin') ...[
                             _Chunky(
                                 fill: Colors.white,
                                 edge: panel2,
@@ -352,114 +346,6 @@ class ProfilePage extends StatelessWidget {
         MaterialPageRoute(
             builder: (_) => AvatarEditor(look: look, onDone: onAvatar)));
   }
-
-  void _authDialog(BuildContext context) {
-    final email = TextEditingController(),
-        password = TextEditingController(),
-        name = TextEditingController();
-    bool register = true, remember = true, busy = false;
-    String? error;
-    showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: panel,
-        shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
-        builder: (ctx) => StatefulBuilder(
-            builder: (ctx, setSheet) => Padding(
-                padding: EdgeInsets.fromLTRB(
-                    24, 24, 24, MediaQuery.viewInsetsOf(ctx).bottom + 24),
-                child: SafeArea(
-                    child: SingleChildScrollView(
-                        child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                      Text(register ? 'Join the fun' : 'Welcome back',
-                          style: const TextStyle(
-                              fontSize: 25, fontWeight: FontWeight.w900)),
-                      const SizedBox(height: 5),
-                      Text(
-                          register
-                              ? 'Save your progress and find your crew.'
-                              : 'Kristina missed you. A little.',
-                          style: const TextStyle(color: muted)),
-                      const SizedBox(height: 20),
-                      if (register) ...[
-                        TextField(
-                            controller: name, decoration: _input('Your name')),
-                        const SizedBox(height: 12)
-                      ],
-                      TextField(
-                          controller: email,
-                          keyboardType: TextInputType.emailAddress,
-                          decoration: _input('Email')),
-                      const SizedBox(height: 12),
-                      TextField(
-                          controller: password,
-                          obscureText: true,
-                          decoration: _input('Password (8+ characters)')),
-                      const SizedBox(height: 8),
-                      CheckboxListTile(
-                          value: remember,
-                          onChanged: (v) =>
-                              setSheet(() => remember = v ?? true),
-                          title: const Text('Remember me for 7 days',
-                              style: TextStyle(fontSize: 13)),
-                          contentPadding: EdgeInsets.zero,
-                          controlAffinity: ListTileControlAffinity.leading,
-                          activeColor: amberInk),
-                      if (error != null)
-                        Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: Text(error!,
-                                style: const TextStyle(color: pink))),
-                      KButton(
-                          text: busy
-                              ? 'ONE MOMENT...'
-                              : register
-                                  ? 'CREATE ACCOUNT'
-                                  : 'SIGN IN',
-                          onTap: busy
-                              ? null
-                              : () async {
-                                  setSheet(() {
-                                    busy = true;
-                                    error = null;
-                                  });
-                                  try {
-                                    await onAuth(email.text, password.text,
-                                        name.text, register, remember);
-                                    if (ctx.mounted) Navigator.pop(ctx);
-                                  } catch (e) {
-                                    setSheet(() {
-                                      busy = false;
-                                      error = e
-                                          .toString()
-                                          .replaceFirst('Exception: ', '');
-                                    });
-                                  }
-                                }),
-                      const SizedBox(height: 8),
-                      Center(
-                          child: TextButton(
-                              onPressed: () =>
-                                  setSheet(() => register = !register),
-                              child: Text(
-                                  register
-                                      ? 'Already have an account? Sign in'
-                                      : 'New here? Create an account',
-                                  style: const TextStyle(color: blue))))
-                    ]))))));
-  }
-
-  InputDecoration _input(String label) => InputDecoration(
-      hintText: label,
-      filled: true,
-      fillColor: const Color(0xFFF5F7F7),
-      border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide.none));
 }
 
 class _ProfileStat extends StatelessWidget {

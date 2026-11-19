@@ -1,6 +1,7 @@
 import { MongoClient, ObjectId } from 'mongodb';
 import { SignJWT, jwtVerify } from 'jose';
 import bcrypt from 'bcryptjs';
+import { sessionLength } from './auth.js';
 
 let clientPromise;
 let indexPromise;
@@ -15,6 +16,8 @@ export async function db() {
     database.collection('progress').createIndex({ userId: 1, courseId: 1 }, { unique: true }),
     database.collection('friends').createIndex({ userId: 1, friendId: 1 }, { unique: true }),
     database.collection('feed').createIndex({ actorId: 1, createdAt: -1 }),
+    database.collection('password_resets').createIndex({ hash: 1 }, { unique: true }),
+    database.collection('password_resets').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
   ]).catch(error => { indexPromise = undefined; throw error; });
   await indexPromise;
   return database;
@@ -40,7 +43,7 @@ export function secret() {
   return new TextEncoder().encode(process.env.JWT_SECRET);
 }
 export async function token(user, remember = true) {
-  return new SignJWT({ email: user.email, role: user.role || 'learner' }).setProtectedHeader({ alg: 'HS256' }).setSubject(String(user._id)).setIssuedAt().setExpirationTime(remember ? '7d' : '1d').sign(secret());
+  return new SignJWT({ email: user.email, role: user.role || 'learner' }).setProtectedHeader({ alg: 'HS256' }).setSubject(String(user._id)).setIssuedAt().setExpirationTime(sessionLength(remember)).sign(secret());
 }
 export async function userFrom(req) {
   const raw = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
@@ -48,6 +51,8 @@ export async function userFrom(req) {
   try {
     const { payload } = await jwtVerify(raw, secret());
     const user = await (await db()).collection('users').findOne({ _id: new ObjectId(payload.sub) }, { projection: { passwordHash: 0 } });
+    // A password change signs out every session issued before it.
+    if (user?.passwordChangedAt && (payload.iat ?? 0) * 1000 < user.passwordChangedAt.getTime() - 1000) return null;
     return user;
   } catch { return null; }
 }

@@ -1,14 +1,36 @@
 import { db, safe, method, send, token, publicUser, bcrypt } from '../../server/core.js';
+import { nameError, usernameError, emailError, passwordError, normalizeUsername } from '../../server/auth.js';
+
+// GET ?username=x  -> { available, error? }  (live check while typing)
+// POST { name, username, email, password, acceptedTerms, remember }
 export default safe(async (req, res) => {
-  if (!method(req, res, ['POST'])) return;
-  const { name, email, password, remember = true } = req.body || {};
-  if (!name?.trim() || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email || '') || (password || '').length < 8) return send(res, 400, { error: 'Enter a name, valid email and password of at least 8 characters' });
-  const database = await db(); const normalized = email.toLowerCase().trim();
-  if (await database.collection('users').findOne({ email: normalized })) return send(res, 409, { error: 'This email is already registered' });
-  const username = `${name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 14) || 'learner'}${Math.floor(Math.random() * 9000 + 1000)}`;
+  if (!method(req, res, ['GET', 'POST'])) return;
+  const database = await db();
+  const users = database.collection('users');
+  if (req.method === 'GET') {
+    const username = normalizeUsername(req.query?.username);
+    const error = usernameError(username);
+    if (error) return send(res, 200, { available: false, error });
+    const taken = await users.findOne({ username }, { projection: { _id: 1 } });
+    return send(res, 200, taken ? { available: false, error: 'That username is taken' } : { available: true });
+  }
+  const { name, username: rawUsername, email, password, acceptedTerms, remember = true } = req.body || {};
+  const username = normalizeUsername(rawUsername);
+  const problems = [
+    ['name', nameError(name)],
+    ['username', usernameError(username)],
+    ['email', emailError(email)],
+    ['password', passwordError(password)],
+    ['terms', acceptedTerms === true ? null : 'Please accept the terms to continue'],
+  ].filter(([, error]) => error);
+  if (problems.length) return send(res, 400, { error: problems[0][1], field: problems[0][0] });
+  const normalized = email.toLowerCase().trim();
+  if (await users.findOne({ email: normalized }, { projection: { _id: 1 } })) return send(res, 409, { error: 'This email is already registered. Try logging in.', field: 'email' });
+  if (await users.findOne({ username }, { projection: { _id: 1 } })) return send(res, 409, { error: 'That username is taken', field: 'username' });
   const role = (process.env.ADMIN_EMAILS || '').split(',').map(x => x.trim().toLowerCase()).includes(normalized) ? 'admin' : 'learner';
-  const user = { name: name.trim().slice(0, 60), username, email: normalized, passwordHash: await bcrypt.hash(password, 12), avatar: { face: 'built', color: '#F6E7A8', look: { skin: 6, body: 3, eye: 0, expression: 0, hair: 0, hairColor: 1, glasses: 0, glassesColor: 1, hat: 0, hatColor: 1, shirt: 4, background: 0 } }, role, xp: 0, streak: 0, createdAt: new Date() };
-  const result = await database.collection('users').insertOne(user); user._id = result.insertedId;
-  await database.collection('progress').insertOne({ userId: user._id, courseId: 'serbian-en', completedLessons: [], learnedWords: [], lastActiveAt: new Date(), dailyGoal: 15 });
-  send(res, 201, { token: await token(user, remember), user: publicUser(user) });
+  const now = new Date();
+  const user = { name: name.trim().slice(0, 60), username, email: normalized, passwordHash: await bcrypt.hash(password, 12), avatar: { face: 'built', color: '#F6E7A8', look: { skin: 6, body: 3, eye: 0, expression: 0, hair: 0, hairColor: 1, glasses: 0, glassesColor: 1, hat: 0, hatColor: 1, shirt: 4, background: 0 } }, role, xp: 0, streak: 0, termsAcceptedAt: now, createdAt: now };
+  const result = await users.insertOne(user); user._id = result.insertedId;
+  await database.collection('progress').insertOne({ userId: user._id, courseId: 'serbian-en', completedLessons: [], learnedWords: [], lastActiveAt: now, dailyGoal: 15 });
+  send(res, 201, { token: await token(user, remember === true), user: publicUser(user) });
 });

@@ -115,3 +115,15 @@ The Words, Letters, Friends and Profile tabs share the trail's look: gradient he
 ## Safety checks before losing work
 
 Leaving a lesson, checkpoint or test once an answer has been picked or given asks first ("Wait, don't go!"). This covers the close button, the Android back button and the browser back button. Keep learning is the big green button, and leaving is a quieter red option. On the web, closing or reloading the tab mid-lesson triggers the browser's own "Leave site?" prompt (`lib/platform/leave_guard*.dart`). The avatar editor asks before discarding an unsaved look, and signing out asks for confirmation. On Android, back from any other tab returns to Learn instead of closing the app. The shared sheet is `lib/widgets/confirm_sheet.dart`, and `test/safety_test.dart` covers each case.
+
+## Accounts: sign up, log in, remember me and password reset
+
+The app has no guest mode. Until someone is signed in it shows the front door (`lib/pages/auth_page.dart`): a welcome screen, sign up, log in, forgot password and the reset-link landing.
+
+- **Sign up** asks for name, username, email, password (with confirmation) and agreement to a plain-language terms and privacy summary. Usernames are 3–20 characters, start with a letter, use letters, numbers, dots and underscores, and are checked live for availability. Passwords need 8+ characters with a letter and a number. `server/auth.js` and `lib/auth/auth_rules.dart` share these rules, and `scripts/auth-cases.json` holds the cases both `node scripts/check-auth.mjs` and `flutter test test/auth_test.dart` run.
+- **Log in** takes an email or a username.
+- **Remember me** (on by default) keeps the session on the device for 30 days. Unticked, the token lives only in the browser tab's `sessionStorage` (or in memory on native apps) and expires on the server within a day.
+- **Forgot password** emails a one-hour link (`/?reset=…`) through [Resend](https://resend.com). Only a SHA-256 hash of the link's token is stored, and a reset signs out every existing session. Set `RESEND_API_KEY`, `MAIL_FROM` (for example `Hello Kristina <hello@your-domain>`, from a domain verified in Resend) and `PUBLIC_ORIGIN` (for example `https://hellokristina.app`). Without them, the form explains that reset emails aren't set up yet.
+- **Expired sessions** (for example after a password reset) return the learner to the front door with a short note.
+
+All of this runs in the existing `api/auth/register.js` (also `GET ?username=` for the live check) and `api/auth/login.js` (also `action: 'forgot' | 'reset'`), because the Vercel Hobby plan allows 12 functions and the project uses all 12.

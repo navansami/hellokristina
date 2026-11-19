@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
+import 'auth/auth_api.dart';
+import 'auth/auth_rules.dart';
+import 'auth/session_store.dart';
 import 'avatar/avatar_editor.dart';
 import 'avatar/learner_look.dart';
 import 'avatar/learner_portrait.dart';
@@ -19,7 +22,8 @@ import 'practice/object_bank.dart';
 import 'speech/serbian_speech.dart';
 import 'speech/speech_match.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart' show AssetManifest, rootBundle;
+import 'package:flutter/services.dart'
+    show AssetManifest, TextInput, rootBundle;
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart' show CustomSemanticsAction;
 import 'package:http/http.dart' as http;
@@ -41,6 +45,7 @@ part 'pages/words_page.dart';
 part 'pages/letters_page.dart';
 part 'pages/friends_page.dart';
 part 'pages/profile_page.dart';
+part 'pages/auth_page.dart';
 
 InputDecoration _input(String label) => InputDecoration(
     hintText: label,
@@ -376,6 +381,13 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
   DailyLog daily = const DailyLog();
   int mistakeCount = 0;
   bool loading = true;
+  late final AuthApi authApi = AuthApi(api);
+
+  /// A password-reset token from the link the app was opened with.
+  String? resetToken = initialResetToken();
+
+  /// Shown on the front door, e.g. after a session expires.
+  String? authNotice;
   @override
   void initState() {
     super.initState();
@@ -413,8 +425,9 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
       completedRounds = (p.getStringList('completedRounds') ?? []).toSet();
       xp = p.getInt('xp') ?? 0;
       streak = p.getInt('streak') ?? 0;
-      token = p.getString('token');
+      token = p.getString('token') ?? readSessionToken();
       SharedToken.value = token;
+      user = _cachedUser(p);
       avatar = _storedLook(p);
       daily = DailyLog.read(p);
       loading = false;
@@ -436,17 +449,47 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
             user = jsonDecode(r.body)['user'];
             _applyAvatar(user);
           });
+          await _cacheUser(p);
           await _syncProgress();
         } else if (r.statusCode == 401) {
-          await p.remove('token');
-          if (mounted)
-            setState(() {
-              token = null;
-              SharedToken.value = null;
-            });
+          await _sessionExpired();
         }
       } catch (_) {}
     }
+  }
+
+  /// The last signed-in profile, so a remembered learner can open the app
+  /// offline. Only remembered sessions keep it.
+  Map<String, dynamic>? _cachedUser(SharedPreferences prefs) {
+    try {
+      final raw = prefs.getString('user');
+      return raw == null ? null : jsonDecode(raw) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _cacheUser(SharedPreferences prefs) async {
+    if (user != null && prefs.getString('token') != null) {
+      await prefs.setString('user', jsonEncode(user));
+    }
+  }
+
+  /// The server no longer accepts the token: back to the front door.
+  Future<void> _sessionExpired() async {
+    await logout();
+    if (mounted) {
+      setState(() => authNotice =
+          'Your session has ended. Please log in again to keep learning.');
+    }
+  }
+
+  /// A password reset link was used: if the password changed, every session
+  /// (including this one) was signed out on the server.
+  Future<void> _resetHandled(bool passwordChanged) async {
+    clearResetFromUrl();
+    if (passwordChanged && token != null) await logout();
+    if (mounted) setState(() => resetToken = null);
   }
 
   LearnerLook _storedLook(SharedPreferences prefs) {
@@ -538,6 +581,7 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
               'answers': answers,
               'words': lesson.vocabulary.map((word) => word[0]).toList()
             }));
+        if (response.statusCode == 401) return await _sessionExpired();
         if (response.statusCode == 200) {
           final me = await http.get(api('/api/auth/me'),
               headers: {'Authorization': 'Bearer $token'});
@@ -550,46 +594,53 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> auth(String email, String password, String name, bool register,
-      bool remember) async {
-    final r = await http.post(
-        api(register ? '/api/auth/register' : '/api/auth/login'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': email,
-          'password': password,
-          'name': name,
-          'remember': remember
-        }));
-    final data = jsonDecode(r.body);
-    if (r.statusCode >= 400)
-      throw Exception(data['error'] ?? 'Could not sign in');
+  /// Signed up or logged in: keep the token where "Remember me" says, start
+  /// from the account's own progress and open the app.
+  Future<void> startSession(AuthSession session) async {
     final p = await SharedPreferences.getInstance();
-    await p.setString('token', data['token']);
-    await p.remove('done');
-    await p.remove('completedRounds');
-    await p.remove('xp');
-    await p.remove('streak');
-    await p.remove('lastActive');
+    if (session.remember) {
+      await p.setString('token', session.token);
+      writeSessionToken(null);
+    } else {
+      await p.remove('token');
+      writeSessionToken(session.token);
+    }
+    for (final key in [
+      'done',
+      'completedRounds',
+      'xp',
+      'streak',
+      'lastActive',
+      'user'
+    ]) {
+      await p.remove(key);
+    }
     await DailyLog.clear(p);
+    if (!mounted) return;
     setState(() {
       daily = DailyLog(goal: daily.goal);
       mistakeCount = 0;
-      token = data['token'];
-      user = data['user'];
+      token = session.token;
+      user = session.user;
       done = {};
       completedRounds = {};
       xp = 0;
       streak = 0;
+      tab = 0;
+      authNotice = null;
       SharedToken.value = token;
       _applyAvatar(user);
     });
+    await _cacheUser(p);
     await _syncProgress();
   }
 
   Future<void> logout() async {
     final p = await SharedPreferences.getInstance();
     await p.remove('token');
+    await p.remove('user');
+    await p.remove('avatarLook');
+    writeSessionToken(null);
     await p.remove('done');
     await p.remove('completedRounds');
     await p.remove('xp');
@@ -605,7 +656,9 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
       completedRounds = {};
       xp = 0;
       streak = 0;
+      tab = 0;
       reviewLessonId = null;
+      avatar = const LearnerLook();
       SharedToken.value = null;
     });
   }
@@ -708,6 +761,7 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
           },
           body: jsonEncode(
               {'review': true, 'courseId': 'serbian-en', 'answers': answers}));
+      if (response.statusCode == 401) return await _sessionExpired();
       if (response.statusCode == 200) {
         final me = await http.get(api('/api/auth/me'),
             headers: {'Authorization': 'Bearer $token'});
@@ -851,6 +905,7 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
             'lessonIds': ids,
             'answers': answers
           }));
+      if (response.statusCode == 401) return await _sessionExpired();
       if (response.statusCode == 200) {
         final me = await http.get(api('/api/auth/me'),
             headers: {'Authorization': 'Bearer $token'});
@@ -881,86 +936,111 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
             textTheme: GoogleFonts.nunitoTextTheme(ThemeData.light().textTheme)
                 .apply(bodyColor: ink, displayColor: ink)),
         home: loading
-            ? const Scaffold(body: Center(child: CircularProgressIndicator()))
-            : PopScope(
-                canPop: tab == 0,
-                onPopInvokedWithResult: (didPop, _) {
-                  if (!didPop) setState(() => tab = 0);
-                },
-                child: Scaffold(
-                    body: SafeArea(
-                        child: Center(
-                            child: ConstrainedBox(
-                                constraints:
-                                    const BoxConstraints(maxWidth: 980),
-                                child: Column(children: [
-                                  Expanded(
-                                      child: Row(children: [
-                                    if (MediaQuery.sizeOf(context).width > 720)
-                                      SizedBox(
-                                          width: 190,
-                                          child: SideNav(
-                                              tab: tab,
-                                              onTap: (i) =>
-                                                  setState(() => tab = i))),
-                                    Expanded(
-                                        child:
-                                            IndexedStack(index: tab, children: [
-                                      PathPage(
-                                          done: done,
-                                          completedRounds: completedRounds,
-                                          look: avatar,
-                                          onProfile: () =>
-                                              setState(() => tab = 4),
-                                          reviewLessonId: reviewLessonId,
-                                          xp: xp,
-                                          streak: streak,
-                                          daily: daily,
-                                          onGoal: setDailyGoal,
-                                          onLesson: lesson,
-                                          onJump: testOut,
-                                          onChat: () => navigatorKey
-                                              .currentState
-                                              ?.push(MaterialPageRoute(
-                                                  builder: (_) =>
-                                                      ChatPage(token: token)))),
-                                      WordsPage(
-                                          done: {
-                                            ...done,
-                                            ...completedRounds.map((key) =>
-                                                key.substring(
-                                                    0, key.lastIndexOf(':')))
-                                          },
-                                          mistakes: mistakeCount,
-                                          onMistakes: practiseMistakes),
-                                      const LettersPage(),
-                                      FriendsPage(
-                                          token: token,
-                                          me: user,
-                                          xp: xp,
-                                          look: avatar),
-                                      ProfilePage(
-                                          user: user,
-                                          xp: xp,
-                                          streak: streak,
-                                          done: done,
-                                          daily: daily,
-                                          onGoal: setDailyGoal,
-                                          look: avatar,
-                                          onAvatar: changeAvatar,
-                                          onClose: () =>
-                                              setState(() => tab = 0),
-                                          onFriends: () =>
-                                              setState(() => tab = 3),
-                                          onAuth: auth,
-                                          onLogout: logout)
-                                    ]))
-                                  ])),
-                                  if (MediaQuery.sizeOf(context).width <= 720)
-                                    BottomNav(
-                                        tab: tab,
-                                        onTap: (i) => setState(() => tab = i))
-                                ])))))));
+            ? Scaffold(
+                backgroundColor: bg,
+                body: Center(
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Text('Hello Kristina',
+                      style:
+                          display(34, color: orange, weight: FontWeight.w700)),
+                  const SizedBox(height: 18),
+                  const CircularProgressIndicator(color: orange),
+                ])))
+            : token == null || resetToken != null
+                ? AuthPage(
+                    api: authApi,
+                    onSession: startSession,
+                    resetToken: resetToken,
+                    onResetHandled: _resetHandled,
+                    notice: authNotice)
+                : PopScope(
+                    canPop: tab == 0,
+                    onPopInvokedWithResult: (didPop, _) {
+                      if (!didPop) setState(() => tab = 0);
+                    },
+                    child: Scaffold(
+                        body: SafeArea(
+                            child: Center(
+                                child: ConstrainedBox(
+                                    constraints:
+                                        const BoxConstraints(maxWidth: 980),
+                                    child: Column(children: [
+                                      Expanded(
+                                          child: Row(children: [
+                                        if (MediaQuery.sizeOf(context).width >
+                                            720)
+                                          SizedBox(
+                                              width: 190,
+                                              child: SideNav(
+                                                  tab: tab,
+                                                  onTap: (i) =>
+                                                      setState(() => tab = i))),
+                                        Expanded(
+                                            child: IndexedStack(
+                                                index: tab,
+                                                children: [
+                                              PathPage(
+                                                  done: done,
+                                                  completedRounds:
+                                                      completedRounds,
+                                                  look: avatar,
+                                                  onProfile: () =>
+                                                      setState(() => tab = 4),
+                                                  reviewLessonId:
+                                                      reviewLessonId,
+                                                  xp: xp,
+                                                  streak: streak,
+                                                  daily: daily,
+                                                  onGoal: setDailyGoal,
+                                                  onLesson: lesson,
+                                                  onJump: testOut,
+                                                  onChat: () => navigatorKey
+                                                      .currentState
+                                                      ?.push(MaterialPageRoute(
+                                                          builder: (_) =>
+                                                              ChatPage(
+                                                                  token:
+                                                                      token)))),
+                                              WordsPage(
+                                                  done: {
+                                                    ...done,
+                                                    ...completedRounds.map(
+                                                        (key) => key.substring(
+                                                            0,
+                                                            key.lastIndexOf(
+                                                                ':')))
+                                                  },
+                                                  mistakes: mistakeCount,
+                                                  onMistakes: practiseMistakes),
+                                              const LettersPage(),
+                                              FriendsPage(
+                                                  token: token,
+                                                  me: user,
+                                                  xp: xp,
+                                                  look: avatar),
+                                              ProfilePage(
+                                                  user: user,
+                                                  xp: xp,
+                                                  streak: streak,
+                                                  done: done,
+                                                  daily: daily,
+                                                  onGoal: setDailyGoal,
+                                                  look: avatar,
+                                                  onAvatar: changeAvatar,
+                                                  onClose: () =>
+                                                      setState(() => tab = 0),
+                                                  onFriends: () =>
+                                                      setState(() => tab = 3),
+                                                  onLogout: logout)
+                                            ]))
+                                      ])),
+                                      if (MediaQuery.sizeOf(context).width <=
+                                          720)
+                                        BottomNav(
+                                            tab: tab,
+                                            onTap: (i) =>
+                                                setState(() => tab = i))
+                                    ])))))));
   }
 }
 

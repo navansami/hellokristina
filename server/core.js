@@ -33,7 +33,7 @@ export function safe(handler) { return async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
   }
   if (req.method === 'OPTIONS') return res.status(204).end();
   try { await handler(req, res); } catch (e) { console.error(e); send(res, e?.code === 11000 ? 409 : 500, { error: e?.code === 11000 ? 'That account already exists' : 'Something went wrong' }); }
@@ -51,8 +51,10 @@ export async function userFrom(req) {
   try {
     const { payload } = await jwtVerify(raw, secret());
     const user = await (await db()).collection('users').findOne({ _id: new ObjectId(payload.sub) }, { projection: { passwordHash: 0 } });
-    // A password change signs out every session issued before it.
-    if (user?.passwordChangedAt && (payload.iat ?? 0) * 1000 < user.passwordChangedAt.getTime() - 1000) return null;
+    // A password change or "sign out everywhere" ends every session issued
+    // before it.
+    const cutoff = Math.max(user?.passwordChangedAt?.getTime() ?? 0, user?.sessionsValidAfter?.getTime() ?? 0);
+    if (cutoff && (payload.iat ?? 0) * 1000 < cutoff - 1000) return null;
     return user;
   } catch { return null; }
 }

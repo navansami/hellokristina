@@ -127,3 +127,18 @@ The app has no guest mode. Until someone is signed in it shows the front door (`
 - **Expired sessions** (for example after a password reset) return the learner to the front door with a short note.
 
 All of this runs in the existing `api/auth/register.js` (also `GET ?username=` for the live check) and `api/auth/login.js` (also `action: 'forgot' | 'reset'`), because the Vercel Hobby plan allows 12 functions and the project uses all 12.
+
+## Account settings
+
+The gear on the Profile tab, and the "Account settings" card near the bottom, open `lib/pages/account_page.dart`:
+
+- **Profile:** change your name and username. Usernames follow the sign-up rules and must be free.
+- **Login and security:**
+  - Change your email (needs your current password).
+  - Change your password (needs the current one, and signs out every other device while this one stays signed in).
+  - "Sign out others", which ends every other session.
+  - The page shows whether this device remembers you.
+- **Learning:** daily goal, and the sound, vibration and spoken-word switches.
+- **Sign out** and **Delete account.** Deleting needs your password and an "I understand" tick. It removes the user, progress, friendships in both directions, feed posts and likes, chat history and reset links.
+
+The server side is `api/auth/profile.js`: `PATCH` with `details`, `email`, `password`, `action: 'signOutEverywhere'` or `avatar`, and `DELETE` to delete. Ending sessions sets `sessionsValidAfter` on the user, and `server/core.js` rejects older tokens. `test/account_test.dart` covers each flow.

@@ -46,6 +46,7 @@ part 'pages/letters_page.dart';
 part 'pages/friends_page.dart';
 part 'pages/profile_page.dart';
 part 'pages/auth_page.dart';
+part 'pages/account_page.dart';
 
 InputDecoration _input(String label) => InputDecoration(
     hintText: label,
@@ -388,6 +389,9 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
 
   /// Shown on the front door, e.g. after a session expires.
   String? authNotice;
+
+  /// Whether this sign-in was remembered (30 days) or lasts this session.
+  bool remembered = true;
   @override
   void initState() {
     super.initState();
@@ -425,6 +429,7 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
       completedRounds = (p.getStringList('completedRounds') ?? []).toSet();
       xp = p.getInt('xp') ?? 0;
       streak = p.getInt('streak') ?? 0;
+      remembered = p.getString('token') != null;
       token = p.getString('token') ?? readSessionToken();
       SharedToken.value = token;
       user = _cachedUser(p);
@@ -473,6 +478,70 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
     if (user != null && prefs.getString('token') != null) {
       await prefs.setString('user', jsonEncode(user));
     }
+  }
+
+  /// Keep the token where "Remember me" says: device storage for 30 days,
+  /// or only this tab or app session.
+  Future<void> _storeToken(SharedPreferences p, AuthSession session) async {
+    remembered = session.remember;
+    if (session.remember) {
+      await p.setString('token', session.token);
+      writeSessionToken(null);
+    } else {
+      await p.remove('token');
+      writeSessionToken(session.token);
+    }
+  }
+
+  /// A password change or "sign out other devices" issued a new token.
+  Future<void> _refreshSession(AuthSession session) async {
+    final p = await SharedPreferences.getInstance();
+    await _storeToken(p, session);
+    if (!mounted) return;
+    setState(() {
+      token = session.token;
+      SharedToken.value = token;
+      user = session.user;
+    });
+    await _cacheUser(p);
+  }
+
+  Future<void> _updateUser(Map<String, dynamic> updated) async {
+    setState(() => user = updated);
+    await _cacheUser(await SharedPreferences.getInstance());
+  }
+
+  Future<void> _accountDeleted() async {
+    await logout();
+    if (mounted) {
+      setState(() => authNotice =
+          'Your account has been deleted. Thanks for learning with us. Doviđenja!');
+    }
+  }
+
+  void openSettings() {
+    final current = token;
+    if (current == null) return;
+    navigatorKey.currentState?.push(MaterialPageRoute(
+        builder: (_) => AccountPage(
+            api: authApi,
+            token: current,
+            user: user ?? const {},
+            remembered: remembered,
+            daily: daily,
+            streak: streak,
+            look: avatar,
+            onGoal: setDailyGoal,
+            onEditLook: () async {
+              await navigatorKey.currentState?.push(MaterialPageRoute(
+                  builder: (_) =>
+                      AvatarEditor(look: avatar, onDone: changeAvatar)));
+              return avatar;
+            },
+            onUser: _updateUser,
+            onSession: _refreshSession,
+            onSignOut: logout,
+            onDeleted: _accountDeleted)));
   }
 
   /// The server no longer accepts the token: back to the front door.
@@ -598,13 +667,7 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
   /// from the account's own progress and open the app.
   Future<void> startSession(AuthSession session) async {
     final p = await SharedPreferences.getInstance();
-    if (session.remember) {
-      await p.setString('token', session.token);
-      writeSessionToken(null);
-    } else {
-      await p.remove('token');
-      writeSessionToken(session.token);
-    }
+    await _storeToken(p, session);
     for (final key in [
       'done',
       'completedRounds',
@@ -1031,6 +1094,7 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
                                                       setState(() => tab = 0),
                                                   onFriends: () =>
                                                       setState(() => tab = 3),
+                                                  onSettings: openSettings,
                                                   onLogout: logout)
                                             ]))
                                       ])),

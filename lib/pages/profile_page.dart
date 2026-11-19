@@ -11,6 +11,7 @@ class ProfilePage extends StatelessWidget {
   final VoidCallback onClose;
   final VoidCallback onFriends;
   final Future<void> Function() onLogout;
+  final VoidCallback? onSettings;
   const ProfilePage(
       {super.key,
       required this.user,
@@ -23,7 +24,8 @@ class ProfilePage extends StatelessWidget {
       required this.onAvatar,
       required this.onClose,
       required this.onFriends,
-      required this.onLogout});
+      required this.onLogout,
+      this.onSettings});
 
   /// Achievements: emoji, name, how to earn it, and whether it's unlocked.
   List<(String, String, String, bool)> _achievements() {
@@ -97,7 +99,8 @@ class ProfilePage extends StatelessWidget {
                           alignment: Alignment.centerRight,
                           child: IconButton(
                               tooltip: 'Settings',
-                              onPressed: () => showFeedbackSettings(context),
+                              onPressed: onSettings ??
+                                  () => showFeedbackSettings(context),
                               icon: Icon(Icons.settings_rounded,
                                   color: portraitInk)))
                     ])),
@@ -284,17 +287,37 @@ class ProfilePage extends StatelessWidget {
                         }),
                         const SizedBox(height: 24),
                         ...[
-                          _Slab(
-                              child: Row(children: [
-                            const Icon(Icons.verified_user_rounded,
-                                color: correctGreen),
-                            const SizedBox(width: 12),
-                            Expanded(
-                                child: Text(user?['email'] ?? '',
-                                    style: const TextStyle(
-                                        color: muted,
-                                        fontWeight: FontWeight.w700)))
-                          ])),
+                          _Chunky(
+                              fill: Colors.white,
+                              edge: panel2,
+                              radius: 20,
+                              onTap: onSettings ??
+                                  () => showFeedbackSettings(context),
+                              child: Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Row(children: [
+                                    const Icon(Icons.manage_accounts_rounded,
+                                        color: blue, size: 26),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                        child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                          const Text('Account settings',
+                                              style: TextStyle(
+                                                  fontWeight: FontWeight.w900,
+                                                  fontSize: 16)),
+                                          Text(
+                                              (user?['email'] ?? '').toString(),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                  color: muted, fontSize: 13)),
+                                        ])),
+                                    const Icon(Icons.chevron_right_rounded,
+                                        color: muted),
+                                  ]))),
                           const SizedBox(height: 12),
                           if (user?['role'] == 'admin') ...[
                             _Chunky(

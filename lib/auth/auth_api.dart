@@ -109,4 +109,58 @@ class AuthApi {
         _read(await _post('/api/auth/login',
             {'action': 'reset', 'token': token, 'password': password}));
       });
+
+  // Account management: these need the signed-in [token].
+
+  Future<Map<String, dynamic>> _account(
+      String method, String token, Map<String, Object?> body) async {
+    final request = http.Request(method, url('/api/auth/profile'))
+      ..headers.addAll({
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      })
+      ..body = jsonEncode(body);
+    final streamed = await (client?.send(request) ?? request.send());
+    return _read(await http.Response.fromStream(streamed));
+  }
+
+  Map<String, dynamic> _user(Map<String, dynamic> data) =>
+      data['user'] as Map<String, dynamic>;
+
+  Future<Map<String, dynamic>> updateDetails(String token,
+          {required String name, required String username}) =>
+      _guard(() async => _user(await _account('PATCH', token, {
+            'details': {'name': name.trim(), 'username': username.trim()}
+          })));
+
+  Future<Map<String, dynamic>> updateEmail(
+          String token, String email, String currentPassword) =>
+      _guard(() async => _user(await _account('PATCH', token,
+          {'email': email.trim(), 'currentPassword': currentPassword})));
+
+  /// Returns a fresh session: every other device is signed out.
+  Future<AuthSession> changePassword(String token,
+          {required String current,
+          required String next,
+          required bool remember}) =>
+      _guard(() async {
+        final data = await _account('PATCH', token, {
+          'password': {'current': current, 'next': next},
+          'remember': remember,
+        });
+        return AuthSession(data['token'] as String, _user(data), remember);
+      });
+
+  Future<AuthSession> signOutEverywhere(String token,
+          {required bool remember}) =>
+      _guard(() async {
+        final data = await _account('PATCH', token,
+            {'action': 'signOutEverywhere', 'remember': remember});
+        return AuthSession(data['token'] as String, _user(data), remember);
+      });
+
+  Future<void> deleteAccount(String token, String currentPassword) =>
+      _guard(() async {
+        await _account('DELETE', token, {'currentPassword': currentPassword});
+      });
 }

@@ -23,7 +23,8 @@ Question parse(Map<String, dynamic> q) => Question(q['type'], q['prompt'],
     audioText: q['audioText'] ?? '',
     audioAsset: q['audio'] ?? '',
     translation: q['translation'] ?? '',
-    answerLanguage: q['answerLanguage'] ?? '');
+    answerLanguage: q['answerLanguage'] ?? '',
+    question: q['question'] ?? '');
 Future<void> screen(WidgetTester tester, Question q, Size size,
     {double keyboard = 0,
     bool guide = false,
@@ -268,7 +269,14 @@ void main() {
     expect(find.byType(PageView), findsOneWidget);
     expect(find.byType(SingleChildScrollView), findsNothing);
     expect(tester.takeException(), isNull);
+    // The grammar note comes first, then one page per word.
+    expect(find.text('GRAMMAR'), findsOneWidget);
+    expect(find.text('A lesson guide'), findsOneWidget);
     await tester.tap(find.byTooltip('Next guide page'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(find.text('Ja sam'), findsOneWidget);
+    await tester.tap(find.text('Continue'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
     expect(find.text('Hvala'), findsOneWidget);

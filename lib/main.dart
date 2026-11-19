@@ -17,7 +17,7 @@ import 'practice/object_bank.dart';
 import 'speech/serbian_speech.dart';
 import 'speech/speech_match.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter/services.dart' show AssetManifest, rootBundle;
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart' show CustomSemanticsAction;
 import 'package:http/http.dart' as http;
@@ -73,6 +73,9 @@ class Question {
   final String id, audioText, audioAsset, translation, answerLanguage;
   final List<String> options;
 
+  /// The English question asked about a Serbian text in 'Read and answer'.
+  final String question;
+
   /// The vocabulary word this exercise practises, so a session can cap how
   /// often one word appears. Empty for multi-word or unmatched exercises.
   final String focus;
@@ -85,6 +88,7 @@ class Question {
       this.audioAsset = '',
       this.translation = '',
       this.answerLanguage = '',
+      this.question = '',
       this.focus = '',
       this.review = false});
 
@@ -96,6 +100,7 @@ class Question {
           audioAsset: audioAsset,
           translation: translation,
           answerLanguage: answerLanguage,
+          question: question,
           focus: focus ?? this.focus,
           review: review ?? this.review);
 }
@@ -319,7 +324,8 @@ void applyCourse(Map<String, dynamic> course) {
                 audioText: item['audioText'] ?? '',
                 audioAsset: item['audio'] ?? '',
                 translation: item['translation'] ?? '',
-                answerLanguage: item['answerLanguage'] ?? '');
+                answerLanguage: item['answerLanguage'] ?? '',
+                question: item['question'] ?? '');
           }).toList(),
           theoryTitle: data['theory']['title'],
           theoryBody: data['theory']['body'],
@@ -825,6 +831,31 @@ class SerbianAudio {
   static Future<void>? _wordLoading;
   static int _generation = 0;
   static bool _wired = false;
+
+  /// The tutor on screen: 0 Kristina, 1 Miloš, 2 Zara. Each has recordings in
+  /// their own voice; Kristina's are the default for everything.
+  static int voice = 0;
+  static const voiceFolders = ['', 'milos/', 'zara/'];
+  static Set<String>? _assets;
+  static Future<void> _loadAssets() async {
+    if (_assets != null) return;
+    try {
+      final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
+      _assets = manifest.listAssets().toSet();
+    } catch (_) {
+      _assets = {};
+    }
+  }
+
+  /// [asset] in the current tutor's voice, or [asset] itself.
+  static Future<String> voiced(String asset) async {
+    if (voice == 0 || !asset.startsWith('audio/serbian/')) return asset;
+    await _loadAssets();
+    final candidate = asset.replaceFirst(
+        'audio/serbian/', 'audio/serbian/${voiceFolders[voice % 3]}');
+    return _assets!.contains('assets/$candidate') ? candidate : asset;
+  }
+
   static String wordKey(String text) =>
       text.toLowerCase().replaceAll(RegExp(r'[.,!?;:“”"()]'), '').trim();
   static Future<void> loadWordIndex() => _wordLoading ??= _loadWordIndex();
@@ -877,8 +908,11 @@ class SerbianAudio {
     if (generation != _generation) return;
     if (asset.isNotEmpty) {
       try {
+        final source = await voiced(asset);
+        if (generation != _generation) return;
+        await _player.setVolume(1.0);
         await _player.setPlaybackRate(slow ? 0.75 : 1.0);
-        await _player.setSource(AssetSource(asset));
+        await _player.setSource(AssetSource(source));
         if (generation != _generation) return;
         await _player.resume();
         return;
@@ -1765,6 +1799,7 @@ class _LessonPageState extends State<LessonPage>
     learningFeedback.cancelHaptics();
     _wave.dispose();
     guidePages.dispose();
+    SerbianAudio.voice = 0;
     super.dispose();
   }
 
@@ -2032,6 +2067,8 @@ class _LessonPageState extends State<LessonPage>
                   'Complete the sentence' => 'Complete the sentence',
                   'Choose the image' => 'Select the correct image',
                   'Match the pairs' => 'Tap the matching pairs',
+                  'Choose the reply' => 'Choose the best reply',
+                  'Read and answer' => 'Read and answer',
                   'Translate to Serbian' => 'How do you say this?',
                   _ => 'Choose the correct meaning',
                 };
@@ -2043,6 +2080,7 @@ class _LessonPageState extends State<LessonPage>
   Widget build(BuildContext context) {
     final q = round[index];
     final guide = showTheory && widget.lesson.theoryBody.isNotEmpty;
+    SerbianAudio.voice = _castIndex();
     return Scaffold(
         backgroundColor: bg,
         resizeToAvoidBottomInset: true,
@@ -2148,7 +2186,10 @@ class _LessonPageState extends State<LessonPage>
       LayoutBuilder(builder: (context, space) {
         final short = space.maxHeight < 380;
         final headingHeight = short ? 38.0 : 52.0;
-        final sceneHeight = (space.maxHeight * .23).clamp(66.0, 120.0);
+        final reading = q.type == 'Read and answer';
+        final sceneHeight = reading
+            ? (space.maxHeight * .42).clamp(120.0, 260.0)
+            : (space.maxHeight * .23).clamp(66.0, 120.0);
         return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -2226,6 +2267,7 @@ class _LessonPageState extends State<LessonPage>
                         : 'idle',
       ),
     );
+    if (q.type == 'Read and answer') return _readingCard(q);
     if (q.type.startsWith('Listen')) {
       return Row(mainAxisAlignment: MainAxisAlignment.center, children: [
         tutor,
@@ -2240,6 +2282,7 @@ class _LessonPageState extends State<LessonPage>
         (q.type == 'Choose the meaning' ||
             q.type == 'Choose the image' ||
             q.type == 'Speak the phrase' ||
+            q.type == 'Choose the reply' ||
             (q.type == 'Arrange the words' && q.answerLanguage == 'en'));
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -2272,8 +2315,37 @@ class _LessonPageState extends State<LessonPage>
     );
   }
 
+  /// A short Serbian text with word hints, its audio and the question.
+  Widget _readingCard(Question q) => Container(
+        padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+        decoration: BoxDecoration(
+            color: panel,
+            border: Border.all(color: panel2),
+            borderRadius: BorderRadius.circular(14)),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(
+              child: _FitToBox(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                for (final line in q.prompt.split('\n'))
+                  Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: _hintText(q, line, size: 17)),
+                const SizedBox(height: 6),
+                Text(q.question,
+                    style: const TextStyle(
+                        color: blue,
+                        fontSize: 15,
+                        height: 1.25,
+                        fontWeight: FontWeight.w800)),
+              ]))),
+          if (q.audioText.isNotEmpty)
+            SerbianAudioButton(text: q.audioText, asset: q.audioAsset),
+        ]),
+      );
+
   Widget _hintPrompt(Question q) {
-    final vocabulary = [...widget.lesson.vocabulary, ...words];
     var prompt = q.prompt;
     if (q.type == 'Complete the sentence' && selected != null) {
       prompt = prompt.replaceFirst('___', selected!);
@@ -2282,6 +2354,11 @@ class _LessonPageState extends State<LessonPage>
         (q.type == 'Choose the image' && prompt.startsWith('Which one'))) {
       if (q.audioText.isNotEmpty) prompt = q.audioText;
     }
+    return _hintText(q, prompt);
+  }
+
+  Widget _hintText(Question q, String prompt, {double size = 18}) {
+    final vocabulary = [...widget.lesson.vocabulary, ...words];
     return Wrap(
         spacing: 4,
         runSpacing: 3,
@@ -2289,7 +2366,7 @@ class _LessonPageState extends State<LessonPage>
           final hint = wordHintFor(token, prompt, vocabulary);
           final label = Text(token,
               style: TextStyle(
-                  fontSize: 18,
+                  fontSize: size,
                   height: 1.35,
                   fontWeight: FontWeight.w700,
                   decoration: hint == null ? null : TextDecoration.underline,
@@ -2872,14 +2949,19 @@ class _LessonPageState extends State<LessonPage>
                           : null),
           ]));
 
-  int get _guideCount => math.max(1, widget.lesson.vocabulary.length);
+  int get _guideCount => widget.lesson.vocabulary.isEmpty
+      ? 1
+      : widget.lesson.vocabulary.length + 1;
 
   Widget _guideViewport() {
     final lesson = widget.lesson;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Row(children: [
         Expanded(
-            child: Text(lesson.vocabulary.isEmpty ? 'Lesson guide' : 'New word',
+            child: Text(
+                lesson.vocabulary.isEmpty || guidePage == 0
+                    ? 'Lesson guide'
+                    : 'New word',
                 style: const TextStyle(
                     fontSize: 19, color: ink, fontWeight: FontWeight.w800))),
         IconButton(
@@ -2903,8 +2985,11 @@ class _LessonPageState extends State<LessonPage>
         controller: guidePages,
         onPageChanged: (page) => setState(() => guidePage = page),
         itemBuilder: (_, page) {
+          if (page == 0 && lesson.vocabulary.isNotEmpty) {
+            return _GrammarPage(lesson: lesson, character: _castIndex());
+          }
           final word =
-              lesson.vocabulary.isEmpty ? null : lesson.vocabulary[page];
+              lesson.vocabulary.isEmpty ? null : lesson.vocabulary[page - 1];
           return _VocabularyPage(
               lesson: lesson, word: word, character: _castIndex());
         },

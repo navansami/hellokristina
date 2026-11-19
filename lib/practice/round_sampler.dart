@@ -127,10 +127,19 @@ List<Question> selectPracticeRound(
   final speaks = items.where((question) => question.type == 'Speak the phrase');
   final images = items.where((question) => question.type == 'Choose the image');
   final pairs = items.where((question) => question.type == 'Match the pairs');
-  // Every session keeps at least one hand-written exercise.
-  if (items.any(_authored) &&
-      chosen.values.every((question) => !_authored(question))) {
-    take(items.where((question) => _authored(question) && !special(question)),
+  // Hand-written sentences, dialogues and readings carry the lesson, so they
+  // fill about two in five places; word drills fill the rest. At most one
+  // reading per session, because readings take longer.
+  int readings() => chosen.values
+      .where((question) => question.type == 'Read and answer')
+      .length;
+  final authoredTarget = math.max(1, (size * .4).round());
+  for (var k = 0; k < authoredTarget; k++) {
+    take(
+        items.where((question) =>
+            _authored(question) &&
+            !special(question) &&
+            (question.type != 'Read and answer' || readings() == 0)),
         1);
   }
   if (speaks.isNotEmpty) {
@@ -153,6 +162,7 @@ List<Question> selectPracticeRound(
     take(
         items.where((question) =>
             !special(question) &&
+            (question.type != 'Read and answer' || readings() == 0) &&
             (question.type != 'Listen and choose' || picks() < 2)),
         1);
     if (chosen.length == before) break;

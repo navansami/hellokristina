@@ -10,3 +10,6 @@ referrence_images/
 
 .idea/
 *.iml
+
+# Local scratch output (voice samples etc.)
+tmp/

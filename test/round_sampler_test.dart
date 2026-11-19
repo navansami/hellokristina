@@ -194,6 +194,30 @@ void main() {
     expect(await PracticeMemory.session(), 2);
   });
 
+  test('sentences, dialogues and readings fill about two in five places', () {
+    final random = Random(11);
+    for (final lesson in lessons.where((l) => l.kind == 'challenge')) {
+      final deal = buildPracticeRound(lesson, const {}, random);
+      final authored = deal.questions
+          .where((q) =>
+              const [
+                'Arrange the words',
+                'Listen and arrange',
+                'Complete the sentence',
+                'Choose the reply',
+                'Read and answer'
+              ].contains(q.type) &&
+              RegExp(r'-[sgrt]\d+$').hasMatch(q.id))
+          .length;
+      expect(
+          authored, greaterThanOrEqualTo((deal.questions.length * .4).round()),
+          reason: lesson.id);
+      expect(deal.questions.where((q) => q.type == 'Read and answer').length,
+          lessThanOrEqualTo(1),
+          reason: lesson.id);
+    }
+  });
+
   test('session length adapts to how well the lesson is known', () {
     final lesson = lessons.firstWhere((l) => l.id == 'coffee');
     final pool = practicePool(lesson);

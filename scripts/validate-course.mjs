@@ -10,15 +10,22 @@ const lessons = course.units.flatMap(unit => unit.lessons);
 assert.equal(course.sourceLanguage, 'en');
 assert.equal(course.targetLanguage, 'sr');
 assert.equal(course.status, 'published');
-assert.equal(course.version, 4);
+assert.equal(course.version, 5);
 assert.equal(course.units.length, 11);
-assert.equal(lessons.length, 68);
-assert.equal(lessons.reduce((sum, lesson) => sum + lesson.challenges.length, 0), 424);
+assert.equal(lessons.length, 56);
+const challengeTotal = lessons.reduce((sum, lesson) => sum + lesson.challenges.length, 0);
+assert(challengeTotal >= 600, 'The A1 course should have at least 600 challenges');
 assert.equal(lessons.filter(lesson => lesson.type === 'assessment').length, 1);
 assert.equal(lessons.filter(lesson => lesson.type === 'checkpoint').length, 11);
 assert(lessons.every(lesson => lesson.type === 'challenge' || lesson.minPassPercent >= 75));
 assert(lessons.every(lesson => lesson.challenges.some(question => question.type.startsWith('Listen'))));
 assert(lessons.every(lesson => lesson.theory.body && lesson.vocabulary.length));
+// Fuller lessons: 8–10 words, sentence work, dialogue replies and grammar gaps.
+for (const lesson of lessons.filter(item => item.type === 'challenge')) {
+  assert(lesson.vocabulary.length >= 8 && lesson.vocabulary.length <= 10, `8–10 words expected in ${lesson.id}`);
+  for (const type of ['Arrange the words', 'Listen and arrange', 'Complete the sentence', 'Choose the reply'])
+    assert(lesson.challenges.some(item => item.type === type), `${type} missing in ${lesson.id}`);
+}
 assert(lessons.every(lesson => lesson.challenges.every(item => !['Choose the meaning', 'Translate to Serbian', 'Listen and choose'].includes(item.type))));
 for (const lesson of lessons) for (const item of lesson.challenges) {
   if (['Arrange the words','Listen and arrange'].includes(item.type)) {
@@ -29,6 +36,7 @@ for (const lesson of lessons) for (const item of lesson.challenges) {
 const targetWords = new Set(lessons.flatMap(lesson => [
   ...lesson.vocabulary.map(word => word.latin),
   ...lesson.challenges.map(item => item.audioText || ''),
+  ...lesson.challenges.flatMap(item => item.answerLanguage === 'sr' && item.type === 'Choose the reply' ? item.options : []),
 ]).flatMap(text => text.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []));
 for (const lesson of lessons) for (const item of lesson.challenges) {
   if (item.type === 'Complete the sentence') for (const option of item.options) {
@@ -49,5 +57,10 @@ for (const [path, input] of clips) {
   const bytes = readFileSync(fullPath);
   assert(bytes.length > 1000, `Empty clip for ${input}`);
   assert(bytes[0] === 0xff || bytes.subarray(0, 3).toString() === 'ID3', `Invalid MP3 for ${input}`);
+  // Miloš and Zara speak every lesson clip too, so voices match the tutor.
+  for (const folder of ['milos', 'zara']) {
+    const voiced = new URL(`../assets/${path.replace('audio/serbian/', `audio/serbian/${folder}/`)}`, import.meta.url);
+    assert(existsSync(voiced) && readFileSync(voiced).length > 1000, `Missing ${folder} clip for ${input}`);
+  }
 }
-console.log(`Course valid: ${course.units.length} units, ${lessons.length} lessons, 424 challenges, ${clips.size} MP3 clips; Flutter bundle matches.`);
+console.log(`Course valid: ${course.units.length} units, ${lessons.length} lessons, ${challengeTotal} challenges, ${clips.size} MP3 clips in three voices; Flutter bundle matches.`);

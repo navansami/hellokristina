@@ -25,4 +25,6 @@ flutter:
     - assets/kristina-pose.png
     - assets/course/serbian-en.v1.json
     - assets/audio/serbian/
+    - assets/audio/serbian/milos/
+    - assets/audio/serbian/zara/
     - assets/audio/effects/

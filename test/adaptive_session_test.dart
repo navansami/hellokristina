@@ -130,6 +130,40 @@ void main() {
     expect(find.text('Ring +3'), findsOneWidget);
   });
 
+  testWidgets('a reply choice shows the line and grades the reply',
+      (tester) async {
+    await open(tester, [
+      const Question('Choose the reply', 'Kako si?', 'Dobro sam, hvala.',
+          ['Zovem se Ana.', 'Dobro sam, hvala.', 'Laku noć!'], 'Kako si?',
+          id: 'reply', translation: 'How are you?', answerLanguage: 'sr')
+    ]);
+    expect(find.text('Choose the best reply'), findsOneWidget);
+    expect(find.text('Meaning: How are you?'), findsOneWidget);
+    await check(tester, 'Dobro sam, hvala.');
+    expect(find.text('Nicely done!'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a reading shows every line and the question', (tester) async {
+    await open(tester, [
+      const Question(
+          'Read and answer',
+          'Ana je iz Srbije.\nMarko je iz Engleske.',
+          'From England',
+          ['From Serbia', 'From England', 'From Niš'],
+          'Ana is from Serbia. Marko is from England.',
+          id: 'read',
+          question: 'Where is Marko from?',
+          answerLanguage: 'en')
+    ]);
+    expect(find.text('Read and answer'), findsOneWidget);
+    expect(find.text('Where is Marko from?'), findsOneWidget);
+    expect(find.text('Engleske.'), findsOneWidget);
+    await check(tester, 'From Serbia');
+    expect(find.text('Let’s get this one.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('units ahead of the learner offer a jump', (tester) async {
     tester.view.physicalSize = const Size(390, 800);
     tester.view.devicePixelRatio = 1;

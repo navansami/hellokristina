@@ -15,7 +15,9 @@ Import this repository into Vercel. Set the environment variables in `.env.examp
 
 ## Course content and publishing
 
-The learner path reads `/api/course/catalog?courseId=serbian-en` from MongoDB. The same published seed is bundled in Flutter for offline use. `curriculum/serbian-en.v1.json` is the versioned source, and `assets/course/serbian-en.v1.json` must match it. Run `node scripts/validate-course.mjs` after editing either copy. The expanded A1 path has 11 units, 68 lessons, 424 challenges, short theory cards, and vocabulary in Latin and Cyrillic. Listening exercises offer normal and slow playback. Eleven checkpoints require 75%; the final knowledge check requires 80%. Failed checkpoints can be retried and do not unlock the next section. The previous six lesson IDs are preserved so existing progress carries forward.
+The learner path reads `/api/course/catalog?courseId=serbian-en` from MongoDB. The same published seed is bundled in Flutter for offline use. `curriculum/serbian-en.v1.json` is the versioned source, and `assets/course/serbian-en.v1.json` must match it. Course version 5 is authored in `curriculum/src/serbian-a1.mjs` and compiled by `node scripts/build-course.mjs`, which writes both JSON copies and `curriculum/REVIEW.md`. Edit the source, not the JSON, then run `node scripts/validate-course.mjs`. The A1 path has 11 units, 44 lessons, 11 checkpoints (75%) and a final knowledge check (80%), with about 670 hand-written challenges. Each lesson teaches 8–10 words and one grammar point, such as noun gender, adjective agreement, *biti*, *imati*, the accusative ‑u, the locative, *da li* questions, the future with *ću*, modals with *da*, the past tense or *boli me*. Each lesson has six exercise kinds: sentences to build in Serbian, sentences to understand by ear, grammar gaps, dialogue replies (**Choose the reply**) and short readings (**Read and answer**), on top of word drills generated from the vocabulary. The builder makes Cyrillic and pronunciation guides automatically. Lesson IDs from version 4 are kept wherever the topic survives, so most progress carries over.
+
+**The Serbian in version 5 was drafted with AI help and needs a native speaker's review.** `curriculum/REVIEW.md` lists every Serbian word, sentence, gap, reply and reading with its English for that review.
 
 Admins can open **Course studio**, load the published JSON, edit it, save a validated draft, and publish only after confirming a human review. `POST /api/admin/courses` saves a draft; `PATCH /api/admin/courses` with `{ "id": "serbian-en", "reviewed": true }` publishes it and archives the prior version. The public catalog serves only published content. AI lesson generation remains a separate draft tool; generated content must be checked and inserted into a course draft before publication.
 
@@ -23,9 +25,9 @@ Admins can open **Course studio**, load the published JSON, edit it, save a vali
 
 ## Serbian audio
 
-The current A1 course includes 414 reusable MP3 pronunciations for its words and sentences. Learners can tap a speaker in the lesson theory cards, Serbian challenge prompts, answer feedback, and word bank. Audio is generated with OpenAI and labeled as AI-generated in the learner UI. The files are bundled with Flutter, so playing them does not call the API or require a device voice. New published content without a bundled recording falls back to a Serbian device voice when one is installed.
+Every word and sentence has a recording in each tutor's voice: Kristina (OpenAI `marin`), Miloš (`cedar`) and Zara (`coral`). The voice always matches the tutor on screen. Lesson clips live in `assets/audio/serbian/`, with `milos/` and `zara/` variants beside them, and fall back to Kristina's recording. Clips are trimmed, gently compressed and set to −16 LUFS with peaks below −1.5 dBFS, so they play clearly on phone speakers. Learners can tap a speaker in the lesson theory cards, Serbian challenge prompts, answer feedback, and word bank. Audio is generated with OpenAI and labeled as AI-generated in the learner UI. The files are bundled with Flutter, so playing them does not call the API or require a device voice. New published content without a bundled recording falls back to a Serbian device voice when one is installed.
 
-Audio references live in both copies of the course JSON. Run `node scripts/validate-course.mjs` to check that every referenced clip exists. To generate new clips after adding course content, set `OPENAI_API_KEY` in your local `.env` and run `node --env-file=.env scripts/generate-course-audio.mjs`. The generator only creates missing files. Its current Speech API model is scheduled for retirement in January 2027, so update the generator before then; existing bundled MP3 files will keep working.
+Audio references live in both copies of the course JSON. Run `node scripts/validate-course.mjs` to check that every referenced clip exists. After changing the course, run `node scripts/generate-audio.mjs --dry-run` to see how many clips are missing and what they will cost. Then run `node --env-file=.env scripts/generate-audio.mjs` with `OPENAI_API_KEY` set. It needs ffmpeg, either from `FFMPEG` or from `pip install imageio-ffmpeg`. `curriculum/audio-manifest.json` records the voice and text of every clip, so reruns only generate what changed, and unused clips are removed. `--sample` writes six test clips to `tmp/voice-samples/`. The Speech model `gpt-4o-mini-tts` is scheduled to retire in January 2027; update `MODEL` in the generator before then. Existing bundled MP3 files will keep working.
 
 ## Other implemented features
 
@@ -39,11 +41,21 @@ Lessons use a white canvas, pale blue vocabulary illustrations, orange actions, 
 
 The course opens at the learner’s current lesson. Illustrated unit headers stay pinned while lesson cards scroll. A five-part ring on each card shows completed sessions. The mobile navigation uses icons with tooltips and accessible names. Each lesson contains five practice sessions, and finishing all five unlocks the next lesson. Previous completions carry over. Progress is stored locally and in MongoDB. Repeating a session awards no additional XP, and vocabulary becomes available after the first successful session.
 
+Sessions adapt to the learner, so lessons don't drag:
+
+- **Length:** 7 questions for a new lesson, 5 when it is well known, 6 when mostly known and 8 when the learner is struggling. Checkpoints deal 10 and the final check deals 12.
+- **Ring:** a flawless session fills three of the five segments and 85% or better fills two, so a strong learner finishes a lesson in two sessions. Passing a checkpoint fills its whole ring.
+- **Mix:** about two in five questions are hand-written sentences, dialogues and readings, with at most one reading per session. Word drills fill the rest. No word appears more than twice in one session, and items from the last session are held back.
+- **Review:** one or two items from earlier lessons, tagged REVIEW, favouring words the learner got wrong.
+- **Retries:** a missed question comes back once at the end, tagged MISTAKE, preferably as a different exercise on the same word.
+- **Exercises:** generated practice includes *Tap the matching pairs* and *Listen and choose*.
+- **Jump ahead:** units ahead of the learner show **JUMP HERE**, a 12-question test. Scoring 80% completes every lesson up to that unit.
+
 Run `node scripts/check-practice-rounds.mjs` to check progression, retries, and compatibility with older completions.
 
 ## Exercise viewport and hints
 
-Exercises size the heading, character/prompt, answer area and feedback to the available viewport; the exercise page has no vertical scroll. Numbered choices, image tiles and sentence banks adapt to smaller screens. Learners answer with selections, word tiles or speech. Lesson guides use horizontal pages; completion fits the same screen. Underlined prompt words open vocabulary-backed translation and usage hints. Unrecognized words stay plain, and listening transcripts remain hidden before checking.
+Exercises size the heading, character/prompt, answer area and feedback to the available viewport; the exercise page has no vertical scroll. Numbered choices, image tiles and sentence banks adapt to smaller screens. Learners answer with selections, word tiles or speech. Lesson guides use horizontal pages: a grammar page first, then one card per word. Completion fits the same screen. Underlined prompt words open vocabulary-backed translation and usage hints. Unrecognized words stay plain, and listening transcripts remain hidden before checking.
 
 Run `flutter test test/lesson_viewport_test.dart` for viewport, speech fallback, hint, guide and completion coverage. The suite checks the longest current examples of every exercise format at 320×568, 360×640 and 390×700.
 
@@ -58,7 +70,7 @@ Choice exercises complete a Serbian sentence with one blank and three Serbian wo
 
 ## Spoken selections, sound and vibration
 
-Serbian word tiles and sentence choices speak when selected; English answer tiles stay silent. All 184 selectable Serbian words have bundled audio, including 63 extra recordings indexed by `assets/audio/serbian/word-index.json`. Speaking characters animate while pronunciation plays. To add missing selection clips after course changes, run `node --env-file=.env scripts/generate-word-audio.mjs`.
+Serbian word tiles and sentence choices speak when selected; English answer tiles stay silent. Every selectable Serbian word and reply has bundled audio, indexed by `assets/audio/serbian/word-index.json`; `scripts/generate-audio.mjs` keeps it up to date. Speaking characters animate while pronunciation plays.
 
 Lessons have quiet original tap/correct/retry sounds, milestones at three and five correct answers (and every five thereafter), and a perfect-practice chime with stronger character celebration. Gentle vibration uses Flutter haptics on native apps and the browser vibration API where supported. No permission prompts are added. Settings in the lesson header and the profile page offer separate persisted switches for automatic word pronunciation, sound effects and vibration. These switches do not disable manual pronunciation speakers. Playback stops on leaving a lesson or backgrounding the app, and pronunciation takes priority over effects.
 

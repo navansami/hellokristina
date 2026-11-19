@@ -22,11 +22,11 @@ class TactileButton extends StatefulWidget {
 }
 
 class _TactileButtonState extends State<TactileButton> {
-  static const _ledge = 4.0;
+  static const _ledge = 5.0;
   bool _down = false;
 
   void _press(bool down) {
-    if (widget.onTap == null || down == _down) return;
+    if (!mounted || widget.onTap == null || down == _down) return;
     setState(() => _down = down);
   }
 
@@ -46,20 +46,20 @@ class _TactileButtonState extends State<TactileButton> {
       onPointerCancel: (_) => _press(false),
       child: SizedBox(
         width: double.infinity,
-        height: 50,
+        height: 54,
         child: Stack(children: [
           Positioned.fill(
               top: _ledge,
               child: DecoratedBox(
                   decoration: BoxDecoration(
-                      color: ledge, borderRadius: BorderRadius.circular(13)))),
+                      color: ledge, borderRadius: BorderRadius.circular(16)))),
           AnimatedPositioned(
             duration: const Duration(milliseconds: 70),
             curve: Curves.easeOut,
             left: 0,
             right: 0,
             top: sink,
-            height: 50 - _ledge,
+            height: 54 - _ledge,
             child: FilledButton(
               onPressed: widget.onTap,
               style: FilledButton.styleFrom(
@@ -70,12 +70,9 @@ class _TactileButtonState extends State<TactileButton> {
                 elevation: 0,
                 padding: EdgeInsets.zero,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(13)),
+                    borderRadius: BorderRadius.circular(16)),
                 side: widget.outline ? const BorderSide(color: panel2) : null,
-                textStyle: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: .4),
+                textStyle: display(17, weight: FontWeight.w600, letterSpacing: .6),
               ),
               child: Text(widget.label, textAlign: TextAlign.center),
             ),

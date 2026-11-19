@@ -2,10 +2,10 @@ part of '../main.dart';
 
 /// Colour of the lesson progress bar as a run of correct answers heats up.
 Color _runColor(int run) => run >= 5
-    ? const Color(0xFFFF7A45)
+    ? const Color(0xFFFF7A3D)
     : run >= 3
-        ? const Color(0xFF58C27D)
-        : const Color(0xFF8FC9EA);
+        ? const Color(0xFF2CC07E)
+        : const Color(0xFF5B9BFF);
 
 /// A flame chip that pops each time the run grows.
 class _ComboChip extends StatelessWidget {
@@ -113,4 +113,126 @@ class _ExerciseTag extends StatelessWidget {
                 letterSpacing: .6,
                 fontWeight: FontWeight.w900)),
       ]));
+}
+
+/// The bright green used for Check and correct answers on buttons.
+const correctGreen = Color(0xFF16A36A);
+
+/// A surface with a chunky 3D ledge: thicker at the bottom, it sinks a
+/// little when pressed. Used for answer cards and word tiles.
+class _Chunky extends StatefulWidget {
+  const _Chunky(
+      {required this.fill,
+      required this.edge,
+      required this.child,
+      this.radius = 14,
+      this.onTap});
+  final Color fill, edge;
+  final double radius;
+  final VoidCallback? onTap;
+  final Widget child;
+
+  @override
+  State<_Chunky> createState() => _ChunkyState();
+}
+
+class _ChunkyState extends State<_Chunky> {
+  bool _down = false;
+
+  void _press(bool down) {
+    // A tile can leave the tree mid-press when it is dragged elsewhere.
+    if (!mounted || widget.onTap == null || down == _down) return;
+    setState(() => _down = down);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(widget.radius);
+    return Listener(
+        onPointerDown: (_) => _press(true),
+        onPointerUp: (_) => _press(false),
+        onPointerCancel: (_) => _press(false),
+        child: AnimatedContainer(
+            duration: const Duration(milliseconds: 70),
+            margin: EdgeInsets.only(top: _down ? 2 : 0),
+            decoration: BoxDecoration(
+                color: widget.fill,
+                borderRadius: radius,
+                border: Border(
+                    left: BorderSide(color: widget.edge, width: 2),
+                    right: BorderSide(color: widget.edge, width: 2),
+                    top: BorderSide(color: widget.edge, width: 2),
+                    bottom: BorderSide(
+                        color: widget.edge, width: _down ? 2 : 4.5))),
+            child: Material(
+                type: MaterialType.transparency,
+                child: InkWell(
+                    onTap: widget.onTap,
+                    borderRadius: radius,
+                    splashColor: widget.edge.withValues(alpha: .25),
+                    highlightColor: Colors.transparent,
+                    child: widget.child))));
+  }
+}
+
+/// A fat, rounded progress bar with a glossy highlight stripe.
+class _GlossyProgress extends StatelessWidget {
+  const _GlossyProgress({required this.value, required this.color});
+  final double value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+      height: 16,
+      child: ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: Stack(fit: StackFit.expand, children: [
+            LinearProgressIndicator(
+                value: value.clamp(0.0, 1.0),
+                minHeight: 16,
+                backgroundColor: const Color(0xFFEDE9F4),
+                color: color),
+            // Highlight over the filled part only.
+            FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: value.clamp(0.0, 1.0),
+                child: Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 3, 8, 9),
+                    child: DecoratedBox(
+                        decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: .38),
+                            borderRadius: BorderRadius.circular(4))))),
+          ])));
+}
+
+
+/// A rounded speech bubble with a small tail pointing left at the tutor.
+class _SpeechBubble extends CustomPainter {
+  const _SpeechBubble();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const tail = 12.0;
+    final body = RRect.fromRectAndRadius(
+        Rect.fromLTWH(tail, 0, size.width - tail, size.height),
+        const Radius.circular(18));
+    final mid = size.height * .5;
+    final path = Path()
+      ..addRRect(body)
+      ..moveTo(tail + 1, mid - 9)
+      ..quadraticBezierTo(4, mid - 2, 0, mid + 6)
+      ..quadraticBezierTo(8, mid + 4, tail + 1, mid + 5)
+      ..close();
+    canvas.drawShadow(path, const Color(0x33221C3F), 3, false);
+    canvas.drawPath(path, Paint()..color = Colors.white);
+    canvas.drawPath(
+        path,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2
+          ..color = panel2);
+  }
+
+  @override
+  bool shouldRepaint(_SpeechBubble old) => false;
 }

@@ -35,7 +35,27 @@ The app has the Kristina mascot, a challenge path, word bank, 30-letter Cyrillic
 
 ## Visual design and animation
 
-Lessons use a white canvas, pale blue vocabulary illustrations, orange actions, and green or red answer feedback. Word cards pair Latin and Cyrillic with English and offer normal and slow playback. When the unit contains a recorded example using the word, the card also shows the sentence and its translation. Learners can swipe through the cards or skip straight to practice. Kristina, Miloš, and Zara rotate through practice prompts, animate during playback, and react to answers and streaks.
+The look is playful and modern: a warm cream canvas, indigo ink and candy accents. Headings and buttons use **Fredoka** and body text uses **Nunito**, which covers Serbian Latin and Cyrillic. Both fonts are bundled in `assets/google_fonts/` under the SIL Open Font License, so they work offline. The palette and the per-unit colour themes live in `lib/widgets/course_palette.dart`.
+
+**The trail** (`lib/path/trail.dart`) winds down the screen in an S-curve like a road through Serbia:
+
+- Each lesson is a chunky 3D coin that sinks when tapped, linked to the next by a dashed road that fills with the unit's colour as you go.
+- A tappable signpost beside each coin shows the lesson name and progress. Pines, round trees, flowers and red-roofed houses dot the verges.
+- The current lesson breathes, sends out a glowing halo, wears a bouncing START / CONTINUE bubble and shows its five-session ring. Its tutor stands beside it and waves.
+- Checkpoints are larger trophy tiles that turn gold when passed. Locked stops are greyed out with a padlock.
+- Every unit has its own colour story: coral, violet, teal, blue and so on. Its glossy banner pins while you scroll and shows a white Belgrade skyline, a progress bar and **JUMP HERE**.
+- Tapping a stop opens a colourful lesson sheet with the five sessions and a big START button.
+
+**Lessons:**
+
+- The tutor speaks from a speech bubble.
+- The progress bar is fat and glossy and warms from blue to green to orange as your run grows.
+- Answer cards and word tiles have a 3D ledge, and Check is bright green.
+- Right and wrong feedback slides up in a rounded panel.
+
+The bottom navigation is a floating pill bar where the active tab grows a coloured label. Reduced-motion settings stop the trail's pulsing and bouncing.
+
+Word cards pair Latin and Cyrillic with English and offer normal and slow playback. Kristina, Miloš and Zara rotate through practice prompts, animate during playback and react to answers and streaks.
 
 ## Course overview and practice rounds
 

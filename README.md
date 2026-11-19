@@ -188,3 +188,35 @@ The Friends tab uses a Duolingo-style follow model: following is one-way and nee
 - **Friends' wins:** your posts and those of the people you follow, with time ago and a 👏 Cheer button.
 
 `api/social/friends.js` handles `GET` (following and followers), `GET ?q=` (search, regex-escaped prefix on username or name), `POST` (follow) and `DELETE` (unfollow). `api/social/feed.js` serves posts from you and the people you follow, and only lets you cheer posts you can see. `server/social.js` decides which moments become posts: a finished lesson circle (checkpoints and the final test show as such), a level-up, and streak milestones (3, 7, 14, 30, 50, 100…). `api/course/progress.js` posts them from lessons, test-outs and mistake reviews. Public cards never include email. Check with `node scripts/check-social.mjs` and `flutter test test/friends_test.dart`.
+
+## Android app (APK)
+
+The Android app is the same Flutter code. It talks to production (`https://www.hellokristina.app`) unless a build passes `--dart-define=API_BASE_URL=...`. Its application ID is `app.hellokristina`.
+
+**One-time setup on Windows**, with no admin rights needed:
+
+1. Install a portable JDK 17 (Eclipse Temurin zip) into `%LOCALAPPDATA%\Android\jdk17`.
+2. Install the Android command-line tools into `%LOCALAPPDATA%\Android\Sdk\cmdline-tools\latest`.
+3. Install the SDK packages with the new Android CLI, which uses slash names:
+
+   ```bash
+   android --sdk=%LOCALAPPDATA%\Android\Sdk sdk install platforms/android-36 build-tools/36.0.0 ndk/28.2.13676358
+   ```
+
+4. Point Flutter at them:
+
+   ```bash
+   flutter config --android-sdk %LOCALAPPDATA%\Android\Sdk --jdk-dir %LOCALAPPDATA%\Android\jdk17
+   ```
+
+**Build:**
+
+```bash
+flutter build apk --release      # build/app/outputs/flutter-apk/app-release.apk
+```
+
+**Signing:** release builds are signed with the key named in `android/key.properties`. That file is git-ignored, and the keystore lives outside the repository. Back up both the keystore and the properties file: Android only installs an update over an app signed with the same key, and the Play Store needs it too. Without `key.properties`, release builds fall back to the debug key.
+
+**Memory:** `android/gradle.properties` caps the Gradle build at 3 GB (down from the template's 8 GB). The first build downloads Gradle and its dependencies, so it takes 10–20 minutes; later builds are much faster.
+
+**Speaking on Android:** speaking exercises use the browser's speech recognition, so the Android app replaces them with word tiles. Native speech recognition would be a future addition.

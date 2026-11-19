@@ -59,9 +59,11 @@ InputDecoration _input(String label) => InputDecoration(
 Uri api(String path) {
   const configured = String.fromEnvironment('API_BASE_URL');
   if (configured.isNotEmpty) return Uri.parse('$configured$path');
+  // The web app talks to its own origin; the Android and iOS apps talk to
+  // production unless a build passes --dart-define=API_BASE_URL=...
   return kIsWeb
       ? Uri.base.resolve(path)
-      : Uri.parse('https://example.invalid$path');
+      : Uri.parse('https://www.hellokristina.app$path');
 }
 
 void main() {

@@ -45,10 +45,17 @@ const _tabs = [
   _Tab('👀', 'Eyes', Color(0xFF7B5CFA), [
     _Part.styles('Eyes', 'eyes', 'Eyes', LearnerLook.eyeStyles),
     _Part.colors('Eye colour', 'eyeColor', 'Eye colour', LearnerLook.eyeColors),
+    _Part.styles('Lashes', 'lashes', 'Lashes', LearnerLook.lashStyles),
     _Part.styles('Eyebrows', 'brows', 'Eyebrows', LearnerLook.browStyles),
   ]),
   _Tab('👄', 'Mouth', Color(0xFFEC4899), [
     _Part.styles('Mouth', 'mouth', 'Mouth', LearnerLook.mouthStyles),
+  ]),
+  _Tab('💄', 'Make-up', Color(0xFFE5484D), [
+    _Part.styles('Lip colour', 'lips', 'Lip colour', LearnerLook.lipStyles),
+    _Part.styles(
+        'Eyeshadow', 'eyeshadow', 'Eyeshadow', LearnerLook.eyeshadowStyles),
+    _Part.styles('Cheeks', 'cheeks', 'Blush', LearnerLook.cheekStyles),
   ]),
   _Tab('💇', 'Hair', Color(0xFFFF9F1C), [
     _Part.styles('Hairstyle', 'hair', 'Hairstyle', LearnerLook.hairStyles),
@@ -62,6 +69,10 @@ const _tabs = [
     _Part.colors('Glasses colour', 'glassesColor', 'Glasses colour',
         LearnerLook.glassesColors),
     _Part.styles('Earrings', 'earrings', 'Earrings', LearnerLook.earringStyles),
+    _Part.styles('Hair accessory', 'accessory', 'Hair accessory',
+        LearnerLook.accessoryStyles),
+    _Part.colors('Accessory colour', 'accessoryColor', 'Accessory colour',
+        LearnerLook.accessoryColors),
   ]),
   _Tab('👑', 'Hats', Color(0xFF3B82F6), [
     _Part.styles('Headwear', 'hat', 'Headwear', LearnerLook.hatStyles),
@@ -88,6 +99,7 @@ const _tabs = [
 const _turnOn = {
   'glassesColor': ('glasses', 1),
   'hatColor': ('hat', 1),
+  'accessoryColor': ('accessory', 1),
 };
 
 class AvatarEditor extends StatefulWidget {

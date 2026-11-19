@@ -240,6 +240,7 @@ class _PortraitPainter extends CustomPainter {
     _head(canvas);
     _face(canvas);
     _hairFront(canvas);
+    _accessory(canvas);
     _glasses(canvas);
     _hat(canvas);
   }
@@ -475,6 +476,68 @@ class _PortraitPainter extends CustomPainter {
           canvas.drawPath(_star(Offset(100 - side * 50, 214), 6, .45, 8),
               _paint(const Color(0xFFF2C94C)));
         }
+      case 9: // pinafore dress over a tee
+        canvas.drawPath(_torso, _paint(white));
+        final dress = Path()
+          ..moveTo(56, 244)
+          ..lineTo(66, 204)
+          ..quadraticBezierTo(68, 196, 76, 196)
+          ..lineTo(124, 196)
+          ..quadraticBezierTo(132, 196, 134, 204)
+          ..lineTo(144, 244)
+          ..close();
+        _garment(canvas, dress, c);
+        for (final side in [-1.0, 1.0]) {
+          canvas.drawLine(Offset(100 + side * 22, 198),
+              Offset(100 + side * 36, 180), _stroke(c, 11));
+          canvas.drawCircle(
+              Offset(100 + side * 22, 204), 3.4, _paint(Colors.white));
+        }
+        canvas.drawPath(
+            _heart(const Offset(100, 222), 7), _paint(_lighter(c, .45)));
+      case 10: // blouse with a lace Peter Pan collar
+        _garment(canvas, _torso, c);
+        for (final side in [-1.0, 1.0]) {
+          final collar = Path()
+            ..moveTo(100, 180)
+            ..cubicTo(
+                100 + side * 2, 206, 100 + side * 40, 208, 100 + side * 40, 186)
+            ..quadraticBezierTo(100 + side * 22, 176, 100, 180)
+            ..close();
+          canvas.drawPath(collar, _paint(white));
+          // A lacy scalloped edge.
+          for (var k = 0; k < 6; k++) {
+            final t = k / 5;
+            final x = 100 + side * (6 + 32 * t);
+            final y = 201 - 13 * t * t;
+            canvas.drawCircle(Offset(x, y), 3.2, _paint(white));
+            canvas.drawCircle(
+                Offset(x, y), 1.1, _paint(const Color(0xFFE6E0EC)));
+          }
+        }
+        canvas.drawPath(_heart(const Offset(100, 190), 4.4), _paint(dark));
+      case 11: // ruffled neckline: layers of soft scallops
+        _garment(canvas, _torso, c);
+        for (var row = 1; row >= 0; row--) {
+          final frill = row == 0 ? _lighter(c, .38) : _lighter(c, .18);
+          for (var k = 0; k < 8; k++) {
+            final t = (k + .5) / 8;
+            final x = 66 + 68 * t;
+            final y = 180 + math.sin(t * math.pi) * 12 + row * 9;
+            final scallop = Path()
+              ..moveTo(x - 6, y)
+              ..arcToPoint(Offset(x + 6, y),
+                  radius: const Radius.circular(6), clockwise: false)
+              ..close();
+            canvas.drawPath(scallop, _paint(frill));
+            canvas.drawPath(
+                Path()
+                  ..moveTo(x - 6, y)
+                  ..arcToPoint(Offset(x + 6, y),
+                      radius: const Radius.circular(6), clockwise: false),
+                _stroke(_darker(c, .08).withValues(alpha: .45), 1.2));
+          }
+        }
       default: // t-shirt
         _garment(canvas, _torso, c);
         canvas.drawPath(
@@ -563,7 +626,9 @@ class _PortraitPainter extends CustomPainter {
 
   void _face(Canvas canvas) {
     _cheeksUnder(canvas);
+    _eyeshadow(canvas);
     _eyes(canvas);
+    _lashes(canvas);
     _brows(canvas);
     // Nose.
     canvas.drawPath(
@@ -761,7 +826,9 @@ class _PortraitPainter extends CustomPainter {
   }
 
   void _mouth(Canvas canvas) {
-    final lip = _darker(skin, .42);
+    final glam = look.lips > 0;
+    final lip = glam ? LearnerLook.lipColors[look.lips] : _darker(skin, .42);
+    double w(double width) => glam ? width + 1.8 : width;
     const inside = Color(0xFF7A2430);
     const tongue = Color(0xFFFF7A8A);
     switch (look.mouth) {
@@ -776,6 +843,7 @@ class _PortraitPainter extends CustomPainter {
         canvas.drawRect(
             const Rect.fromLTWH(80, 128, 40, 7), _paint(Colors.white));
         canvas.restore();
+        if (glam) canvas.drawPath(open, _stroke(lip, 3.4));
       case 2: // laugh
         final open = Path()
           ..moveTo(82, 130)
@@ -786,12 +854,13 @@ class _PortraitPainter extends CustomPainter {
         canvas.clipPath(open);
         canvas.drawOval(const Rect.fromLTWH(88, 140, 24, 16), _paint(tongue));
         canvas.restore();
+        if (glam) canvas.drawPath(open, _stroke(lip, 3.4));
       case 3: // smirk
         canvas.drawPath(
             Path()
               ..moveTo(88, 138)
               ..quadraticBezierTo(104, 142, 114, 130),
-            _stroke(lip, 3.6));
+            _stroke(lip, w(3.6)));
       case 4: // cheeky tongue
         canvas.drawPath(
             Path()
@@ -805,28 +874,32 @@ class _PortraitPainter extends CustomPainter {
             Path()
               ..moveTo(86, 133)
               ..quadraticBezierTo(100, 144, 114, 133),
-            _stroke(lip, 3.6));
+            _stroke(lip, w(3.6)));
       case 5: // kitty :3
         canvas.drawPath(
             Path()
               ..moveTo(88, 134)
               ..quadraticBezierTo(94, 142, 100, 134)
               ..quadraticBezierTo(106, 142, 112, 134),
-            _stroke(lip, 3.2));
+            _stroke(lip, w(3.2)));
       case 6: // wow
         canvas.drawOval(const Rect.fromLTWH(93, 130, 14, 16), _paint(inside));
+        if (glam) {
+          canvas.drawOval(
+              const Rect.fromLTWH(93, 130, 14, 16), _stroke(lip, 3.4));
+        }
       case 7: // calm
         canvas.drawPath(
             Path()
               ..moveTo(91, 136)
               ..quadraticBezierTo(100, 140, 109, 136),
-            _stroke(lip, 3.4));
+            _stroke(lip, w(3.4)));
       default: // smile
         canvas.drawPath(
             Path()
               ..moveTo(85, 132)
               ..quadraticBezierTo(100, 146, 115, 132),
-            _stroke(lip, 3.8));
+            _stroke(lip, w(3.8)));
     }
   }
 
@@ -893,6 +966,177 @@ class _PortraitPainter extends CustomPainter {
               ..cubicTo(116, 124, 108, 122, 100, 127)
               ..close(),
             _paint(c));
+    }
+  }
+
+  // ---- Make-up ------------------------------------------------------------
+
+  void _eyeshadow(Canvas canvas) {
+    if (look.eyeshadow == 0) return;
+    final color = LearnerLook.eyeshadowColors[look.eyeshadow];
+    for (final c in [_leftEye, _rightEye]) {
+      canvas.drawOval(
+          Rect.fromCenter(
+              center: c + const Offset(0, -8), width: 34, height: 24),
+          Paint()
+            ..shader = RadialGradient(colors: [
+              color.withValues(alpha: .95),
+              color.withValues(alpha: .55),
+              color.withValues(alpha: 0),
+            ]).createShader(Rect.fromCenter(
+                center: c + const Offset(0, -8), width: 34, height: 24)));
+    }
+  }
+
+  /// Lashes on any open or happy eye; hearts and stars go without.
+  void _lashes(Canvas canvas) {
+    if (look.lashes == 0 || look.eyes == 5 || look.eyes == 6) return;
+    final bold = look.lashes == 2;
+    const ink = Color(0xFF231A16);
+    final closedEyes = blink || look.eyes == 2;
+    for (final c in [_leftEye, _rightEye]) {
+      final outer = c.dx < 100 ? -1.0 : 1.0;
+      final closed = closedEyes || (look.eyes == 4 && outer > 0);
+      if (closed) {
+        // Little flicks at the outer end of a happy, closed eye.
+        for (var i = 0; i < (bold ? 3 : 2); i++) {
+          final from = c + Offset(outer * (9 - i * 4), 1 - i * 4.0);
+          canvas.drawLine(from, from + Offset(outer * 4, -4),
+              _stroke(ink, bold ? 2.4 : 1.8));
+        }
+        continue;
+      }
+      final top = look.eyes == 3 ? 1.0 : (look.eyes == 7 ? 6.0 : 14.0);
+      if (bold) {
+        canvas.drawPath(
+            Path()
+              ..moveTo(c.dx - 13, c.dy - top + 6)
+              ..quadraticBezierTo(
+                  c.dx, c.dy - top - 4, c.dx + 13, c.dy - top + 6),
+            _stroke(ink, 3.4));
+      }
+      for (var i = 0; i < (bold ? 4 : 3); i++) {
+        final a = -math.pi / 2 + outer * (.45 + i * .3);
+        final from = c + Offset(math.cos(a) * 12, math.sin(a) * top);
+        canvas.drawLine(
+            from,
+            from +
+                Offset(
+                    math.cos(a) * (bold ? 8 : 6), math.sin(a) * (bold ? 8 : 6)),
+            _stroke(ink, bold ? 2.6 : 2));
+      }
+    }
+  }
+
+  // ---- Hair accessories ---------------------------------------------------
+
+  void _accessory(Canvas canvas) {
+    final c = look.accessoryColorValue;
+    final light = _lighter(c, .35);
+    final dark = _darker(c, .2);
+    const gold = Color(0xFFF2C94C);
+    switch (look.accessory) {
+      case 1: // star clips
+        for (final (p, r) in const [
+          (Offset(132, 62), 8.0), (Offset(146, 74), 6.5), //
+        ]) {
+          canvas.drawPath(_star(p, r), _paint(c));
+          canvas.drawPath(_star(p, r), _stroke(dark, 1.4));
+          canvas.drawCircle(p + const Offset(-2, -2), 1.6,
+              _paint(Colors.white.withValues(alpha: .8)));
+        }
+      case 2: // heart clip
+        canvas.drawPath(_heart(const Offset(138, 64), 9), _paint(c));
+        canvas.drawPath(_heart(const Offset(138, 64), 9), _stroke(dark, 1.4));
+        canvas.drawCircle(const Offset(134, 60), 2,
+            _paint(Colors.white.withValues(alpha: .8)));
+      case 3: // flower clip
+        const centre = Offset(140, 64);
+        for (var k = 0; k < 5; k++) {
+          final b = k * math.pi * 2 / 5 - math.pi / 2;
+          canvas.drawCircle(
+              centre + Offset(math.cos(b) * 7, math.sin(b) * 7), 6, _paint(c));
+        }
+        canvas.drawCircle(centre, 4.6, _paint(gold));
+        canvas.drawCircle(centre + const Offset(-1.4, -1.4), 1.4,
+            _paint(Colors.white.withValues(alpha: .8)));
+      case 4: // tiara
+        const silver = Color(0xFFE3E6F0);
+        final band = Path()
+          ..moveTo(60, 58)
+          ..quadraticBezierTo(100, 36, 140, 58);
+        canvas.drawPath(band, _stroke(silver, 5));
+        final crown = Path()
+          ..moveTo(78, 48)
+          ..lineTo(86, 34)
+          ..lineTo(93, 42)
+          ..lineTo(100, 24)
+          ..lineTo(107, 42)
+          ..lineTo(114, 34)
+          ..lineTo(122, 48)
+          ..quadraticBezierTo(100, 40, 78, 48)
+          ..close();
+        canvas.drawPath(crown, _paint(silver));
+        canvas.drawPath(crown, _stroke(const Color(0xFFB9BED0), 1.4));
+        canvas.drawCircle(const Offset(100, 38), 4.6, _paint(c));
+        canvas.drawCircle(const Offset(98.6, 36.6), 1.4,
+            _paint(Colors.white.withValues(alpha: .9)));
+        for (final p in const [Offset(86, 44), Offset(114, 44)]) {
+          canvas.drawCircle(p, 2.8, _paint(c));
+        }
+      case 5: // pearl pins
+        for (final p in const [
+          Offset(56, 74), Offset(64, 64), Offset(75, 57), //
+        ]) {
+          canvas.drawCircle(p, 4.6, _paint(const Color(0xFFFBF6EE)));
+          canvas.drawCircle(p, 4.6, _stroke(const Color(0xFFE2D6C3), 1));
+          canvas.drawCircle(
+              p + const Offset(-1.5, -1.5), 1.4, _paint(Colors.white));
+        }
+      case 6: // butterfly clip
+        canvas.save();
+        canvas.translate(140, 62);
+        canvas.rotate(-.35);
+        for (final side in [-1.0, 1.0]) {
+          canvas.drawOval(
+              Rect.fromCenter(
+                  center: Offset(side * 7, -4), width: 13, height: 15),
+              _paint(c));
+          canvas.drawOval(
+              Rect.fromCenter(
+                  center: Offset(side * 6, 7), width: 9, height: 10),
+              _paint(light));
+          canvas.drawCircle(Offset(side * 7, -4), 2.2,
+              _paint(Colors.white.withValues(alpha: .7)));
+        }
+        canvas.drawRRect(
+            RRect.fromRectAndRadius(
+                Rect.fromCenter(center: Offset.zero, width: 4, height: 18),
+                const Radius.circular(2)),
+            _paint(dark));
+        canvas.restore();
+      case 7: // scrunchie, where the hair is tied
+        final at = switch (look.hair) {
+          7 => const Offset(100, 42),
+          9 => const Offset(146, 62),
+          10 => const Offset(44, 104),
+          _ => const Offset(140, 58),
+        };
+        for (var k = 0; k < 8; k++) {
+          final b = k * math.pi * 2 / 8;
+          canvas.drawCircle(at + Offset(math.cos(b) * 7, math.sin(b) * 5), 5.2,
+              _paint(k.isEven ? c : light));
+        }
+        if (look.hair == 10) {
+          for (var k = 0; k < 8; k++) {
+            final b = k * math.pi * 2 / 8;
+            canvas.drawCircle(
+                const Offset(156, 104) +
+                    Offset(math.cos(b) * 7, math.sin(b) * 5),
+                5.2,
+                _paint(k.isEven ? c : light));
+          }
+        }
     }
   }
 

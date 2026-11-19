@@ -108,6 +108,14 @@ void main() {
     expect(find.text('Skin tone'), findsOneWidget);
     await tester.tap(find.bySemanticsLabel('Skin tone 2'));
     await tester.pump();
+    // The category tabs scroll sideways; Hair sits after Make-up.
+    await tester.scrollUntilVisible(
+        find.bySemanticsLabel('Hair').hitTestable(), 120,
+        scrollable: find
+            .descendant(
+                of: find.byType(AvatarEditor),
+                matching: find.byType(Scrollable))
+            .first);
     await tester.tap(find.bySemanticsLabel('Hair'));
     await tester.pump();
     expect(find.text('Hairstyle'), findsOneWidget);
@@ -130,7 +138,8 @@ void main() {
     await tester.scrollUntilVisible(colour.hitTestable(), 200,
         scrollable: find
             .descendant(
-                of: find.byType(AvatarEditor), matching: find.byType(Scrollable))
+                of: find.byType(AvatarEditor),
+                matching: find.byType(Scrollable))
             .last);
     await tester.pump();
     await tester.tap(colour);

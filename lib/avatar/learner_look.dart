@@ -25,6 +25,8 @@ class LearnerLook {
   final int outfit, outfitColor, pattern;
   // Background
   final int background, backdrop;
+  // Make-up, lashes and hair accessories
+  final int lips, eyeshadow, lashes, accessory, accessoryColor;
 
   const LearnerLook({
     this.skin = 6,
@@ -47,6 +49,11 @@ class LearnerLook {
     this.pattern = 0,
     this.background = 0,
     this.backdrop = 1,
+    this.lips = 0,
+    this.eyeshadow = 0,
+    this.lashes = 0,
+    this.accessory = 0,
+    this.accessoryColor = 0,
   });
 
   // ---- Palettes ----------------------------------------------------------
@@ -105,6 +112,26 @@ class LearnerLook {
     Color(0xFFF3B4C4), Color(0xFFE8A0B8),
   ];
 
+  /// Lip colours; index 0 is bare lips.
+  static const lipColors = [
+    Color(0x00000000), Color(0xFFF27BA0), Color(0xFFD9566E), //
+    Color(0xFFD7263D), Color(0xFFFF7F66), Color(0xFF9E2A5B),
+    Color(0xFFC98B7A), Color(0xFFB98AE6),
+  ];
+
+  /// Eyeshadow colours; index 0 is none.
+  static const eyeshadowColors = [
+    Color(0x00000000), Color(0xFFF59AC4), Color(0xFFB79CF2), //
+    Color(0xFFE8C25A), Color(0xFFFFB38A), Color(0xFF8CC8F5),
+    Color(0xFF8ED9B4),
+  ];
+  static const accessoryColors = [
+    Color(0xFFF27BB0), Color(0xFFB39DF2), Color(0xFFF2C94C), //
+    Color(0xFF7FD6B8), Color(0xFF7CC3F5), Color(0xFFF4F4F4),
+    Color(0xFFE5484D), Color(0xFFFF8A65), Color(0xFF8A55D0),
+    Color(0xFF2A2438),
+  ];
+
   // ---- Style names (also the option counts) -------------------------------
 
   static const faceShapes = ['Round', 'Oval', 'Heart', 'Square'];
@@ -142,7 +169,19 @@ class LearnerLook {
   ];
   static const outfitStyles = [
     'T-shirt', 'Hoodie', 'Sweater', 'Collar', 'Dungarees', 'Jacket', //
-    'Tank top', 'Turtleneck', 'Folk vest',
+    'Tank top', 'Turtleneck', 'Folk vest', 'Pinafore', 'Lace collar',
+    'Ruffles',
+  ];
+  static const lipStyles = [
+    'None', 'Pink', 'Rose', 'Red', 'Coral', 'Berry', 'Nude', 'Lilac', //
+  ];
+  static const eyeshadowStyles = [
+    'None', 'Pink', 'Lilac', 'Gold', 'Peach', 'Sky', 'Mint', //
+  ];
+  static const lashStyles = ['None', 'Flirty', 'Bold'];
+  static const accessoryStyles = [
+    'None', 'Star clips', 'Heart clip', 'Flower clip', 'Tiara', //
+    'Pearl pins', 'Butterfly', 'Scrunchie',
   ];
   static const patterns = [
     'Plain', 'Stripes', 'Dots', 'Stars', 'Hearts', 'Zigzag', //
@@ -174,6 +213,11 @@ class LearnerLook {
     'pattern': patterns.length,
     'background': backgrounds.length,
     'backdrop': backdrops.length,
+    'lips': lipStyles.length,
+    'eyeshadow': eyeshadowStyles.length,
+    'lashes': lashStyles.length,
+    'accessory': accessoryStyles.length,
+    'accessoryColor': accessoryColors.length,
   };
 
   Color get skinColor => skins[skin];
@@ -183,6 +227,7 @@ class LearnerLook {
   Color get hatColorValue => hatColors[hatColor];
   Color get outfitColorValue => outfitColors[outfitColor];
   Color get backgroundColor => backgrounds[background];
+  Color get accessoryColorValue => accessoryColors[accessoryColor];
 
   String get backgroundHex {
     final hex = backgroundColor
@@ -214,6 +259,11 @@ class LearnerLook {
         'pattern': pattern,
         'background': background,
         'backdrop': backdrop,
+        'lips': lips,
+        'eyeshadow': eyeshadow,
+        'lashes': lashes,
+        'accessory': accessory,
+        'accessoryColor': accessoryColor,
       };
 
   LearnerLook withValue(String key, int value) {
@@ -244,6 +294,11 @@ class LearnerLook {
     int? pattern,
     int? background,
     int? backdrop,
+    int? lips,
+    int? eyeshadow,
+    int? lashes,
+    int? accessory,
+    int? accessoryColor,
   }) =>
       LearnerLook(
         skin: skin ?? this.skin,
@@ -266,6 +321,11 @@ class LearnerLook {
         pattern: pattern ?? this.pattern,
         background: background ?? this.background,
         backdrop: backdrop ?? this.backdrop,
+        lips: lips ?? this.lips,
+        eyeshadow: eyeshadow ?? this.eyeshadow,
+        lashes: lashes ?? this.lashes,
+        accessory: accessory ?? this.accessory,
+        accessoryColor: accessoryColor ?? this.accessoryColor,
       );
 
   static LearnerLook _fromMap(Map<String, int> m) => LearnerLook(
@@ -289,6 +349,11 @@ class LearnerLook {
         pattern: m['pattern']!,
         background: m['background']!,
         backdrop: m['backdrop']!,
+        lips: m['lips']!,
+        eyeshadow: m['eyeshadow']!,
+        lashes: m['lashes']!,
+        accessory: m['accessory']!,
+        accessoryColor: m['accessoryColor']!,
       );
 
   static int _index(Object? raw, int max, int fallback) {
@@ -382,6 +447,11 @@ class LearnerLook {
       pattern: r.nextDouble() < .55 ? 0 : pick(patterns.length),
       background: pick(backgrounds.length),
       backdrop: pick(backdrops.length),
+      lips: sometimes(.2, lipStyles.length),
+      eyeshadow: sometimes(.12, eyeshadowStyles.length),
+      lashes: sometimes(.3, lashStyles.length),
+      accessory: sometimes(.2, accessoryStyles.length),
+      accessoryColor: pick(accessoryColors.length),
     );
   }
 

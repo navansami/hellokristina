@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hello_kristina/avatar/avatar_editor.dart';
@@ -7,17 +10,72 @@ import 'package:hello_kristina/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  test('a saved look ignores indexes outside the palettes', () {
+  test('a saved look ignores indexes outside the ranges', () {
     final look = LearnerLook.decode({
       'skin': 99,
-      'body': 3,
+      'outfit': 3,
       'hair': -1,
+      'hat': 15,
       'background': 0,
     });
     expect(look.skin, const LearnerLook().skin);
-    expect(look.body, 3);
+    expect(look.outfit, 3);
     expect(look.hair, const LearnerLook().hair);
+    expect(look.hat, 15);
     expect(look.background, 0);
+    expect(LearnerLook.decode(look.toJson()), look);
+  });
+
+  test('first-generation looks keep their colours and nearest styles', () {
+    final old = LearnerLook.decode({
+      'skin': 3,
+      'body': 2,
+      'eye': 3,
+      'expression': 2,
+      'hair': 5,
+      'hairColor': 4,
+      'glasses': 1,
+      'glassesColor': 2,
+      'hat': 1,
+      'hatColor': 3,
+      'shirt': 6,
+      'background': 12,
+    });
+    expect(old.skin, 3);
+    expect(old.eyeColor, 3);
+    expect(old.eyes, 2, reason: 'closed eyes become happy eyes');
+    expect(old.hair, 11, reason: 'the old bob is the new bob');
+    expect(old.hairColor, 4);
+    expect(old.glasses, 1);
+    expect(old.hat, 1, reason: 'beanie');
+    expect(old.outfitColor, 6);
+    expect(old.backgroundColor, LearnerLook.backgrounds[12]);
+  });
+
+  test('the server accepts exactly the pieces the app can make', () {
+    final source = File('server/avatar.js').readAsStringSync();
+    final block = RegExp(r'AVATAR_RANGES = \{([^}]*)\}').firstMatch(source)!;
+    final server = {
+      for (final m in RegExp(r'(\w+): (\d+)').allMatches(block.group(1)!))
+        m.group(1)!: int.parse(m.group(2)!)
+    };
+    expect(server, LearnerLook.ranges);
+    final defaults = RegExp(r'DEFAULT_LOOK = \{([^}]*)\}').firstMatch(source)!;
+    final serverDefault = {
+      for (final m in RegExp(r'(\w+): (\d+)').allMatches(defaults.group(1)!))
+        m.group(1)!: int.parse(m.group(2)!)
+    };
+    expect(serverDefault, const LearnerLook().toJson());
+  });
+
+  test('random looks are always valid', () {
+    final random = math.Random(1);
+    for (var i = 0; i < 200; i++) {
+      final look = LearnerLook.random(random);
+      for (final entry in LearnerLook.ranges.entries) {
+        expect(look.valueOf(entry.key), inInclusiveRange(0, entry.value - 1));
+      }
+    }
   });
 
   testWidgets('the editor mixes a piece and saves it', (tester) async {
@@ -30,6 +88,9 @@ void main() {
     });
     LearnerLook? saved;
     await tester.pumpWidget(MaterialApp(
+        builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(disableAnimations: true),
+            child: child!),
         home: Builder(
             builder: (context) => TextButton(
                 onPressed: () => Navigator.push(
@@ -43,30 +104,42 @@ void main() {
                 child: const Text('Open editor')))));
     await tester.tap(find.text('Open editor'));
     await tester.pumpAndSettle();
-    expect(find.text('Edit Avatar'), findsOneWidget);
+    expect(find.text('Create your look'), findsOneWidget);
     expect(find.text('Skin tone'), findsOneWidget);
-    expect(find.text('😊'), findsNothing);
     await tester.tap(find.bySemanticsLabel('Skin tone 2'));
     await tester.pump();
     await tester.tap(find.bySemanticsLabel('Hair'));
     await tester.pump();
     expect(find.text('Hairstyle'), findsOneWidget);
-    expect(find.text('Main hair color'), findsOneWidget);
     final hairstyle = find.bySemanticsLabel('Hairstyle 4');
-    await tester.scrollUntilVisible(
-        hairstyle,
-        240,
+    await tester.scrollUntilVisible(hairstyle, 240,
         scrollable: find
             .descendant(
-                of: find.byType(AvatarEditor), matching: find.byType(Scrollable))
+                of: find.byType(AvatarEditor),
+                matching: find.byType(Scrollable))
             .last);
     await tester.pumpAndSettle();
     await tester.tap(hairstyle);
     await tester.pump();
-    await tester.tap(find.text('DONE'));
+    // Undo steps back; the dice can roll something new.
+    await tester.tap(find.byTooltip('Undo'));
+    await tester.pump();
+    await tester.tap(hairstyle);
+    await tester.pump();
+    final colour = find.bySemanticsLabel('Hair colour 13');
+    await tester.scrollUntilVisible(colour.hitTestable(), 200,
+        scrollable: find
+            .descendant(
+                of: find.byType(AvatarEditor), matching: find.byType(Scrollable))
+            .last);
+    await tester.pump();
+    await tester.tap(colour);
+    await tester.pump();
+    await tester.tap(find.text('SAVE MY LOOK'));
     await tester.pumpAndSettle();
     expect(saved?.skin, 1);
     expect(saved?.hair, 3);
+    expect(saved?.hairColor, 12);
     expect(find.byType(LearnerPortrait), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -80,6 +153,9 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
     await tester.pumpWidget(MaterialApp(
+        builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(disableAnimations: true),
+            child: child!),
         home: Scaffold(
             body: ProfilePage(
                 user: const {

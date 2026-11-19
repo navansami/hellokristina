@@ -71,8 +71,8 @@ class ProfilePage extends StatelessWidget {
     final today = daily.xpOn(DateTime.now());
     final violet = unitTheme(1);
     return ListView(padding: EdgeInsets.zero, children: [
-      ColoredBox(
-          color: look.backgroundColor,
+      AvatarBackdrop(
+          look: look,
           child: Padding(
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
               child: Column(children: [

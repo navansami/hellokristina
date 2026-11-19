@@ -1,4 +1,5 @@
 import { db, safe, method, send, token, publicUser, bcrypt } from '../../server/core.js';
+import { DEFAULT_LOOK } from '../../server/avatar.js';
 import { nameError, usernameError, emailError, passwordError, normalizeUsername } from '../../server/auth.js';
 
 // GET ?username=x  -> { available, error? }  (live check while typing)
@@ -29,7 +30,7 @@ export default safe(async (req, res) => {
   if (await users.findOne({ username }, { projection: { _id: 1 } })) return send(res, 409, { error: 'That username is taken', field: 'username' });
   const role = (process.env.ADMIN_EMAILS || '').split(',').map(x => x.trim().toLowerCase()).includes(normalized) ? 'admin' : 'learner';
   const now = new Date();
-  const user = { name: name.trim().slice(0, 60), username, email: normalized, passwordHash: await bcrypt.hash(password, 12), avatar: { face: 'built', color: '#F6E7A8', look: { skin: 6, body: 3, eye: 0, expression: 0, hair: 0, hairColor: 1, glasses: 0, glassesColor: 1, hat: 0, hatColor: 1, shirt: 4, background: 0 } }, role, xp: 0, streak: 0, termsAcceptedAt: now, createdAt: now };
+  const user = { name: name.trim().slice(0, 60), username, email: normalized, passwordHash: await bcrypt.hash(password, 12), avatar: { face: 'built', color: '#F6E7A8', look: { ...DEFAULT_LOOK } }, role, xp: 0, streak: 0, termsAcceptedAt: now, createdAt: now };
   const result = await users.insertOne(user); user._id = result.insertedId;
   await database.collection('progress').insertOne({ userId: user._id, courseId: 'serbian-en', completedLessons: [], learnedWords: [], lastActiveAt: now, dailyGoal: 15 });
   send(res, 201, { token: await token(user, remember === true), user: publicUser(user) });

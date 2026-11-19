@@ -121,7 +121,7 @@ void main() {
     expect(find.text('Discard your changes?'), findsOneWidget);
     await tester.tap(find.text('KEEP EDITING'));
     await settle(tester);
-    expect(find.text('Edit Avatar'), findsOneWidget);
+    expect(find.text('Create your look'), findsOneWidget);
     await tester.tap(find.byTooltip('Close'));
     await settle(tester);
     await tester.tap(find.text('DISCARD CHANGES'));

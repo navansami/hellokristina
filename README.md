@@ -142,3 +142,20 @@ The gear on the Profile tab, and the "Account settings" card near the bottom, op
 - **Sign out** and **Delete account.** Deleting needs your password and an "I understand" tick. It removes the user, progress, friendships in both directions, feed posts and likes, chat history and reset links.
 
 The server side is `api/auth/profile.js`: `PATCH` with `details`, `email`, `password`, `action: 'signOutEverywhere'` or `avatar`, and `DELETE` to delete. Ending sessions sets `sessionsValidAfter` on the user, and `server/core.js` rejects older tokens. `test/account_test.dart` covers each flow.
+
+## Avatars
+
+Avatars are chibi-style busts drawn piece by piece in `lib/avatar/learner_portrait.dart`, so every option mixes with every other. `LearnerLook` (`lib/avatar/learner_look.dart`) holds 20 pieces:
+
+- **Face:** 20 skin tones (16 natural plus 4 just-for-fun), 4 face shapes, and 7 cheek styles (rosy, freckles, heart or star stickers, a plaster).
+- **Eyes:** 9 eye styles (bright, sparkly, happy, sleepy, wink, starry, hearts, dots, lashes), 8 eye colours and 6 brow shapes.
+- **Mouth:** 8 mouths.
+- **Hair:** 20 hairstyles, 16 hair colours (natural and bright) and 5 facial-hair options.
+- **Extras:** 8 glasses styles (including star and heart shades) in 10 colours, and studs or hoops.
+- **Hats:** 16 headwear options, among them beanie, caps, beret, a Serbian šajkača, crown, flower crown, headphones, cat and bunny ears and a wizard hat, in 12 colours.
+- **Outfit:** 9 outfits, among them hoodie, dungarees, turtleneck and a Serbian folk vest (jelek), in 16 colours and 6 patterns.
+- **Background:** 20 background colours with 8 backdrops (dots, stars, sunburst, hearts, waves, confetti, city).
+
+The editor (`lib/avatar/avatar_editor.dart`) shows a living preview that breathes, blinks and pops with sparkles on every change. It has emoji category tabs, mini previews of each option, a 🎲 "Surprise me" button, undo, and asks before discarding changes. Reduced-motion settings keep the preview still.
+
+Saved first-generation looks convert to the nearest new pieces, and their colours stay identical because the old palettes are kept as the first entries. `server/avatar.js` holds the allowed ranges and the default look for new accounts. `test/avatar_editor_test.dart` checks that the server and the app agree.

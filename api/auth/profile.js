@@ -1,31 +1,6 @@
 import { safe, method, send, requireUser, db, publicUser, token, bcrypt } from '../../server/core.js';
 import { nameError, usernameError, emailError, passwordError, normalizeUsername } from '../../server/auth.js';
-
-const ranges = {
-  skin: 15,
-  body: 4,
-  eye: 5,
-  expression: 4,
-  hair: 8,
-  hairColor: 6,
-  glasses: 3,
-  glassesColor: 5,
-  hat: 3,
-  hatColor: 5,
-  shirt: 9,
-  background: 20
-};
-
-function readLook(raw) {
-  if (!raw || typeof raw !== 'object') return null;
-  const look = {};
-  for (const [key, max] of Object.entries(ranges)) {
-    const value = raw[key];
-    if (!Number.isInteger(value) || value < 0 || value >= max) return null;
-    look[key] = value;
-  }
-  return look;
-}
+import { readLook } from '../../server/avatar.js';
 
 // PATCH { avatar }                                   -> change the avatar
 // PATCH { details: { name, username } }               -> rename

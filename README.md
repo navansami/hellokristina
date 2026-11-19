@@ -176,3 +176,15 @@ Tapping outside the panel, or the flag again, closes it.
 The Letters tab speaks. Tapping any of the 30 letters plays its Serbian name (а, бе, ве…) in Kristina's voice, and the big letter tile replays it. Each letter also has an example word that starts with it (Б → банана 🍌, Ж → жаба 🐸, Ш → шешир 🎩), with its own play button, the Latin spelling and the English meaning.
 
 `curriculum/alphabet.json` is the source: letter, Latin twin, sound hint, letter name and example word. `scripts/generate-audio.mjs` records the letter names (with a letter-specific voice instruction) and any example words not already in the course. It writes `assets/course/alphabet.json` with the audio paths, and the app loads that file at start-up. `test/letters_test.dart` checks that every example starts with its letter in both scripts, that every clip exists, and that the bundled file matches the source. The example words are AI-drafted and belong in the native-speaker review.
+
+## Friends: follow, leaderboard and wins
+
+The Friends tab uses a Duolingo-style follow model: following is one-way and needs no approval. Each `friends` row is `{ userId: follower, friendId: followed }`, and earlier mutual friendships carry over as follows in both directions. The tab has no intro card. It opens on:
+
+- **Search:** a search bar for names or @usernames, with a live prefix search and Follow / Following buttons.
+- **Your @username:** a card with a Share button that copies it, plus following and follower counts.
+- **Follow back:** people who follow you that you don't follow yet.
+- **Leaderboard:** you and the people you follow, by total XP, with medals for the top three. Tapping anyone opens their card: avatar, level, XP, streak, "Follows you" and a follow toggle.
+- **Friends' wins:** your posts and those of the people you follow, with time ago and a 👏 Cheer button.
+
+`api/social/friends.js` handles `GET` (following and followers), `GET ?q=` (search, regex-escaped prefix on username or name), `POST` (follow) and `DELETE` (unfollow). `api/social/feed.js` serves posts from you and the people you follow, and only lets you cheer posts you can see. `server/social.js` decides which moments become posts: a finished lesson circle (checkpoints and the final test show as such), a level-up, and streak milestones (3, 7, 14, 30, 50, 100…). `api/course/progress.js` posts them from lessons, test-outs and mistake reviews. Public cards never include email. Check with `node scripts/check-social.mjs` and `flutter test test/friends_test.dart`.

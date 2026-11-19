@@ -154,8 +154,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('a cooled flame warns when today is still to do',
-      (tester) async {
+  testWidgets('a cooled flame warns when today is still to do', (tester) async {
     final previous = List<Lesson>.of(lessons);
     lessons = [Lesson('a', 'a', '', '👋', 'green', const [], unitTitle: 'U')];
     addTearDown(() => lessons = previous);
@@ -180,17 +179,5 @@ void main() {
     expect(find.byTooltip('Practise today to keep your 4-day streak'),
         findsOneWidget);
     expect(find.byTooltip('Daily goal: 0 / 20 XP'), findsOneWidget);
-  });
-
-  testWidgets('friends ranks you in your crew', (tester) async {
-    await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-            body: FriendsPage(
-                token: 'test', me: const {'name': 'Ana'}, xp: 120))));
-    await tester.pump();
-    expect(find.text('Ana (you)'), findsOneWidget);
-    expect(find.text('120 XP'), findsOneWidget);
-    expect(find.text('ADD FRIEND'), findsOneWidget);
-    expect(tester.takeException(), isNull);
   });
 }

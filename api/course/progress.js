@@ -3,6 +3,7 @@ import { sessionXp, segmentsEarned, claimRounds } from '../../server/xp.js';
 import { updateMastery, recommendation } from '../../server/mastery.js';
 import { safe, method, send, requireUser, db } from '../../server/core.js';
 import { starterCourse, lessonPassed } from '../../server/course.js';
+import { feedEvents, postFeedEvents } from '../../server/social.js';
 
 export default safe(async (req, res) => {
   if (!method(req, res, ['GET', 'POST'])) return;
@@ -52,7 +53,12 @@ export default safe(async (req, res) => {
   }
   const xp = sessionXp(answers, passed, result.newRound);
   await database.collection('users').updateOne({ _id: user._id }, { $inc: { xp }, $set: { streak } });
-  if (newlyCompleted) await database.collection('feed').insertOne({ actorId: user._id, actorName: user.name, actorAvatar: user.avatar, type: 'lesson', lessonId, xp, likes: [], createdAt: new Date() });
+  // Followers see finished lessons, level-ups and streak milestones.
+  await postFeedEvents(database, user, feedEvents({
+    before: { xp: user.xp || 0, streak: user.streak || 0 },
+    after: { xp: (user.xp || 0) + xp, streak },
+    lessonId: newlyCompleted ? lessonId : null,
+  }), xp);
   send(res, 200, { xp, streak, passed, claimed, progress: await collection.findOne(filter, { projection: { _id: 0, userId: 0 } }) });
 });
 
@@ -74,6 +80,10 @@ async function testOut(req, res, { user, database, collection, filter, lessons }
     }, { upsert: true });
   }
   await database.collection('users').updateOne({ _id: user._id }, { $inc: { xp } });
+  await postFeedEvents(database, user, feedEvents({
+    before: { xp: user.xp || 0, streak: user.streak || 0 },
+    after: { xp: (user.xp || 0) + xp, streak: user.streak || 0 },
+  }), xp);
   send(res, 200, { xp, passed, progress: await collection.findOne(filter, { projection: { _id: 0, userId: 0 } }) });
 }
 
@@ -95,5 +105,9 @@ async function review(req, res, { user, database, collection, filter }) {
   await collection.updateOne(filter, { $set: { lastActiveAt: new Date() } }, { upsert: true });
   const xp = sessionXp(answers, passed, false);
   await database.collection('users').updateOne({ _id: user._id }, { $inc: { xp }, $set: { streak } });
+  await postFeedEvents(database, user, feedEvents({
+    before: { xp: user.xp || 0, streak: user.streak || 0 },
+    after: { xp: (user.xp || 0) + xp, streak },
+  }), xp);
   send(res, 200, { xp, streak, passed });
 }

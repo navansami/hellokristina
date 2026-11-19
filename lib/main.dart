@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'auth/auth_api.dart';
 import 'auth/auth_rules.dart';
 import 'auth/session_store.dart';
+import 'social/social_api.dart';
 import 'avatar/avatar_editor.dart';
 import 'avatar/learner_look.dart';
 import 'avatar/learner_portrait.dart';
@@ -23,7 +24,7 @@ import 'speech/serbian_speech.dart';
 import 'speech/speech_match.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart'
-    show AssetManifest, TextInput, rootBundle;
+    show AssetManifest, Clipboard, ClipboardData, TextInput, rootBundle;
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart' show CustomSemanticsAction;
 import 'package:http/http.dart' as http;

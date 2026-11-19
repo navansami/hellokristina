@@ -3,6 +3,10 @@ part of '../main.dart';
 const _sectionHeaderExtent = 150.0;
 const _lessonExtent = 112.0;
 
+/// Space between a unit banner and its first stop, so the bouncing START
+/// bubble above that stop is never tucked under the pinned banner.
+const _trailTopGap = 34.0;
+
 /// Horizontal swing of the trail: a gentle S-curve through every unit.
 double _swing(int indexInUnit) => math.sin(indexInUnit * math.pi / 4);
 

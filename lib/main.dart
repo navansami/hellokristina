@@ -1118,7 +1118,7 @@ class _PathPageState extends State<PathPage> {
     var offset = 4.0;
     for (var i = 0; i < unitIndex; i++) {
       final count = lessons.where((l) => l.unitTitle == titles[i]).length;
-      offset += _sectionHeaderExtent + count * _lessonExtent;
+      offset += _sectionHeaderExtent + _trailTopGap + count * _lessonExtent;
     }
     final indexInUnit = lessons
         .where((l) => l.unitTitle == lesson.unitTitle)
@@ -1126,7 +1126,8 @@ class _PathPageState extends State<PathPage> {
         .indexWhere((item) => item.id == lesson.id);
     // Leave room above the current stop for its bouncing START bubble.
     if (indexInUnit > 0)
-      offset += indexInUnit * _lessonExtent - _lessonExtent * .9;
+      offset +=
+          _trailTopGap + indexInUnit * _lessonExtent - _lessonExtent * .9;
     return offset;
   }
 
@@ -1498,6 +1499,8 @@ class _PathPageState extends State<PathPage> {
                 : () => _confirmJump(unitIndex),
           ),
         ),
+        // Room under the banner for the first stop's START bubble.
+        const SliverToBoxAdapter(child: SizedBox(height: _trailTopGap)),
         SliverFixedExtentList(
           itemExtent: _lessonExtent,
           delegate: SliverChildBuilderDelegate((context, index) {

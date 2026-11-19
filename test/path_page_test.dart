@@ -81,4 +81,21 @@ void main() {
     expect(tester.getTopLeft(title).dy, pinned);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets("the START bubble on a unit's first stop clears the banner",
+      (tester) async {
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    for (final done in [<String>{}, {'a0', 'a1', 'a2', 'a3'}]) {
+      await pumpTrail(tester, done, const Size(390, 760));
+      final banner = tester.getTopLeft(find.byType(CustomScrollView)).dy + 150;
+      await tester.pump();
+      final bubble = find.text('START');
+      expect(bubble, findsOneWidget);
+      expect(tester.getRect(bubble).top, greaterThanOrEqualTo(banner));
+      expect(tester.takeException(), isNull);
+    }
+  });
 }

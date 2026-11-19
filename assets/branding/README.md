@@ -1,24 +1,29 @@
 # Hello Kristina brand assets
 
-Created with the built-in image generation tool on 2026-11-01, using root `Kristina.jpg` as the character reference. Brand spelling follows the existing app: **Hello Kristina**.
+## App icon and favicon (November 2026)
 
-- `app-icon-source.png`: full-resolution square master, opaque cobalt background, Kristina portrait and lime speech bubble.
-- `social-card-source.png`: full-resolution landscape sharing-card master.
-- `../../web/social/hello-kristina-v1.jpg`: 1200×630 export, used by Open Graph and Twitter card metadata.
-- Web/PWA, favicon, Apple touch, Android launcher, and every existing iOS app-icon size are exported from the square master.
+The icons are drawn in code, so they are sharp at every size and match the app's look: warm orange, Kristina as drawn in the app, and a chunky white speech bubble.
 
-To reproduce the exports, install Pillow and run `python3 scripts/export-brand-assets.py` from the repository. This only resizes/re-encodes the generated art; it does not call an API. Master files are not bundled into the Flutter asset catalog. The finished web assets are copied into the release build from `web/`.
+- `app-icon-source.png` (1024²): the app icon. Kristina's head and shoulders, smiling, with a heart speech bubble and sparkles on the orange brand gradient. Full-bleed and opaque, because iOS and Android apply their own rounded masks.
+- `app-icon-maskable.png` (1024²): the same art with the bubble and sparkles pulled into the central safe circle, for Android launchers that crop icons to a circle.
+- `favicon-source.png` (512²): the browser-tab icon. A bold smiling speech bubble on an orange rounded square with transparent corners. A face is unreadable at 16px, so the favicon uses the simpler mark.
 
-The manifest is linked in `web/index.html`. Sharing tags live in the initial HTML so crawlers can read them without running Flutter, per https://ogp.me/. The image URL is absolute and versioned. These changes need deployment before production sharing uses them; platform preview layout and caching are outside the site's control. Real WhatsApp/Instagram sharing has not been tested locally. Future artwork changes should increment the social image filename and update its metadata URLs.
+To change the icons, edit `tool/brand/render_brand_test.dart`, then run:
 
-## App icon generation prompt
+```bash
+flutter test tool/brand/render_brand_test.dart   # redraws the three masters
+python scripts/export-brand-assets.py            # needs Pillow
+```
 
-Use case: logo-brand. Create one polished square 1024x1024 installed-app icon for the existing Serbian-learning app Hello Kristina. The attached image is the character identity reference: preserve Kristina's peach freckled face, oversized friendly white eyes with brown pupils, dark chocolate asymmetrical swept hair, long hair on viewer left only, small part and low right temple, magenta turtleneck, playful confident smile. Flat clean vector-like illustration, simple bold silhouettes, crisp smooth edges, original friendly educational-app aesthetic. Full-bleed solid rich cobalt blue #2B61A8 background all the way to the square edges, NO rounded square frame, NO outer padding, NO transparency. A close-up centered head and small upper shoulders; entire face and hair silhouette comfortably within central 74% of the square so circular home-screen masks preserve the character. Face large and readable at 48px. Small bright lime speech-bubble accent near the upper right of her head, no writing inside, subordinate to the portrait. Modern, charming, exceptionally clean. NO text, NO letters, NO flags, NO logos from other apps, NO gradients, NO 3D, NO shadows, NO mockup, NO multiple variations, NO watermarks. Output only the final square icon artwork.
+The export writes:
+- **Web:** `web/icons/Icon-*.png` and `apple-touch-icon.png`, plus `web/favicon.png`, `web/icons/favicon-32.png` and `web/favicon.ico` (16/32/48).
+- **Android:** the `ic_launcher.png` mipmaps.
+- **iOS:** every `AppIcon.appiconset` size.
 
-Reference: `Kristina.jpg`. Transparent background: false.
+`web/index.html` and `web/manifest.json` link the icons with `?v=2`. Bump that number whenever the icons change, because browsers and home screens cache icons for a long time.
 
-## Sharing card generation prompt
+## Sharing card
 
-Use case: ads-marketing. Create one finished wide landscape social link-preview card for the Serbian learning app Hello Kristina. Target aspect ratio 1200:630 (1.905:1); render 1536x806 or similar wide composition. Image 1 is Kristina's original character reference; Image 2 is the approved app icon establishing the matching brand direction. Preserve her face, freckles, oversized white eyes with brown pupils, asymmetrical swept dark-brown hair with the long hair on viewer left, magenta turtleneck, and cheeky warm smile. Match the cobalt blue background, peach/magenta character colors, and electric lime speech bubble. Clean bold flat vector-like illustration, polished vibrant educational brand, lots of breathing room, no photorealism. Layout designed for readable link previews: large strong off-white rounded sans-serif headline on left in two lines exactly 'Hello' then 'Kristina'; below it a clear lime text line exactly 'Learn Serbian.'; under that smaller off-white supporting copy in two short lines exactly 'One playful challenge' then 'at a time.' Bottom left small text exactly 'hellokristina.app'. On right Kristina from the chest upward smiling and waving one hand, very large and lovable, with one lime empty speech bubble above shoulder. All important artwork and text kept at least 7% from the edges. Background cobalt blue #2B61A8, sparse subtle blue abstract conversation shapes at edges only. High contrast, no busy patterns, no fake UI, no buttons, no phone mockup, no watermark, no third-party brand, no flag, no extra copy. Exact brand spelling is Hello Kristina (not Kristine). Output only the final finished landscape artwork, not a sheet of alternatives.
+`social-card-source.png` is still the November 1 artwork: Kristina on cobalt blue, AI-generated with the prompt below. The export turns it into `web/social/hello-kristina-v1.jpg` (1200×630), which Open Graph and Twitter metadata use. If it is redrawn to match the orange icon, save it under a new file name (for example `hello-kristina-v2.jpg`) and update the metadata URLs, because sharing sites cache preview images.
 
-References: `Kristina.jpg` and the generated square icon. Transparent background: false.
+Sharing card prompt (1 November 2026): one wide 1200:630 social preview for Hello Kristina, with Kristina from the chest up, waving, beside a lime speech bubble on cobalt `#2B61A8`. Off-white headline "Hello / Kristina", lime "Learn Serbian.", supporting copy "One playful challenge / at a time." and "hellokristina.app". No third-party brands or flags. Reference: `Kristina.jpg` and the 1 November icon.

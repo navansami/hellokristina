@@ -15,15 +15,21 @@ def png(image, relative, size):
 
 
 def main():
+    # Masters are drawn in code: flutter test tool/brand/render_brand_test.dart
     icon = Image.open(BRANDING / 'app-icon-source.png').convert('RGB')
+    maskable = Image.open(BRANDING / 'app-icon-maskable.png').convert('RGB')
+    badge = Image.open(BRANDING / 'favicon-source.png').convert('RGBA')
     assert icon.width == icon.height, 'The app icon source must be square'
     for size in (192, 512):
         png(icon, f'web/icons/Icon-{size}.png', size)
-        # The face sits inside the central circle; the outer shoulders may crop.
-        png(icon, f'web/icons/Icon-maskable-{size}.png', size)
+        # Android crops maskable icons to a circle; this master keeps the
+        # bubble and sparkles inside it.
+        png(maskable, f'web/icons/Icon-maskable-{size}.png', size)
     png(icon, 'web/icons/apple-touch-icon.png', 180)
-    png(icon, 'web/favicon.png', 48)
-    icon.save(ROOT / 'web/favicon.ico', sizes=[(16, 16), (32, 32), (48, 48)])
+    # Browser tabs get the bold smiling bubble: a face is unreadable at 16px.
+    png(badge, 'web/favicon.png', 48)
+    png(badge, 'web/icons/favicon-32.png', 32)
+    badge.save(ROOT / 'web/favicon.ico', sizes=[(16, 16), (32, 32), (48, 48)])
 
     for density, size in [('mdpi', 48), ('hdpi', 72), ('xhdpi', 96),
                           ('xxhdpi', 144), ('xxxhdpi', 192)]:

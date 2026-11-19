@@ -330,7 +330,17 @@ class ProfilePage extends StatelessWidget {
                           KButton(
                               text: 'SIGN OUT',
                               outline: true,
-                              onTap: () => onLogout())
+                              onTap: () async {
+                                final out = await confirmSheet(context,
+                                    emoji: '👋',
+                                    title: 'Sign out?',
+                                    body: 'Your progress is saved to your '
+                                        'account. This device will forget it '
+                                        'until you sign in again.',
+                                    stay: 'STAY SIGNED IN',
+                                    leave: 'SIGN OUT');
+                                if (out) await onLogout();
+                              })
                         ]
                       ]))))
     ]);

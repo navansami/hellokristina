@@ -6,6 +6,8 @@ import 'avatar/learner_look.dart';
 import 'avatar/learner_portrait.dart';
 import 'widgets/animated_kristina.dart';
 import 'widgets/tactile_button.dart';
+import 'widgets/confirm_sheet.dart';
+import 'platform/leave_guard.dart';
 import 'widgets/course_palette.dart';
 import 'widgets/belgrade_postcard.dart';
 import 'widgets/learning_object.dart';
@@ -880,73 +882,85 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
                 .apply(bodyColor: ink, displayColor: ink)),
         home: loading
             ? const Scaffold(body: Center(child: CircularProgressIndicator()))
-            : Scaffold(
-                body: SafeArea(
-                    child: Center(
-                        child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 980),
-                            child: Column(children: [
-                              Expanded(
-                                  child: Row(children: [
-                                if (MediaQuery.sizeOf(context).width > 720)
-                                  SizedBox(
-                                      width: 190,
-                                      child: SideNav(
-                                          tab: tab,
-                                          onTap: (i) =>
-                                              setState(() => tab = i))),
-                                Expanded(
-                                    child: IndexedStack(index: tab, children: [
-                                  PathPage(
-                                      done: done,
-                                      completedRounds: completedRounds,
-                                      look: avatar,
-                                      onProfile: () => setState(() => tab = 4),
-                                      reviewLessonId: reviewLessonId,
-                                      xp: xp,
-                                      streak: streak,
-                                      daily: daily,
-                                      onGoal: setDailyGoal,
-                                      onLesson: lesson,
-                                      onJump: testOut,
-                                      onChat: () => navigatorKey.currentState
-                                          ?.push(MaterialPageRoute(
-                                              builder: (_) =>
-                                                  ChatPage(token: token)))),
-                                  WordsPage(
-                                      done: {
-                                        ...done,
-                                        ...completedRounds.map((key) => key
-                                            .substring(0, key.lastIndexOf(':')))
-                                      },
-                                      mistakes: mistakeCount,
-                                      onMistakes: practiseMistakes),
-                                  const LettersPage(),
-                                  FriendsPage(
-                                      token: token,
-                                      me: user,
-                                      xp: xp,
-                                      look: avatar),
-                                  ProfilePage(
-                                      user: user,
-                                      xp: xp,
-                                      streak: streak,
-                                      done: done,
-                                      daily: daily,
-                                      onGoal: setDailyGoal,
-                                      look: avatar,
-                                      onAvatar: changeAvatar,
-                                      onClose: () => setState(() => tab = 0),
-                                      onFriends: () => setState(() => tab = 3),
-                                      onAuth: auth,
-                                      onLogout: logout)
-                                ]))
-                              ])),
-                              if (MediaQuery.sizeOf(context).width <= 720)
-                                BottomNav(
-                                    tab: tab,
-                                    onTap: (i) => setState(() => tab = i))
-                            ]))))));
+            : PopScope(
+                canPop: tab == 0,
+                onPopInvokedWithResult: (didPop, _) {
+                  if (!didPop) setState(() => tab = 0);
+                },
+                child: Scaffold(
+                    body: SafeArea(
+                        child: Center(
+                            child: ConstrainedBox(
+                                constraints:
+                                    const BoxConstraints(maxWidth: 980),
+                                child: Column(children: [
+                                  Expanded(
+                                      child: Row(children: [
+                                    if (MediaQuery.sizeOf(context).width > 720)
+                                      SizedBox(
+                                          width: 190,
+                                          child: SideNav(
+                                              tab: tab,
+                                              onTap: (i) =>
+                                                  setState(() => tab = i))),
+                                    Expanded(
+                                        child:
+                                            IndexedStack(index: tab, children: [
+                                      PathPage(
+                                          done: done,
+                                          completedRounds: completedRounds,
+                                          look: avatar,
+                                          onProfile: () =>
+                                              setState(() => tab = 4),
+                                          reviewLessonId: reviewLessonId,
+                                          xp: xp,
+                                          streak: streak,
+                                          daily: daily,
+                                          onGoal: setDailyGoal,
+                                          onLesson: lesson,
+                                          onJump: testOut,
+                                          onChat: () => navigatorKey
+                                              .currentState
+                                              ?.push(MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      ChatPage(token: token)))),
+                                      WordsPage(
+                                          done: {
+                                            ...done,
+                                            ...completedRounds.map((key) =>
+                                                key.substring(
+                                                    0, key.lastIndexOf(':')))
+                                          },
+                                          mistakes: mistakeCount,
+                                          onMistakes: practiseMistakes),
+                                      const LettersPage(),
+                                      FriendsPage(
+                                          token: token,
+                                          me: user,
+                                          xp: xp,
+                                          look: avatar),
+                                      ProfilePage(
+                                          user: user,
+                                          xp: xp,
+                                          streak: streak,
+                                          done: done,
+                                          daily: daily,
+                                          onGoal: setDailyGoal,
+                                          look: avatar,
+                                          onAvatar: changeAvatar,
+                                          onClose: () =>
+                                              setState(() => tab = 0),
+                                          onFriends: () =>
+                                              setState(() => tab = 3),
+                                          onAuth: auth,
+                                          onLogout: logout)
+                                    ]))
+                                  ])),
+                                  if (MediaQuery.sizeOf(context).width <= 720)
+                                    BottomNav(
+                                        tab: tab,
+                                        onTap: (i) => setState(() => tab = i))
+                                ])))))));
   }
 }
 
@@ -1786,8 +1800,48 @@ class _LessonPageState extends State<LessonPage>
     _replaceUnanswerable();
   }
 
+  /// True once leaving would throw away answers given in this session.
+  bool get _hasProgress =>
+      !finished &&
+      !submitting &&
+      (answers.isNotEmpty ||
+          checked ||
+          selected != null ||
+          picked.isNotEmpty ||
+          pairDone.isNotEmpty);
+
+  bool _asking = false;
+
+  /// "Wait, don't go!" Leaving only happens if the learner confirms.
+  Future<void> _askToLeave() async {
+    if (_asking || !_hasProgress) return;
+    _asking = true;
+    final kind = widget.lesson.kind;
+    final noun = widget.lesson.id.startsWith('jump-') || kind == 'assessment'
+        ? 'test'
+        : kind == 'checkpoint'
+            ? 'checkpoint'
+            : 'practice';
+    final answered = answers.length;
+    final leave = await confirmSheet(context,
+        emoji: '🥺',
+        title: 'Wait, don’t go!',
+        body: answered == 0
+            ? 'If you leave now, your progress in this $noun will be lost.'
+            : 'You’ve answered $answered of ${round.length}. If you leave '
+                'now, this $noun won’t count and your progress will be lost.',
+        stay: 'KEEP LEARNING',
+        leave: 'LEAVE AND LOSE PROGRESS');
+    _asking = false;
+    if (leave && mounted) {
+      setLeaveGuard(false);
+      Navigator.pop(context);
+    }
+  }
+
   @override
   void dispose() {
+    setLeaveGuard(false);
     SerbianSpeech.stop();
     SerbianAudio.stop();
     learningFeedback.stopSounds();
@@ -2076,97 +2130,110 @@ class _LessonPageState extends State<LessonPage>
     final q = round[index];
     final guide = showTheory && widget.lesson.theoryBody.isNotEmpty;
     SerbianAudio.voice = _castIndex();
-    return Scaffold(
-        backgroundColor: bg,
-        resizeToAvoidBottomInset: true,
-        body: SafeArea(
-            child: Center(
-                child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 600),
-                    child: LayoutBuilder(
-                        builder: (context, viewport) =>
-                            Stack(fit: StackFit.expand, children: [
-                              Column(children: [
-                                SizedBox(
-                                    height: 46,
-                                    child: Row(children: [
-                                      IconButton(
-                                          onPressed: () =>
-                                              Navigator.pop(context),
-                                          icon: const Icon(Icons.close_rounded),
-                                          color: muted,
-                                          tooltip: 'Leave lesson'),
-                                      Expanded(
-                                          child: TweenAnimationBuilder<double>(
-                                              tween: Tween(
-                                                  end: finished
-                                                      ? 1
-                                                      : (index +
-                                                              (checked
-                                                                  ? 1
-                                                                  : 0)) /
-                                                          round.length),
-                                              duration: const Duration(
-                                                  milliseconds: 380),
-                                              curve: Curves.easeOutBack,
-                                              builder: (_, value, __) =>
-                                                  _GlossyProgress(
-                                                      value: value,
-                                                      color: _runColor(
-                                                          answerRun)))),
-                                      if (!finished) ...[
-                                        const SizedBox(width: 8),
-                                        _ComboChip(run: answerRun),
-                                      ],
-                                      IconButton(
-                                          tooltip: 'Learning feedback',
-                                          onPressed: () =>
-                                              showFeedbackSettings(context),
-                                          icon: const Icon(
-                                              Icons.settings_outlined,
+    final guarded = _hasProgress;
+    // Closing or reloading the browser tab mid-lesson also asks first.
+    setLeaveGuard(guarded);
+    return PopScope(
+        canPop: !guarded,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) _askToLeave();
+        },
+        child: Scaffold(
+            backgroundColor: bg,
+            resizeToAvoidBottomInset: true,
+            body: SafeArea(
+                child: Center(
+                    child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 600),
+                        child: LayoutBuilder(
+                            builder: (context, viewport) =>
+                                Stack(fit: StackFit.expand, children: [
+                                  Column(children: [
+                                    SizedBox(
+                                        height: 46,
+                                        child: Row(children: [
+                                          IconButton(
+                                              onPressed: () =>
+                                                  Navigator.maybePop(context),
+                                              icon: const Icon(
+                                                  Icons.close_rounded),
                                               color: muted,
-                                              size: 22)),
-                                    ])),
-                                Expanded(
-                                    child: Padding(
-                                        padding: EdgeInsets.fromLTRB(
-                                            20,
-                                            viewport.maxHeight < 600 ? 6 : 12,
-                                            20,
-                                            8),
-                                        child: finished
-                                            ? _completeViewport()
-                                            : guide
-                                                ? _guideViewport()
-                                                : _exerciseViewport(q))),
-                                // Reserve only the resting action bar height. Feedback paints over the exercise.
-                                if (!finished)
-                                  SizedBox(
-                                      height:
-                                          viewport.maxHeight < 600 ? 78 : 89),
-                              ]),
-                              if (!finished)
-                                Positioned(
-                                    left: 0,
-                                    right: 0,
-                                    bottom: 0,
-                                    child: AnimatedSize(
-                                        duration:
-                                            const Duration(milliseconds: 200),
-                                        alignment: Alignment.bottomCenter,
-                                        curve: Curves.easeOutCubic,
-                                        child: _footer(q, guide,
-                                            viewport.maxHeight < 600))),
-                              if (!finished && checked && lastCorrect)
-                                Positioned(
-                                    right: 24,
-                                    top: viewport.maxHeight * .22,
-                                    child: IgnorePointer(
-                                        child: _FloatingXp(
-                                            key: ValueKey('xp-$index'),
-                                            amount: 2,
-                                            hot: answerRun >= 5))),
-                            ]))))));
+                                              tooltip: 'Leave lesson'),
+                                          Expanded(
+                                              child: TweenAnimationBuilder<
+                                                      double>(
+                                                  tween: Tween(
+                                                      end: finished
+                                                          ? 1
+                                                          : (index +
+                                                                  (checked
+                                                                      ? 1
+                                                                      : 0)) /
+                                                              round.length),
+                                                  duration: const Duration(
+                                                      milliseconds: 380),
+                                                  curve: Curves.easeOutBack,
+                                                  builder: (_, value, __) =>
+                                                      _GlossyProgress(
+                                                          value: value,
+                                                          color: _runColor(
+                                                              answerRun)))),
+                                          if (!finished) ...[
+                                            const SizedBox(width: 8),
+                                            _ComboChip(run: answerRun),
+                                          ],
+                                          IconButton(
+                                              tooltip: 'Learning feedback',
+                                              onPressed: () =>
+                                                  showFeedbackSettings(context),
+                                              icon: const Icon(
+                                                  Icons.settings_outlined,
+                                                  color: muted,
+                                                  size: 22)),
+                                        ])),
+                                    Expanded(
+                                        child: Padding(
+                                            padding: EdgeInsets.fromLTRB(
+                                                20,
+                                                viewport.maxHeight < 600
+                                                    ? 6
+                                                    : 12,
+                                                20,
+                                                8),
+                                            child: finished
+                                                ? _completeViewport()
+                                                : guide
+                                                    ? _guideViewport()
+                                                    : _exerciseViewport(q))),
+                                    // Reserve only the resting action bar height. Feedback paints over the exercise.
+                                    if (!finished)
+                                      SizedBox(
+                                          height: viewport.maxHeight < 600
+                                              ? 78
+                                              : 89),
+                                  ]),
+                                  if (!finished)
+                                    Positioned(
+                                        left: 0,
+                                        right: 0,
+                                        bottom: 0,
+                                        child: AnimatedSize(
+                                            duration: const Duration(
+                                                milliseconds: 200),
+                                            alignment: Alignment.bottomCenter,
+                                            curve: Curves.easeOutCubic,
+                                            child: _footer(q, guide,
+                                                viewport.maxHeight < 600))),
+                                  if (!finished && checked && lastCorrect)
+                                    Positioned(
+                                        right: 24,
+                                        top: viewport.maxHeight * .22,
+                                        child: IgnorePointer(
+                                            child: _FloatingXp(
+                                                key: ValueKey('xp-$index'),
+                                                amount: 2,
+                                                hot: answerRun >= 5))),
+                                ])))))));
   }
 
   Widget _exerciseViewport(Question q) =>

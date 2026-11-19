@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'learner_look.dart';
 import 'learner_portrait.dart';
 
+import '../widgets/confirm_sheet.dart';
 import '../widgets/course_palette.dart';
 
 class AvatarEditor extends StatefulWidget {
@@ -51,81 +52,99 @@ class _AvatarEditorState extends State<AvatarEditor> {
     }
   }
 
+  /// Leaving with unsaved changes asks first.
+  Future<void> _askToDiscard() async {
+    final discard = await confirmSheet(context,
+        emoji: '🎨',
+        title: 'Discard your changes?',
+        body: 'Your new look hasn’t been saved yet.',
+        stay: 'KEEP EDITING',
+        leave: 'DISCARD CHANGES');
+    if (discard && mounted) Navigator.pop(context);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-        backgroundColor: bg,
-        appBar: AppBar(
+    return PopScope(
+        canPop: saving || draft == widget.look,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) _askToDiscard();
+        },
+        child: Scaffold(
             backgroundColor: bg,
-            elevation: 0,
-            foregroundColor: ink,
-            leading: IconButton(
-                tooltip: 'Close',
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close_rounded)),
-            title: const Text('Edit Avatar',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
-            actions: [
-              TextButton(
-                  onPressed: saving ? null : _save,
-                  child: Text(saving ? 'SAVING' : 'DONE',
-                      style: const TextStyle(
-                          color: blue,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: .6)))
-            ]),
-        body: LayoutBuilder(builder: (context, constraints) {
-          final preview = (constraints.maxHeight * .34).clamp(168.0, 300.0);
-          return Column(children: [
-            SizedBox(
-                height: preview,
-                width: double.infinity,
-                child: ColoredBox(
-                    color: draft.backgroundColor,
-                    child: Center(
-                        child: SizedBox(
-                            width: preview * .86,
-                            height: preview * .92,
-                            child: LearnerPortrait(look: draft))))),
-            SizedBox(
-                height: 64,
-                child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    itemCount: _names.length,
-                    itemBuilder: (context, index) {
-                      final selected = index == category;
-                      return Semantics(
-                          button: true,
-                          selected: selected,
-                          label: _names[index],
-                          child: InkWell(
-                              onTap: () => setState(() => category = index),
-                              child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 10),
-                                  child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.end,
-                                      children: [
-                                        Icon(_icons[index],
-                                            color: selected ? blue : muted,
-                                            size: 28),
-                                        const SizedBox(height: 8),
-                                        Container(
-                                            width: 36,
-                                            height: 3,
-                                            color: selected
-                                                ? blue
-                                                : Colors.transparent)
-                                      ]))));
-                    })),
-            const Divider(height: 1, color: panel2),
-            Expanded(
-                child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
-                    children: [_panel()])),
-          ]);
-        }));
+            appBar: AppBar(
+                backgroundColor: bg,
+                elevation: 0,
+                foregroundColor: ink,
+                leading: IconButton(
+                    tooltip: 'Close',
+                    onPressed: () => Navigator.maybePop(context),
+                    icon: const Icon(Icons.close_rounded)),
+                title: const Text('Edit Avatar',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+                actions: [
+                  TextButton(
+                      onPressed: saving ? null : _save,
+                      child: Text(saving ? 'SAVING' : 'DONE',
+                          style: const TextStyle(
+                              color: blue,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: .6)))
+                ]),
+            body: LayoutBuilder(builder: (context, constraints) {
+              final preview = (constraints.maxHeight * .34).clamp(168.0, 300.0);
+              return Column(children: [
+                SizedBox(
+                    height: preview,
+                    width: double.infinity,
+                    child: ColoredBox(
+                        color: draft.backgroundColor,
+                        child: Center(
+                            child: SizedBox(
+                                width: preview * .86,
+                                height: preview * .92,
+                                child: LearnerPortrait(look: draft))))),
+                SizedBox(
+                    height: 64,
+                    child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        itemCount: _names.length,
+                        itemBuilder: (context, index) {
+                          final selected = index == category;
+                          return Semantics(
+                              button: true,
+                              selected: selected,
+                              label: _names[index],
+                              child: InkWell(
+                                  onTap: () => setState(() => category = index),
+                                  child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10),
+                                      child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.end,
+                                          children: [
+                                            Icon(_icons[index],
+                                                color: selected ? blue : muted,
+                                                size: 28),
+                                            const SizedBox(height: 8),
+                                            Container(
+                                                width: 36,
+                                                height: 3,
+                                                color: selected
+                                                    ? blue
+                                                    : Colors.transparent)
+                                          ]))));
+                        })),
+                const Divider(height: 1, color: panel2),
+                Expanded(
+                    child: ListView(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+                        children: [_panel()])),
+              ]);
+            })));
   }
 
   Widget _panel() {

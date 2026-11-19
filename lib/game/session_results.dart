@@ -11,12 +11,17 @@ class _SessionResults extends StatefulWidget {
       required this.startXp,
       required this.character,
       required this.button,
-      this.segments = 0});
+      this.segments = 0,
+      this.dailyBefore = 0,
+      this.dailyGoal = 0});
 
   final String title, subtitle;
   final List<bool> answers;
   final SessionReward reward;
   final int startXp, character, segments;
+
+  /// Today's XP before this session and the daily goal (0 hides the goal).
+  final int dailyBefore, dailyGoal;
   final Widget button;
 
   @override
@@ -35,6 +40,10 @@ class _SessionResultsState extends State<_SessionResults>
   int get _startLevel => levelForXp(widget.startXp);
   int get _endLevel => levelForXp(_endXp);
   bool get _levelUp => _endLevel > _startLevel;
+  bool get _goalHit =>
+      widget.dailyGoal > 0 &&
+      widget.dailyBefore < widget.dailyGoal &&
+      widget.dailyBefore + widget.reward.total >= widget.dailyGoal;
 
   // Timeline, as fractions of the controller.
   static const _countFrom = .12, _countTo = .45, _barFrom = .5, _barTo = .8;
@@ -102,83 +111,101 @@ class _SessionResultsState extends State<_SessionResults>
         animation: _show,
         builder: (context, _) => LayoutBuilder(builder: (context, space) {
               final compact = space.maxHeight < 520;
-              return Column(children: [
-                SizedBox(height: compact ? 4 : 10),
-                Transform.scale(
-                    scale: .4 + .6 * _pop(0, .2),
-                    child: Text(widget.title,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontSize: compact ? 24 : 28,
-                            fontWeight: FontWeight.w900,
-                            color: reward.passed ? ink : red))),
-                Text(widget.subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 15, color: muted)),
-                Expanded(
-                    child: Stack(alignment: Alignment.center, children: [
-                  if (reward.passed)
-                    Positioned.fill(
-                        child: CustomPaint(
-                            painter: _SunburstPainter(
-                                turn: _show.value * .6,
-                                strength: _pop(.02, .3).clamp(0.0, 1.0),
-                                hot: _leveled))),
-                  AnimatedKristina(
-                      width: 200,
-                      height: space.maxHeight * .4,
-                      character: widget.character,
-                      gaze: Offset.zero,
-                      mood: mood),
-                  if (_leveled)
-                    Positioned(
-                        top: 4,
-                        child: Transform.scale(
-                            scale: Curves.elasticOut.transform(
-                                ((_show.value - _barTo) / .15).clamp(0.0, 1.0)),
-                            child: _LevelUpBanner(level: _endLevel))),
-                ])),
-                Row(children: [
+              return Stack(children: [
+                Column(children: [
+                  SizedBox(height: compact ? 4 : 10),
+                  Transform.scale(
+                      scale: .4 + .6 * _pop(0, .2),
+                      child: Text(widget.title,
+                          textAlign: TextAlign.center,
+                          style: display(compact ? 27 : 32,
+                              weight: FontWeight.w700,
+                              color: reward.passed ? ink : red))),
+                  Text(widget.subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 15,
+                          color: muted,
+                          fontWeight: FontWeight.w700)),
                   Expanded(
-                      child: _ResultTile(
-                          label: 'TOTAL XP',
-                          value: '+$_shownXp',
-                          icon: Icons.bolt_rounded,
-                          color: orange,
-                          pop: _pop(.08))),
-                  const SizedBox(width: 8),
-                  Expanded(
-                      child: _ResultTile(
-                          label: 'ACCURACY',
-                          value: '$accuracy%',
-                          icon: Icons.track_changes_rounded,
-                          color: const Color(0xFF3FA66B),
-                          pop: _pop(.16))),
-                  const SizedBox(width: 8),
-                  Expanded(
-                      child: _ResultTile(
-                          label: 'BEST RUN',
-                          value: '×${bestRun(widget.answers)}',
-                          icon: Icons.local_fire_department_rounded,
-                          color: const Color(0xFFE5634D),
-                          pop: _pop(.24))),
+                      child: Stack(alignment: Alignment.center, children: [
+                    if (reward.passed)
+                      Positioned.fill(
+                          child: CustomPaint(
+                              painter: _SunburstPainter(
+                                  turn: _show.value * .6,
+                                  strength: _pop(.02, .3).clamp(0.0, 1.0),
+                                  hot: _leveled))),
+                    AnimatedKristina(
+                        width: 200,
+                        height: space.maxHeight * .4,
+                        character: widget.character,
+                        gaze: Offset.zero,
+                        mood: mood),
+                    if (_leveled)
+                      Positioned(
+                          top: 4,
+                          child: Transform.scale(
+                              scale: Curves.elasticOut.transform(
+                                  ((_show.value - _barTo) / .15)
+                                      .clamp(0.0, 1.0)),
+                              child: _LevelUpBanner(level: _endLevel))),
+                    if (_goalHit)
+                      Positioned(
+                          bottom: 4,
+                          child: Transform.scale(
+                              scale: Curves.elasticOut.transform(
+                                  ((_show.value - .84) / .14).clamp(0.0, 1.0)),
+                              child: const _GoalBanner())),
+                  ])),
+                  Row(children: [
+                    Expanded(
+                        child: _ResultTile(
+                            label: 'TOTAL XP',
+                            value: '+$_shownXp',
+                            icon: Icons.bolt_rounded,
+                            color: orange,
+                            pop: _pop(.08))),
+                    const SizedBox(width: 8),
+                    Expanded(
+                        child: _ResultTile(
+                            label: 'ACCURACY',
+                            value: '$accuracy%',
+                            icon: Icons.track_changes_rounded,
+                            color: const Color(0xFF3FA66B),
+                            pop: _pop(.16))),
+                    const SizedBox(width: 8),
+                    Expanded(
+                        child: _ResultTile(
+                            label: 'BEST RUN',
+                            value: '×${bestRun(widget.answers)}',
+                            icon: Icons.local_fire_department_rounded,
+                            color: const Color(0xFFE5634D),
+                            pop: _pop(.24))),
+                  ]),
+                  SizedBox(height: compact ? 6 : 10),
+                  _BonusLine(
+                      reward: reward,
+                      show: _show.value,
+                      segments: widget.segments),
+                  SizedBox(height: compact ? 6 : 10),
+                  _LevelBar(
+                      startXp: widget.startXp,
+                      endXp: _endXp,
+                      t: Curves.easeInOutCubic.transform(
+                          ((_show.value - _barFrom) / (_barTo - _barFrom))
+                              .clamp(0.0, 1.0))),
+                  SizedBox(height: compact ? 10 : 16),
+                  widget.button,
+                  SizedBox(height: compact ? 6 : 12),
                 ]),
-                SizedBox(height: compact ? 6 : 10),
-                _BonusLine(
-                    reward: reward,
-                    show: _show.value,
-                    segments: widget.segments),
-                SizedBox(height: compact ? 6 : 10),
-                _LevelBar(
-                    startXp: widget.startXp,
-                    endXp: _endXp,
-                    t: Curves.easeInOutCubic.transform(
-                        ((_show.value - _barFrom) / (_barTo - _barFrom))
-                            .clamp(0.0, 1.0))),
-                SizedBox(height: compact ? 10 : 16),
-                widget.button,
-                SizedBox(height: compact ? 6 : 12),
+                if (reward.passed)
+                  Positioned.fill(
+                      child: IgnorePointer(
+                          child: CustomPaint(
+                              painter: _ConfettiPainter(
+                                  t: _show.value, seed: widget.title.length)))),
               ]);
             }));
   }
@@ -203,33 +230,35 @@ class _ResultTile extends StatelessWidget {
           scale: .6 + .4 * pop,
           child: Container(
               decoration: BoxDecoration(
-                  color: color, borderRadius: BorderRadius.circular(14)),
-              padding: const EdgeInsets.fromLTRB(2, 5, 2, 2),
+                  color: color,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Color.lerp(color, Colors.black, .25)!,
+                        offset: const Offset(0, 4))
+                  ]),
+              padding: const EdgeInsets.fromLTRB(3, 6, 3, 3),
               child: Column(mainAxisSize: MainAxisSize.min, children: [
                 FittedBox(
                     child: Text(label,
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            letterSpacing: .6,
-                            fontWeight: FontWeight.w900))),
+                        style: display(12,
+                            color: Colors.white, letterSpacing: .8))),
                 const SizedBox(height: 4),
                 Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(11)),
+                        borderRadius: BorderRadius.circular(13)),
                     child: FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(icon, color: color, size: 20),
+                          Icon(icon, color: color, size: 22),
                           const SizedBox(width: 3),
                           Text(value,
-                              style: TextStyle(
-                                  color: Color.lerp(color, Colors.black, .35),
-                                  fontSize: 19,
-                                  fontWeight: FontWeight.w900)),
+                              style: display(22,
+                                  color: Color.lerp(color, Colors.black, .35)!,
+                                  weight: FontWeight.w700)),
                         ]))),
               ]))));
 }
@@ -297,9 +326,7 @@ class _LevelBar extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
             Row(children: [
-              Text('Level $level',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w900, fontSize: 14, color: ink)),
+              Text('Level $level', style: display(16, weight: FontWeight.w700)),
               const Spacer(),
               Text('$xp / $next XP',
                   style: const TextStyle(
@@ -389,11 +416,7 @@ class _LevelUpBanner extends StatelessWidget {
                 color: Color(0x558E5CF0), blurRadius: 14, offset: Offset(0, 4))
           ]),
       child: Text('LEVEL UP!  Level $level',
-          style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-              letterSpacing: .8,
-              fontSize: 16)));
+          style: display(17, color: Colors.white, letterSpacing: .8)));
 }
 
 class _SunburstPainter extends CustomPainter {
@@ -518,4 +541,89 @@ class _HeaderLevel extends StatelessWidget {
                     ])),
                 child: _LevelMedal(level: level, size: 30))));
   }
+}
+
+/// "Daily goal reached!" popping up under the tutor.
+class _GoalBanner extends StatelessWidget {
+  const _GoalBanner();
+  @override
+  Widget build(BuildContext context) => Container(
+      padding: const EdgeInsets.fromLTRB(12, 7, 16, 7),
+      decoration: BoxDecoration(
+          gradient: const LinearGradient(
+              colors: [Color(0xFF2CC07E), Color(0xFF13945E)]),
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: const [
+            BoxShadow(color: Color(0xFF0B6B43), offset: Offset(0, 3)),
+            BoxShadow(
+                color: Color(0x5513945E), blurRadius: 14, offset: Offset(0, 6))
+          ]),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        const Text('🎯', style: TextStyle(fontSize: 18)),
+        const SizedBox(width: 6),
+        Text('Daily goal reached!',
+            style: display(16, color: Colors.white, letterSpacing: .3)),
+      ]));
+}
+
+/// A burst of confetti that falls, sways and fades over the results.
+class _ConfettiPainter extends CustomPainter {
+  _ConfettiPainter({required this.t, required this.seed});
+  final double t;
+  final int seed;
+
+  static const _colors = [
+    Color(0xFFFF6B4A),
+    Color(0xFF7B5CFA),
+    Color(0xFF14B39C),
+    Color(0xFF3B82F6),
+    Color(0xFFFFC62E),
+    Color(0xFFEC4899),
+  ];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Pieces fly between 2% and 85% of the timeline, then are gone.
+    final life = ((t - .02) / .83);
+    if (life <= 0 || life >= 1) return;
+    final random = math.Random(seed);
+    final paint = Paint();
+    for (var i = 0; i < 70; i++) {
+      final delay = random.nextDouble() * .25;
+      final local = ((life - delay) / (1 - delay)).clamp(0.0, 1.0);
+      final startX = size.width * (.1 + .8 * random.nextDouble());
+      final drift = (random.nextDouble() - .5) * size.width * .5;
+      final sway = 10 + random.nextDouble() * 18;
+      final spin = (random.nextDouble() - .5) * 14;
+      final launch = -.35 - random.nextDouble() * .45;
+      final w = 6 + random.nextDouble() * 6, h = 4 + random.nextDouble() * 5;
+      final color = _colors[i % _colors.length];
+      final round = random.nextBool();
+      if (local <= 0) continue;
+      // A short upward pop, then gravity takes over.
+      final y = size.height * (.32 + launch * local + 1.6 * local * local);
+      final x =
+          startX + drift * local + math.sin(local * math.pi * 3 + i) * sway;
+      final fade = local > .75 ? 1 - (local - .75) / .25 : 1.0;
+      paint.color = color.withValues(alpha: fade.clamp(0.0, 1.0));
+      canvas.save();
+      canvas.translate(x, y);
+      canvas.rotate(spin * local);
+      // Flip on the X axis so pieces flutter.
+      canvas.scale(1, math.cos(local * 12 + i).abs() * .8 + .2);
+      if (round) {
+        canvas.drawCircle(Offset.zero, w / 2.4, paint);
+      } else {
+        canvas.drawRRect(
+            RRect.fromRectAndRadius(
+                Rect.fromCenter(center: Offset.zero, width: w, height: h),
+                const Radius.circular(1.5)),
+            paint);
+      }
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ConfettiPainter old) => old.t != t;
 }

@@ -32,6 +32,13 @@ part 'widgets/lesson_vocabulary.dart';
 part 'game/session_results.dart';
 part 'game/lesson_energy.dart';
 part 'path/trail.dart';
+part 'practice/mistakes.dart';
+part 'game/daily_goal.dart';
+part 'pages/page_parts.dart';
+part 'pages/words_page.dart';
+part 'pages/letters_page.dart';
+part 'pages/friends_page.dart';
+part 'pages/profile_page.dart';
 
 InputDecoration _input(String label) => InputDecoration(
     hintText: label,
@@ -364,6 +371,8 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
   String? token;
   Map<String, dynamic>? user;
   LearnerLook avatar = const LearnerLook();
+  DailyLog daily = const DailyLog();
+  int mistakeCount = 0;
   bool loading = true;
   @override
   void initState() {
@@ -405,8 +414,10 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
       token = p.getString('token');
       SharedToken.value = token;
       avatar = _storedLook(p);
+      daily = DailyLog.read(p);
       loading = false;
     });
+    unawaited(_refreshMistakes());
     try {
       final response = await http.get(api('/api/course/catalog'));
       if (response.statusCode == 200 && mounted) {
@@ -488,6 +499,8 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
     final p = await SharedPreferences.getInstance();
     final now = DateTime.now();
     final lastActive = DateTime.tryParse(p.getString('lastActive') ?? '');
+    final gained =
+        sessionReward(answers, passed: passed, firstTime: first).total;
     setState(() {
       if (passed) {
         final segments =
@@ -498,7 +511,7 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
         if (List.generate(5, (i) => '${lesson.id}:$i')
             .every(completedRounds.contains)) done.add(lesson.id);
       }
-      xp += sessionReward(answers, passed: passed, firstTime: first).total;
+      xp += gained;
       streak = nextStreak(streak, lastActive, now);
     });
     await p.setString('lastActive', now.toIso8601String());
@@ -506,6 +519,8 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
     await p.setStringList('completedRounds', completedRounds.toList());
     await p.setInt('xp', xp);
     await p.setInt('streak', streak);
+    await _recordDay(p, gained);
+    unawaited(_refreshMistakes());
     if (token != null) {
       try {
         final response = await http.post(api('/api/course/progress'),
@@ -554,7 +569,10 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
     await p.remove('xp');
     await p.remove('streak');
     await p.remove('lastActive');
+    await DailyLog.clear(p);
     setState(() {
+      daily = DailyLog(goal: daily.goal);
+      mistakeCount = 0;
       token = data['token'];
       user = data['user'];
       done = {};
@@ -575,7 +593,10 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
     await p.remove('xp');
     await p.remove('streak');
     await p.remove('lastActive');
+    await DailyLog.clear(p);
     setState(() {
+      daily = DailyLog(goal: daily.goal);
+      mistakeCount = 0;
       token = null;
       user = null;
       done = {};
@@ -607,6 +628,93 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
             }));
       } catch (_) {}
     }
+  }
+
+  Future<void> _recordDay(SharedPreferences p, int gained) async {
+    if (!mounted) return;
+    setState(() => daily = daily.record(gained, DateTime.now()));
+    await daily.save(p);
+  }
+
+  Future<void> setDailyGoal(int goal) async {
+    setState(() => daily = daily.withGoal(goal));
+    await daily.save(await SharedPreferences.getInstance());
+  }
+
+  /// Lessons with any finished practice: the source of mistakes to fix.
+  List<Lesson> _practisedLessons() => [
+        for (final lesson in lessons)
+          if (done.contains(lesson.id) ||
+              completedRounds.any((key) => key.startsWith('${lesson.id}:')))
+            lesson
+      ];
+
+  Future<void> _refreshMistakes() async {
+    try {
+      final memory = await PracticeMemory.load();
+      final count = mistakeQuestions(_practisedLessons(), memory).length;
+      if (mounted) setState(() => mistakeCount = count);
+    } catch (_) {}
+  }
+
+  /// A short session built only from exercises the learner keeps missing.
+  Future<void> practiseMistakes() async {
+    final memory = await PracticeMemory.load();
+    final weak = mistakeQuestions(_practisedLessons(), memory);
+    if (!mounted) return;
+    setState(() => mistakeCount = weak.length);
+    if (weak.length < minMistakeSession) return;
+    final picked = weak.take(10).toList()..shuffle(math.Random());
+    final session = Lesson(
+        'mistakes', 'Fix your mistakes', 'Review', '🩹', 'pink', picked,
+        kind: 'review', minPassPercent: 60);
+    navigatorKey.currentState?.push(MaterialPageRoute(
+        builder: (_) => LessonPage(
+            lesson: session,
+            alreadyCompleted: true,
+            startXp: xp,
+            doneTitle: 'Mistakes fixed!',
+            dailyBefore: daily.xpOn(DateTime.now()),
+            dailyGoal: daily.goal,
+            replacements: weak.skip(10).toList(),
+            onRetry: practiseMistakes,
+            onComplete: (_, answers) => finishMistakes(answers))));
+  }
+
+  Future<void> finishMistakes(List<bool> answers) async {
+    final passed = mistakesPassed(answers);
+    final gained =
+        sessionReward(answers, passed: passed, firstTime: false).total;
+    final p = await SharedPreferences.getInstance();
+    final now = DateTime.now();
+    final lastActive = DateTime.tryParse(p.getString('lastActive') ?? '');
+    setState(() {
+      xp += gained;
+      streak = nextStreak(streak, lastActive, now);
+    });
+    await p.setString('lastActive', now.toIso8601String());
+    await p.setInt('xp', xp);
+    await p.setInt('streak', streak);
+    await _recordDay(p, gained);
+    unawaited(_refreshMistakes());
+    if (token == null) return;
+    try {
+      final response = await http.post(api('/api/course/progress'),
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json'
+          },
+          body: jsonEncode(
+              {'review': true, 'courseId': 'serbian-en', 'answers': answers}));
+      if (response.statusCode == 200) {
+        final me = await http.get(api('/api/auth/me'),
+            headers: {'Authorization': 'Bearer $token'});
+        if (me.statusCode == 200 && mounted) {
+          setState(() => user = jsonDecode(me.body)['user']);
+          await _syncProgress();
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> lesson(Lesson l, [int? requestedRound]) async {
@@ -649,6 +757,8 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
             alreadyCompleted: completedBefore,
             practiceRound: roundIndex,
             startXp: xp,
+            dailyBefore: daily.xpOn(DateTime.now()),
+            dailyGoal: daily.goal,
             replacements: deal.bench,
             onRetry: () => lesson(l, roundIndex),
             onComplete: (n, a) => finish(l, n, a, roundIndex))));
@@ -700,6 +810,8 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
         builder: (_) => LessonPage(
             lesson: jump,
             startXp: xp,
+            dailyBefore: daily.xpOn(DateTime.now()),
+            dailyGoal: daily.goal,
             doneTitle: 'You jumped ahead!',
             onRetry: () => testOut(unitIndex),
             onComplete: (n, answers) => finishTestOut(ids, answers))));
@@ -709,8 +821,10 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
     final passed =
         answers.where((right) => right).length * 100 >= 80 * answers.length;
     final p = await SharedPreferences.getInstance();
+    final gained =
+        sessionReward(answers, passed: passed, firstTime: true).total;
     setState(() {
-      xp += sessionReward(answers, passed: passed, firstTime: true).total;
+      xp += gained;
       if (passed) {
         done.addAll(ids);
         for (final id in ids) {
@@ -721,6 +835,7 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
     await p.setStringList('done', done.toList());
     await p.setStringList('completedRounds', completedRounds.toList());
     await p.setInt('xp', xp);
+    await _recordDay(p, gained);
     if (token == null) return;
     try {
       final response = await http.post(api('/api/course/progress'),
@@ -790,24 +905,35 @@ class _KristinaAppState extends State<KristinaApp> with WidgetsBindingObserver {
                                       reviewLessonId: reviewLessonId,
                                       xp: xp,
                                       streak: streak,
+                                      daily: daily,
+                                      onGoal: setDailyGoal,
                                       onLesson: lesson,
                                       onJump: testOut,
                                       onChat: () => navigatorKey.currentState
                                           ?.push(MaterialPageRoute(
                                               builder: (_) =>
                                                   ChatPage(token: token)))),
-                                  WordsPage(done: {
-                                    ...done,
-                                    ...completedRounds.map((key) =>
-                                        key.substring(0, key.lastIndexOf(':')))
-                                  }),
-                                  LettersPage(),
-                                  FriendsPage(token: token),
+                                  WordsPage(
+                                      done: {
+                                        ...done,
+                                        ...completedRounds.map((key) => key
+                                            .substring(0, key.lastIndexOf(':')))
+                                      },
+                                      mistakes: mistakeCount,
+                                      onMistakes: practiseMistakes),
+                                  const LettersPage(),
+                                  FriendsPage(
+                                      token: token,
+                                      me: user,
+                                      xp: xp,
+                                      look: avatar),
                                   ProfilePage(
                                       user: user,
                                       xp: xp,
                                       streak: streak,
                                       done: done,
+                                      daily: daily,
+                                      onGoal: setDailyGoal,
                                       look: avatar,
                                       onAvatar: changeAvatar,
                                       onClose: () => setState(() => tab = 0),
@@ -1058,6 +1184,8 @@ class PathPage extends StatefulWidget {
   final Set<String> done, completedRounds;
   final String? reviewLessonId;
   final int xp, streak;
+  final DailyLog daily;
+  final Future<void> Function(int)? onGoal;
   final LearnerLook look;
   final void Function(Lesson, int) onLesson;
   final void Function(int unitIndex)? onJump;
@@ -1069,6 +1197,8 @@ class PathPage extends StatefulWidget {
       required this.reviewLessonId,
       required this.xp,
       required this.streak,
+      this.daily = const DailyLog(),
+      this.onGoal,
       required this.onLesson,
       this.onJump,
       required this.onChat,
@@ -1110,6 +1240,11 @@ class _PathPageState extends State<PathPage> {
     return next < 0 ? lessons.last : lessons[next];
   }
 
+  void _showStreak() => showStreakSheet(context,
+      streak: widget.streak,
+      log: widget.daily,
+      onGoal: widget.onGoal ?? (_) async {});
+
   /// Scroll offset where [lesson] sits just under its pinned section title.
   double _offsetForLesson(Lesson lesson) {
     final titles = lessons.map((l) => l.unitTitle).toSet().toList();
@@ -1126,8 +1261,7 @@ class _PathPageState extends State<PathPage> {
         .indexWhere((item) => item.id == lesson.id);
     // Leave room above the current stop for its bouncing START bubble.
     if (indexInUnit > 0)
-      offset +=
-          _trailTopGap + indexInUnit * _lessonExtent - _lessonExtent * .9;
+      offset += _trailTopGap + indexInUnit * _lessonExtent - _lessonExtent * .9;
     return offset;
   }
 
@@ -1441,18 +1575,16 @@ class _PathPageState extends State<PathPage> {
                       Icon(Icons.expand_more_rounded, color: muted, size: 20)
                     ]))),
             const Spacer(),
-            _StatChip(
-                color: peach,
-                tooltip: '${widget.streak}-day streak',
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.local_fire_department_rounded,
-                      color: orange, size: 22),
-                  const SizedBox(width: 2),
-                  Text('${widget.streak}',
-                      style: display(17,
-                          color: amberInk, weight: FontWeight.w700)),
-                ])),
-            const SizedBox(width: 8),
+            _StreakChip(
+                streak: widget.streak,
+                safe: widget.daily.activeOn(DateTime.now()),
+                onTap: _showStreak),
+            const SizedBox(width: 6),
+            _DailyGoalChip(
+                xp: widget.daily.xpOn(DateTime.now()),
+                goal: widget.daily.goal,
+                onTap: _showStreak),
+            const SizedBox(width: 6),
             _HeaderLevel(xp: widget.xp),
           ])),
       Expanded(
@@ -1593,7 +1725,7 @@ class _SerbianFlag extends StatelessWidget {
 class LessonPage extends StatefulWidget {
   final Lesson lesson;
   final bool alreadyCompleted;
-  final int practiceRound, startXp;
+  final int practiceRound, startXp, dailyBefore, dailyGoal;
   final String? doneTitle;
   final Future<void> Function(int, List<bool>) onComplete;
   final VoidCallback? onRetry;
@@ -1605,6 +1737,8 @@ class LessonPage extends StatefulWidget {
       this.alreadyCompleted = false,
       this.practiceRound = 0,
       this.startXp = 0,
+      this.dailyBefore = 0,
+      this.dailyGoal = 0,
       this.doneTitle,
       this.replacements = const [],
       this.onRetry});
@@ -2883,6 +3017,8 @@ class _LessonPageState extends State<LessonPage>
         reward: sessionReward(answers,
             passed: passed, firstTime: !widget.alreadyCompleted),
         startXp: widget.startXp,
+        dailyBefore: widget.dailyBefore,
+        dailyGoal: widget.dailyGoal,
         character: _castIndex(),
         button: KButton(
             text: passed ? 'Back to course' : 'Try again',
@@ -2908,833 +3044,6 @@ class _LessonPageState extends State<LessonPage>
               }
             }));
   }
-}
-
-class WordsPage extends StatefulWidget {
-  final Set<String> done;
-  const WordsPage({super.key, required this.done});
-  @override
-  State<WordsPage> createState() => _WordsPageState();
-}
-
-class _WordsPageState extends State<WordsPage> {
-  String query = '';
-  int? open;
-  @override
-  Widget build(BuildContext context) {
-    final learned = words
-        .asMap()
-        .entries
-        .where((entry) => widget.done.contains(wordLesson[entry.key]))
-        .map((entry) => entry.value)
-        .toList();
-    final list = learned
-        .where(
-            (w) => w.any((x) => x.toLowerCase().contains(query.toLowerCase())))
-        .toList();
-    return ListView(
-        padding: const EdgeInsets.fromLTRB(22, 24, 22, 30),
-        children: [
-          const PageHead(
-              eyebrow: 'Your word bank',
-              title: 'Words you know',
-              subtitle: 'Review the vocabulary from your lessons.'),
-          const SizedBox(height: 7),
-          const Text('Audio pronunciations are AI-generated.',
-              style: TextStyle(color: muted, fontSize: 12)),
-          const SizedBox(height: 22),
-          KCard(
-              color: sky,
-              child: Row(children: [
-                const Text('📚', style: TextStyle(fontSize: 35)),
-                const SizedBox(width: 16),
-                Expanded(
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                      Text('${learned.length} words collected',
-                          style: const TextStyle(
-                              fontSize: 17, fontWeight: FontWeight.w900)),
-                      const Text('Review a little every day.',
-                          style: TextStyle(color: muted, fontSize: 13))
-                    ]))
-              ])),
-          const SizedBox(height: 20),
-          TextField(
-              onChanged: (v) => setState(() => query = v),
-              decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.search, color: muted),
-                  hintText: 'Search Serbian or English',
-                  filled: true,
-                  fillColor: panel,
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide.none))),
-          const SizedBox(height: 18),
-          const Text('THE STARTER COLLECTION',
-              style: TextStyle(
-                  color: amberInk,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.4,
-                  fontSize: 12)),
-          if (learned.isEmpty)
-            const Padding(
-                padding: EdgeInsets.symmetric(vertical: 20),
-                child: Text('Finish your first lesson to collect words.',
-                    style: TextStyle(color: muted))),
-          const SizedBox(height: 10),
-          ...list.asMap().entries.map((e) => Padding(
-              padding: const EdgeInsets.only(bottom: 9),
-              child: KCard(
-                  onTap: () =>
-                      setState(() => open = open == e.key ? null : e.key),
-                  child: Column(children: [
-                    Row(children: [
-                      Container(
-                          width: 42,
-                          height: 42,
-                          decoration: BoxDecoration(
-                              color: panel2,
-                              borderRadius: BorderRadius.circular(12)),
-                          child: SerbianAudioButton(
-                              text: e.value[0],
-                              asset: e.value.length > 4 ? e.value[4] : '')),
-                      const SizedBox(width: 14),
-                      Expanded(
-                          child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                            Text(e.value[0],
-                                style: const TextStyle(
-                                    fontSize: 17, fontWeight: FontWeight.w900)),
-                            Text(e.value[1],
-                                style:
-                                    const TextStyle(color: muted, fontSize: 13))
-                          ])),
-                      Text(e.value[2],
-                          style: const TextStyle(
-                              color: amberInk, fontWeight: FontWeight.w800))
-                    ]),
-                    if (open == e.key) ...[
-                      const Divider(height: 22, color: panel2),
-                      Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text('SAY IT  ·  ${e.value[3]}',
-                              style: const TextStyle(
-                                  color: blue,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 12,
-                                  letterSpacing: 1)))
-                    ]
-                  ]))))
-        ]);
-  }
-}
-
-class LettersPage extends StatefulWidget {
-  const LettersPage({super.key});
-  @override
-  State<LettersPage> createState() => _LettersPageState();
-}
-
-class _LettersPageState extends State<LettersPage> {
-  int selected = 0;
-  @override
-  Widget build(BuildContext context) {
-    final l = letters[selected];
-    return ListView(
-        padding: const EdgeInsets.fromLTRB(22, 24, 22, 30),
-        children: [
-          const PageHead(
-              eyebrow: 'Alphabet',
-              title: 'Serbian Cyrillic',
-              subtitle: 'Explore the sounds of all 30 letters.'),
-          const SizedBox(height: 22),
-          KCard(
-              color: const Color(0xFFF0EBF8),
-              child: Row(children: [
-                Container(
-                    width: 90,
-                    height: 90,
-                    decoration: BoxDecoration(
-                        color: purple, borderRadius: BorderRadius.circular(22)),
-                    child: Center(
-                        child: Text(l[0],
-                            style: const TextStyle(
-                                fontSize: 62,
-                                fontWeight: FontWeight.w900,
-                                color: bg)))),
-                const SizedBox(width: 18),
-                Expanded(
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                      Text('${l[0]}  =  ${l[1]}',
-                          style: const TextStyle(
-                              fontSize: 24, fontWeight: FontWeight.w900)),
-                      const SizedBox(height: 4),
-                      Text('Sounds like “${l[2]}”',
-                          style: const TextStyle(color: muted)),
-                      const SizedBox(height: 7),
-                      const Text('Tap any letter to explore.',
-                          style: TextStyle(
-                              color: purple,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 12))
-                    ]))
-              ])),
-          const SizedBox(height: 26),
-          const Text('SERBIAN CYRILLIC',
-              style: TextStyle(
-                  color: amberInk,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.5,
-                  fontSize: 12)),
-          const SizedBox(height: 12),
-          LayoutBuilder(builder: (context, c) {
-            final width = c.maxWidth;
-            final cell = (width - 5 * 9) / 6;
-            return Wrap(
-                spacing: 9,
-                runSpacing: 9,
-                children: letters
-                    .asMap()
-                    .entries
-                    .map((e) => GestureDetector(
-                        onTap: () => setState(() => selected = e.key),
-                        child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 180),
-                            width: cell,
-                            height: cell,
-                            decoration: BoxDecoration(
-                                color: selected == e.key ? purple : panel,
-                                borderRadius: BorderRadius.circular(13),
-                                border: Border.all(
-                                    color:
-                                        selected == e.key ? purple : panel2)),
-                            child: Center(
-                                child: Text(e.value[0],
-                                    style: TextStyle(
-                                        fontSize: width > 500 ? 29 : 23,
-                                        fontWeight: FontWeight.w900,
-                                        color:
-                                            selected == e.key ? bg : ink))))))
-                    .toList());
-          }),
-          const SizedBox(height: 24),
-          KCard(
-              child: const Row(children: [
-            Text('💡', style: TextStyle(fontSize: 30)),
-            SizedBox(width: 12),
-            Expanded(
-                child: Text(
-                    'Serbian uses both Cyrillic and Latin. You’ll see both as you learn.',
-                    style: TextStyle(color: muted, fontSize: 13)))
-          ]))
-        ]);
-  }
-}
-
-class FriendsPage extends StatefulWidget {
-  final String? token;
-  const FriendsPage({super.key, required this.token});
-  @override
-  State<FriendsPage> createState() => _FriendsPageState();
-}
-
-class _FriendsPageState extends State<FriendsPage> {
-  List<dynamic> friends = [], feed = [];
-  bool busy = false;
-  @override
-  void initState() {
-    super.initState();
-    load();
-  }
-
-  @override
-  void didUpdateWidget(covariant FriendsPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.token != widget.token) {
-      if (widget.token == null) {
-        setState(() {
-          friends = [];
-          feed = [];
-        });
-      } else {
-        load();
-      }
-    }
-  }
-
-  Future<void> load() async {
-    if (widget.token == null) return;
-    try {
-      final h = {'Authorization': 'Bearer ${widget.token}'};
-      final responses = await Future.wait([
-        http.get(api('/api/social/friends'), headers: h),
-        http.get(api('/api/social/feed'), headers: h)
-      ]);
-      if (mounted)
-        setState(() {
-          friends = jsonDecode(responses[0].body)['friends'] ?? [];
-          feed = jsonDecode(responses[1].body)['items'] ?? [];
-        });
-    } catch (_) {}
-  }
-
-  Future<void> addFriend() async {
-    final c = TextEditingController();
-    await showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-                backgroundColor: panel,
-                title: const Text('Find a friend'),
-                content: TextField(
-                    controller: c,
-                    decoration:
-                        const InputDecoration(hintText: 'Their username')),
-                actions: [
-                  TextButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      child: const Text('CANCEL')),
-                  TextButton(
-                      onPressed: () async {
-                        try {
-                          final r = await http.post(api('/api/social/friends'),
-                              headers: {
-                                'Authorization': 'Bearer ${widget.token}',
-                                'Content-Type': 'application/json'
-                              },
-                              body: jsonEncode({'username': c.text}));
-                          if (!ctx.mounted) return;
-                          Navigator.pop(ctx);
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                              content: Text(r.statusCode == 200
-                                  ? 'Friend added!'
-                                  : jsonDecode(r.body)['error'] ??
-                                      'Could not add friend')));
-                          load();
-                        } catch (_) {
-                          if (ctx.mounted) Navigator.pop(ctx);
-                        }
-                      },
-                      child: const Text('ADD'))
-                ]));
-  }
-
-  Future<void> like(String id) async {
-    try {
-      await http.post(api('/api/social/feed'),
-          headers: {
-            'Authorization': 'Bearer ${widget.token}',
-            'Content-Type': 'application/json'
-          },
-          body: jsonEncode({'itemId': id}));
-      load();
-    } catch (_) {}
-  }
-
-  @override
-  Widget build(BuildContext context) =>
-      ListView(padding: const EdgeInsets.fromLTRB(22, 24, 22, 30), children: [
-        const PageHead(
-            eyebrow: 'Together is better',
-            title: 'Friends & feed',
-            subtitle: 'Cheer each other on. Lovingly, of course.'),
-        const SizedBox(height: 22),
-        KCard(
-            color: sky,
-            child: Row(children: [
-              const Text('👯', style: TextStyle(fontSize: 36)),
-              const SizedBox(width: 15),
-              const Expanded(
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                    Text('Learning is more fun together',
-                        style: TextStyle(fontWeight: FontWeight.w900)),
-                    Text('Find your language people.',
-                        style: TextStyle(color: muted, fontSize: 13))
-                  ])),
-              if (widget.token != null)
-                IconButton(
-                    onPressed: addFriend,
-                    icon: const Icon(Icons.person_add_alt_1, color: blue))
-            ])),
-        const SizedBox(height: 22),
-        if (widget.token == null)
-          KCard(
-              child: const Text(
-                  'Create an account from Profile to add friends and share your wins.',
-                  style: TextStyle(color: muted)))
-        else ...[
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            const Text('YOUR CREW',
-                style: TextStyle(
-                    color: amberInk,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.4,
-                    fontSize: 12)),
-            TextButton(
-                onPressed: addFriend,
-                child: const Text('+ ADD FRIEND',
-                    style: TextStyle(color: blue, fontWeight: FontWeight.w900)))
-          ]),
-          if (friends.isEmpty)
-            const Padding(
-                padding: EdgeInsets.symmetric(vertical: 15),
-                child: Text(
-                    'Your crew starts with one friend. Invite someone by username.',
-                    style: TextStyle(color: muted)))
-          else
-            ...friends.map((f) => Padding(
-                padding: const EdgeInsets.only(bottom: 9),
-                child: KCard(
-                    child: Row(children: [
-                  LearnerBadge(
-                      look: LearnerLook.fromAvatar(f['avatar'],
-                          seed: (f['name'] ?? '').toString()),
-                      size: 42,
-                      radius: 21),
-                  const SizedBox(width: 12),
-                  Expanded(
-                      child: Text(f['name'] ?? '',
-                          style: const TextStyle(fontWeight: FontWeight.w900))),
-                  Text('⚡ ${f['xp'] ?? 0}',
-                      style: const TextStyle(
-                          color: amberInk, fontWeight: FontWeight.w900))
-                ])))),
-          const SizedBox(height: 18),
-          const Text('LATEST WINS',
-              style: TextStyle(
-                  color: amberInk,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.4,
-                  fontSize: 12)),
-          const SizedBox(height: 10),
-          if (feed.isEmpty)
-            KCard(
-                child: const Text(
-                    'The feed is quiet. Finish a lesson and make some noise!',
-                    style: TextStyle(color: muted)))
-          else
-            ...feed.map((f) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: KCard(
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                      Text(
-                          '${f['actorName'] ?? 'A learner'} finished ${f['lessonId'] ?? 'a lesson'} 🎉',
-                          style: const TextStyle(fontWeight: FontWeight.w900)),
-                      const SizedBox(height: 8),
-                      Text('⚡ +${f['xp'] ?? 0} XP',
-                          style: const TextStyle(color: amberInk)),
-                      const SizedBox(height: 8),
-                      TextButton.icon(
-                          onPressed: () => like(f['id']),
-                          icon: Icon(
-                              f['liked'] == true
-                                  ? Icons.favorite
-                                  : Icons.favorite_border,
-                              color: pink),
-                          label: Text('${f['likeCount'] ?? 0} likes',
-                              style: const TextStyle(color: muted)))
-                    ]))))
-        ]
-      ]);
-}
-
-class ProfilePage extends StatelessWidget {
-  final Map<String, dynamic>? user;
-  final int xp, streak;
-  final Set<String> done;
-  final LearnerLook look;
-  final Future<void> Function(LearnerLook) onAvatar;
-  final VoidCallback onClose;
-  final VoidCallback onFriends;
-  final Future<void> Function(String, String, String, bool, bool) onAuth;
-  final Future<void> Function() onLogout;
-  const ProfilePage(
-      {super.key,
-      required this.user,
-      required this.xp,
-      required this.streak,
-      required this.done,
-      required this.look,
-      required this.onAvatar,
-      required this.onClose,
-      required this.onFriends,
-      required this.onAuth,
-      required this.onLogout});
-  @override
-  Widget build(BuildContext context) {
-    final portraitInk = look.backgroundColor.computeLuminance() > .55
-        ? const Color(0xFF131F24)
-        : Colors.white;
-    final created = user?['createdAt'];
-    final year = created is String ? DateTime.tryParse(created)?.year : null;
-    final name = user?['name'] as String? ?? 'Your name';
-    return ListView(padding: EdgeInsets.zero, children: [
-      ColoredBox(
-          color: look.backgroundColor,
-          child: Padding(
-              padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-              child: Column(children: [
-                SizedBox(
-                    height: 48,
-                    child: Stack(alignment: Alignment.center, children: [
-                      Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 52),
-                          child: Text(name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                  color: portraitInk,
-                                  fontSize: 26,
-                                  fontWeight: FontWeight.w900))),
-                      Align(
-                          alignment: Alignment.centerLeft,
-                          child: IconButton(
-                              tooltip: 'Close',
-                              onPressed: onClose,
-                              icon: Icon(Icons.close_rounded,
-                                  color: portraitInk))),
-                      Align(
-                          alignment: Alignment.centerRight,
-                          child: IconButton(
-                              tooltip: 'Settings',
-                              onPressed: () => showFeedbackSettings(context),
-                              icon: Icon(Icons.settings_rounded,
-                                  color: portraitInk)))
-                    ])),
-                Text(year == null ? 'Learning Serbian' : 'Learning since $year',
-                    style: TextStyle(
-                        color: portraitInk.withValues(alpha: .72),
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15)),
-                GestureDetector(
-                    onTap: () => _editAvatar(context),
-                    child: Semantics(
-                        button: true,
-                        label: 'Edit avatar',
-                        child: SizedBox(
-                            width: 260,
-                            height: 240,
-                            child: LearnerPortrait(look: look))))
-              ]))),
-      Transform.translate(
-          offset: const Offset(0, -36),
-          child: DecoratedBox(
-              decoration: const BoxDecoration(
-                  color: bg,
-                  borderRadius:
-                      BorderRadius.vertical(top: Radius.circular(28))),
-              child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 22, 20, 28),
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                            user == null
-                                ? 'Sign in to save your look'
-                                : '@${user!['username']}${year == null ? '' : ' · JOINED $year'}',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                                color: muted,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: .4,
-                                fontSize: 13)),
-                        const SizedBox(height: 18),
-                        Row(children: [
-                          _stat(const _SerbianFlag(), 'Courses'),
-                          _stat(
-                              Text('$streak',
-                                  style: const TextStyle(
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.w900)),
-                              'Streak'),
-                          _stat(
-                              Text('${done.length}',
-                                  style: const TextStyle(
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.w900)),
-                              'Lessons'),
-                        ]),
-                        const SizedBox(height: 16),
-                        OutlinedButton.icon(
-                            onPressed: onFriends,
-                            icon:
-                                const Icon(Icons.person_add_alt_1, color: blue),
-                            label: const Text('ADD FRIENDS',
-                                style: TextStyle(
-                                    color: blue,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: .6)),
-                            style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: panel2, width: 2),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16)),
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 14))),
-                        const SizedBox(height: 18),
-                        Material(
-                            color: const Color(0xFFF0EBF8),
-                            borderRadius: BorderRadius.circular(22),
-                            child: Padding(
-                                padding:
-                                    const EdgeInsets.fromLTRB(18, 18, 18, 16),
-                                child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const Text('Shape your look',
-                                          style: TextStyle(
-                                              fontSize: 24,
-                                              fontWeight: FontWeight.w900,
-                                              height: 1.05)),
-                                      const SizedBox(height: 6),
-                                      const Text(
-                                          'Mix skin, hair, glasses, and clothes. It stays on your profile.',
-                                          style: TextStyle(
-                                              color: muted, fontSize: 13)),
-                                      const SizedBox(height: 14),
-                                      Material(
-                                          color: Colors.white,
-                                          borderRadius:
-                                              BorderRadius.circular(14),
-                                          child: InkWell(
-                                              onTap: () => _editAvatar(context),
-                                              borderRadius:
-                                                  BorderRadius.circular(14),
-                                              child: const Padding(
-                                                  padding: EdgeInsets.symmetric(
-                                                      vertical: 14),
-                                                  child: Center(
-                                                      child: Text(
-                                                          'EDIT YOUR LOOK',
-                                                          style: TextStyle(
-                                                              color: blue,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w900,
-                                                              letterSpacing:
-                                                                  .4))))))
-                                    ]))),
-                        const SizedBox(height: 22),
-                        const Text('OVERVIEW',
-                            style: TextStyle(
-                                color: muted,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 1.3,
-                                fontSize: 12)),
-                        const SizedBox(height: 12),
-                        Row(children: [
-                          const Icon(Icons.local_fire_department_rounded,
-                              color: orange, size: 28),
-                          const SizedBox(width: 6),
-                          Text('$streak days',
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w900, fontSize: 16)),
-                          const SizedBox(width: 22),
-                          const _SerbianFlag(),
-                          const SizedBox(width: 8),
-                          Text('$xp XP',
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w900, fontSize: 16)),
-                        ]),
-                        const SizedBox(height: 22),
-                        Row(children: [
-                          Expanded(
-                              child:
-                                  _badge('👋', 'First hello', done.isNotEmpty)),
-                          const SizedBox(width: 10),
-                          Expanded(
-                              child: _badge('🔥', 'On a roll', streak >= 3)),
-                          const SizedBox(width: 10),
-                          Expanded(child: _badge('⭐', '50 XP', xp >= 50))
-                        ]),
-                        const SizedBox(height: 22),
-                        if (user == null)
-                          KButton(
-                              text: 'CREATE ACCOUNT / SIGN IN',
-                              onTap: () => _authDialog(context))
-                        else ...[
-                          KCard(
-                              child: Row(children: [
-                            const Icon(Icons.verified_user_outlined,
-                                color: amberInk),
-                            const SizedBox(width: 12),
-                            Expanded(
-                                child: Text(user!['email'] ?? '',
-                                    style: const TextStyle(color: muted)))
-                          ])),
-                          const SizedBox(height: 12),
-                          if (user!['role'] == 'admin')
-                            KCard(
-                                onTap: () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (_) => AdminPage(
-                                            token: SharedToken.value))),
-                                child: const Row(children: [
-                                  Icon(Icons.admin_panel_settings, color: blue),
-                                  SizedBox(width: 12),
-                                  Expanded(
-                                      child: Text('Course studio',
-                                          style: TextStyle(
-                                              fontWeight: FontWeight.w900))),
-                                  Icon(Icons.chevron_right)
-                                ])),
-                          const SizedBox(height: 12),
-                          KButton(
-                              text: 'SIGN OUT',
-                              outline: true,
-                              onTap: () => onLogout())
-                        ]
-                      ]))))
-    ]);
-  }
-
-  Widget _stat(Widget value, String label) => Expanded(
-          child: Column(children: [
-        SizedBox(height: 32, child: Center(child: value)),
-        const SizedBox(height: 4),
-        Text(label,
-            style: const TextStyle(
-                color: muted, fontSize: 12, fontWeight: FontWeight.w800))
-      ]));
-
-  Widget _badge(String icon, String label, bool unlocked) => Container(
-      height: 96,
-      decoration: BoxDecoration(
-          color: unlocked ? peach : panel,
-          borderRadius: BorderRadius.circular(17)),
-      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Text(unlocked ? icon : '🔒', style: const TextStyle(fontSize: 25)),
-        const SizedBox(height: 5),
-        Text(label,
-            style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w900,
-                color: unlocked ? ink : muted))
-      ]));
-
-  void _editAvatar(BuildContext context) {
-    Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (_) => AvatarEditor(look: look, onDone: onAvatar)));
-  }
-
-  void _authDialog(BuildContext context) {
-    final email = TextEditingController(),
-        password = TextEditingController(),
-        name = TextEditingController();
-    bool register = true, remember = true, busy = false;
-    String? error;
-    showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: panel,
-        shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
-        builder: (ctx) => StatefulBuilder(
-            builder: (ctx, setSheet) => Padding(
-                padding: EdgeInsets.fromLTRB(
-                    24, 24, 24, MediaQuery.viewInsetsOf(ctx).bottom + 24),
-                child: SafeArea(
-                    child: SingleChildScrollView(
-                        child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                      Text(register ? 'Join the fun' : 'Welcome back',
-                          style: const TextStyle(
-                              fontSize: 25, fontWeight: FontWeight.w900)),
-                      const SizedBox(height: 5),
-                      Text(
-                          register
-                              ? 'Save your progress and find your crew.'
-                              : 'Kristina missed you. A little.',
-                          style: const TextStyle(color: muted)),
-                      const SizedBox(height: 20),
-                      if (register) ...[
-                        TextField(
-                            controller: name, decoration: _input('Your name')),
-                        const SizedBox(height: 12)
-                      ],
-                      TextField(
-                          controller: email,
-                          keyboardType: TextInputType.emailAddress,
-                          decoration: _input('Email')),
-                      const SizedBox(height: 12),
-                      TextField(
-                          controller: password,
-                          obscureText: true,
-                          decoration: _input('Password (8+ characters)')),
-                      const SizedBox(height: 8),
-                      CheckboxListTile(
-                          value: remember,
-                          onChanged: (v) =>
-                              setSheet(() => remember = v ?? true),
-                          title: const Text('Remember me for 7 days',
-                              style: TextStyle(fontSize: 13)),
-                          contentPadding: EdgeInsets.zero,
-                          controlAffinity: ListTileControlAffinity.leading,
-                          activeColor: amberInk),
-                      if (error != null)
-                        Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: Text(error!,
-                                style: const TextStyle(color: pink))),
-                      KButton(
-                          text: busy
-                              ? 'ONE MOMENT...'
-                              : register
-                                  ? 'CREATE ACCOUNT'
-                                  : 'SIGN IN',
-                          onTap: busy
-                              ? null
-                              : () async {
-                                  setSheet(() {
-                                    busy = true;
-                                    error = null;
-                                  });
-                                  try {
-                                    await onAuth(email.text, password.text,
-                                        name.text, register, remember);
-                                    if (ctx.mounted) Navigator.pop(ctx);
-                                  } catch (e) {
-                                    setSheet(() {
-                                      busy = false;
-                                      error = e
-                                          .toString()
-                                          .replaceFirst('Exception: ', '');
-                                    });
-                                  }
-                                }),
-                      const SizedBox(height: 8),
-                      Center(
-                          child: TextButton(
-                              onPressed: () =>
-                                  setSheet(() => register = !register),
-                              child: Text(
-                                  register
-                                      ? 'Already have an account? Sign in'
-                                      : 'New here? Create an account',
-                                  style: const TextStyle(color: blue))))
-                    ]))))));
-  }
-
-  InputDecoration _input(String label) => InputDecoration(
-      hintText: label,
-      filled: true,
-      fillColor: const Color(0xFFF5F7F7),
-      border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide.none));
 }
 
 class SharedToken {

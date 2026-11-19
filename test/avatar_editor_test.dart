@@ -105,6 +105,8 @@ void main() {
     expect(find.text('EDIT YOUR LOOK'), findsOneWidget);
     expect(find.byType(LearnerPortrait), findsOneWidget);
     expect(find.text('😊'), findsNothing);
+    await tester.ensureVisible(find.text('EDIT YOUR LOOK'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('EDIT YOUR LOOK'));
     await tester.pumpAndSettle();
     expect(find.text('Skin tone'), findsOneWidget);

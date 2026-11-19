@@ -21,6 +21,7 @@ export default safe(async (req, res) => {
     return send(res, 200, { progress, recommendation: lessons.length ? recommendation(progress, lessons.map(lesson => lesson.id)) : null });
   }
   if (req.body?.testOut) return testOut(req, res, { user, database, collection, filter, lessons });
+  if (req.body?.review) return review(req, res, { user, database, collection, filter });
   const { lessonId, roundIndex, answers = [] } = req.body || {};
   if (typeof lessonId !== 'string' || !/^[a-z0-9-]{2,80}$/.test(lessonId) || !Array.isArray(answers) || !answers.length || answers.length > 30 || answers.some(value => typeof value !== 'boolean')) return send(res, 400, { error: 'Invalid lesson result' });
   if (roundIndex !== undefined && (!Number.isInteger(roundIndex) || roundIndex < 0 || roundIndex > 4)) return send(res, 400, { error: 'Invalid practice round' });
@@ -29,10 +30,7 @@ export default safe(async (req, res) => {
   if (!validPracticeLength(lesson, roundIndex, answers.length)) return send(res, 400, { error: 'Practice round needs 5 to 12 answers' });
   const passed = lessonPassed(lesson, answers);
   const prior = await collection.findOne(filter);
-  const today = new Date().toISOString().slice(0, 10);
-  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-  const last = prior?.lastActiveAt ? new Date(prior.lastActiveAt).toISOString().slice(0, 10) : null;
-  const streak = last === today ? user.streak || 1 : last === yesterday ? (user.streak || 0) + 1 : 1;
+  const streak = nextStreak(user, prior);
   const key = `${lessonId}:${roundIndex ?? 'legacy'}`;
   const update = {
     $set: { lastActiveAt: new Date(), [`mastery.${lessonId}`]: updateMastery(prior?.mastery?.[lessonId], answers) },
@@ -77,4 +75,25 @@ async function testOut(req, res, { user, database, collection, filter, lessons }
   }
   await database.collection('users').updateOne({ _id: user._id }, { $inc: { xp } });
   send(res, 200, { xp, passed, progress: await collection.findOne(filter, { projection: { _id: 0, userId: 0 } }) });
+}
+
+function nextStreak(user, prior) {
+  const today = new Date().toISOString().slice(0, 10);
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const last = prior?.lastActiveAt ? new Date(prior.lastActiveAt).toISOString().slice(0, 10) : null;
+  return last === today ? user.streak || 1 : last === yesterday ? (user.streak || 0) + 1 : 1;
+}
+
+// Fix-your-mistakes sessions: passes at 60% and, like replays, earn half XP.
+// They count towards the streak but don't touch lesson progress.
+async function review(req, res, { user, database, collection, filter }) {
+  const { answers } = req.body;
+  if (!Array.isArray(answers) || answers.length < 3 || answers.length > 15 || answers.some(value => typeof value !== 'boolean')) return send(res, 400, { error: 'Invalid review result' });
+  const passed = answers.filter(Boolean).length * 100 >= 60 * answers.length;
+  const prior = await collection.findOne(filter);
+  const streak = nextStreak(user, prior);
+  await collection.updateOne(filter, { $set: { lastActiveAt: new Date() } }, { upsert: true });
+  const xp = sessionXp(answers, passed, false);
+  await database.collection('users').updateOne({ _id: user._id }, { $inc: { xp }, $set: { streak } });
+  send(res, 200, { xp, streak, passed });
 }
